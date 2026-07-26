@@ -57,27 +57,33 @@ Write("pal-wild-spawners.raw.json", DumpTable("Pal/Content/Pal/DataTable/Spawner
 Write("pal-parameters.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalMonsterParameter"));
 
 var mapTable = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/WorldMapUIData/DT_WorldMapUIData");
-var mainMap = mapTable.RowMap.FirstOrDefault(row => row.Key.Text == "MainMap").Value
-    ?? throw new InvalidDataException("MainMap row was not found.");
-var mapProps = mainMap.Properties.ToDictionary(property => property.Name.Text, property => property.Tag);
-var mapMin = mapProps["landScapeRealPositionMin"]!.GetValue<FVector>();
-var mapMax = mapProps["landScapeRealPositionMax"]!.GetValue<FVector>();
-var textureMap = mapProps["textureDataMap"]!.GetValue<UScriptMap>()
-    ?? throw new InvalidDataException("MainMap texture map was not found.");
-UTexture2D? mapTexture = null;
-foreach (var pair in textureMap.Properties)
+var extractedWorlds = new Dictionary<string, object>();
+foreach (var definition in new[] { (Row: "MainMap", TextureKey: "FirstRegion", File: "world-map.webp"), (Row: "Tree", TextureKey: "DummyRegion", File: "tree-map.webp") })
 {
-    if (pair.Key!.GetValue<FName>().Text != "FirstRegion") continue;
-    var region = pair.Value!.GetValue<FStructFallback>()!.Properties.ToDictionary(property => property.Name.Text, property => property.Tag);
-    if (region["Texture"]!.GetValue<FSoftObjectPath>()!.TryLoad<UTexture2D>(out var loadedTexture) && loadedTexture is not null)
-        mapTexture = loadedTexture;
+    var mapRow = mapTable.RowMap.FirstOrDefault(row => row.Key.Text == definition.Row).Value
+        ?? throw new InvalidDataException($"{definition.Row} row was not found.");
+    var mapProps = mapRow.Properties.ToDictionary(property => property.Name.Text, property => property.Tag);
+    var mapMin = mapProps["landScapeRealPositionMin"]!.GetValue<FVector>();
+    var mapMax = mapProps["landScapeRealPositionMax"]!.GetValue<FVector>();
+    var textureMap = mapProps["textureDataMap"]!.GetValue<UScriptMap>()
+        ?? throw new InvalidDataException($"{definition.Row} texture map was not found.");
+    UTexture2D? mapTexture = null;
+    foreach (var pair in textureMap.Properties)
+    {
+        if (pair.Key!.GetValue<FName>().Text != definition.TextureKey) continue;
+        var region = pair.Value!.GetValue<FStructFallback>()!.Properties.ToDictionary(property => property.Name.Text, property => property.Tag);
+        if (region["Texture"]!.GetValue<FSoftObjectPath>()!.TryLoad<UTexture2D>(out var loadedTexture) && loadedTexture is not null)
+            mapTexture = loadedTexture;
+    }
+    if (mapTexture is null) throw new InvalidDataException($"{definition.Row} map texture was not found.");
+    using (var bitmap = (mapTexture.Decode(ETexturePlatform.DesktopMobile)
+        ?? throw new InvalidDataException($"{definition.Row} map texture could not be decoded.")).ToSkBitmap())
+    using (var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 78))
+    using (var target = File.Create(Path.Combine(output, definition.File))) encoded.SaveTo(target);
+    extractedWorlds[definition.Row] = new { minX=mapMin.X, minY=mapMin.Y, maxX=mapMax.X, maxY=mapMax.Y, width=mapTexture.PlatformData.SizeX, height=mapTexture.PlatformData.SizeY, image=definition.File };
 }
-if (mapTexture is null) throw new InvalidDataException("Main map texture was not found.");
-using (var bitmap = (mapTexture.Decode(ETexturePlatform.DesktopMobile)
-    ?? throw new InvalidDataException("Main map texture could not be decoded.")).ToSkBitmap())
-using (var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 78))
-using (var target = File.Create(Path.Combine(output, "world-map.webp"))) encoded.SaveTo(target);
-Write("map-meta.raw.json", new { minX=mapMin.X, minY=mapMin.Y, maxX=mapMax.X, maxY=mapMax.Y, width=mapTexture.PlatformData.SizeX, height=mapTexture.PlatformData.SizeY });
+Write("map-worlds-meta.raw.json", extractedWorlds);
+Write("map-meta.raw.json", extractedWorlds["MainMap"]);
 
 var localeAssets = provider.Files.Select(file => file.Key)
     .Where(path => path.Contains("/DataTable/Text/DT_ItemNameText_Common.uasset", StringComparison.OrdinalIgnoreCase))
