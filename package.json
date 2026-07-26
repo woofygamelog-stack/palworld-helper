@@ -12,6 +12,7 @@
     "data:import:pals": "node scripts/import-pal-data.mjs",
     "data:import:items": "node scripts/import-item-data.mjs",
     "data:import:map": "node scripts/import-map-data.mjs",
+    "data:import:map-points": "node scripts/import-world-map-points.mjs",
     "data:import:images": "node scripts/import-images.mjs",
     "data:import:skills": "node scripts/import-skill-data.mjs",
     "check": "npm run typecheck && npm run check:i18n && npm test && npm run build"

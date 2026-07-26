@@ -1,4 +1,6 @@
 node_modules/
+.tools/dotnet-sdk/
+.tools/dotnet-install.ps1
 dist/
 .env
 .env.*

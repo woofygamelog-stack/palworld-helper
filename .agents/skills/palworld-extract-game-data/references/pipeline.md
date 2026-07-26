@@ -39,7 +39,8 @@ The extractor initializes Oodle from its application output. Do not copy or comm
 | Maps | `map.raw.json`, `map-meta.raw.json`, `map-worlds-meta.raw.json` | Palpagos/World Tree bounds and texture metadata |
 | Map images | `world-map.webp`, `tree-map.webp` | Extracted 8192-pixel source maps for web derivatives |
 | Item images | `item-icons/*.webp` | Decoded item icon textures |
-| Discovery inventories | `text-assets.raw.json`, `skill-text-assets.raw.json`, `map-point-assets.raw.json` | Candidate asset discovery only; paths are not publishable facts |
+| Map UI images | `map-icons/*.webp` | Decoded in-game fast-travel, tower, dungeon, bounty, treasure, and oil-rig marker textures |
+| Discovery inventories | `text-assets.raw.json`, `skill-text-assets.raw.json`, `map-point-assets.raw.json`, `world-placement-assets.raw.json`, `map-ui-icon-assets.raw.json` | Candidate asset discovery only; paths are not publishable facts |
 | Private manifest | `manifest.json` | Extraction time and raw counts; never publish directly |
 
 ## Normalization routing
@@ -54,9 +55,15 @@ Importers may accept environment variables so refreshes do not require changing 
 
 ## Map-specific checks
 
+- Current overworld World Partition placements are cooked as `/_Generated_/` `.umap` cell packages, not `ExternalActors` packages. Enumerate every generated cell deterministically, load its exported `ULevel`, walk `ULevel.Actors`, load each actor's `RootComponent` as a `USceneComponent`, and read the authoritative world position from `GetComponentTransform().Translation`.
+- Scan generated cells in restartable chunks and fail closed if any package cannot be parsed. Keep actor class and serialized properties private, then classify public layers from verified classes plus properties; never publish a placement from filename similarity alone.
+- Normalize stable public point IDs only after sorting by world, category, coordinates, and subtype. Validate counts, bounds, duplicates, and representative anchors. Dense resource and collectible layers must be disabled initially and rendered only when selected.
 - Preserve separate Palpagos and World Tree bounds and textures.
 - Classify each marker into exactly one implemented world and reject out-of-bounds points.
 - Palworld world coordinates and displayed player-map coordinates use different axes and scale. Keep the transform in one tested function and validate it with multiple known landmarks before changing published coordinates.
+- The extracted 8192×8192 map texture is aligned as `imageLeft = (worldY - minY) / (maxY - minY)` and `imageTop = (maxX - worldX) / (maxX - minX)`. The inverse must restore both coordinates within tolerance. Do not map world X directly to CSS left or world Y directly to CSS top.
+- Join alpha-Pal UI rows by immutable `CharacterID`/`SpawnerID`; reject NPC boss rows whose character ID is `None`, and require every published Pal ID to resolve to the normalized Pal catalog before icon assignment.
+- Export marker textures through CUE4Parse `UTexture2D.Decode` from exact game paths after discovery. Asset-name inventories establish candidates only; successful texture decode plus an explicit semantic mapping is required before publishing an icon.
 - Do not infer dungeon, merchant, collectible, resource, fast-travel, or other placements from asset names alone. World-placement actors or another independently verified source are required.
 - Generate web tiles with `scripts/generate-map-tiles.mjs`, then validate tile counts, dimensions, seams, world selection, zoom/pan alignment, and marker alignment in a browser.
 

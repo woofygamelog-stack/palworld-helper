@@ -3,10 +3,13 @@ using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider;
 using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.UE4.Assets.Exports.Engine;
+using CUE4Parse.UE4.Assets.Exports.Actor;
+using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Assets.Exports.Texture;
 using CUE4Parse.UE4.Assets.Objects;
 using CUE4Parse.UE4.Objects.Core.i18N;
 using CUE4Parse.UE4.Objects.Core.Math;
+using CUE4Parse.UE4.Objects.Engine;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using CUE4Parse_Conversion.Textures;
@@ -139,6 +142,74 @@ Write("partner-skill-append.raw.json", DumpLocalizedTextFamily("DT_PartnerSkillA
 Write("skill-text-assets.raw.json", provider.Files.Keys.Where(path => path.Contains("Skill", StringComparison.OrdinalIgnoreCase) && path.Contains("Text", StringComparison.OrdinalIgnoreCase) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
 Write("text-assets.raw.json", provider.Files.Keys.Where(path => path.Contains("/DataTable/Text/", StringComparison.OrdinalIgnoreCase) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
 Write("map-point-assets.raw.json", provider.Files.Keys.Where(path => (path.Contains("FastTravel", StringComparison.OrdinalIgnoreCase) || path.Contains("WarpPoint", StringComparison.OrdinalIgnoreCase) || path.Contains("FastTravelPoint", StringComparison.OrdinalIgnoreCase)) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
+var mapLayerKeywords = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+{
+    ["fastTravel"] = ["FastTravel", "Fast_Travel", "WarpPoint", "FastTravelPoint"],
+    ["tower"] = ["Tower", "Gym"],
+    ["dungeon"] = ["Dungeon", "Cave", "Sealed", "SealArea"],
+    ["wanted"] = ["Wanted", "Bounty"],
+    ["npc"] = ["NPC", "Merchant", "Trader", "Shop"],
+    ["collectible"] = ["Collect", "Chest", "Treasure", "Egg", "Memo", "Note", "Journal", "Effigy", "Lifmunk"],
+    ["resource"] = ["Resource", "Ore", "Coal", "Sulfur", "Quartz", "Oil", "Paldium", "Berry", "Mushroom", "SkillFruit"]
+};
+var placementCandidates = new Dictionary<string, string[]>();
+foreach (var group in mapLayerKeywords)
+{
+    placementCandidates[group.Key] = provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".umap", StringComparison.OrdinalIgnoreCase))
+        .Where(path => group.Value.Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(path => path)
+        .ToArray();
+}
+Write("world-placement-assets.raw.json", placementCandidates);
+Write("map-ui-icon-assets.raw.json", provider.Files.Keys
+    .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+    .Where(path => (path.Contains("Map", StringComparison.OrdinalIgnoreCase) || path.Contains("Icon", StringComparison.OrdinalIgnoreCase)) && mapLayerKeywords.Values.SelectMany(value => value).Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+    .OrderBy(path => path)
+    .ToArray());
+Write("world-map-packages.raw.json", provider.Files.Keys
+    .Where(path => path.EndsWith(".umap", StringComparison.OrdinalIgnoreCase))
+    .Where(path => path.Contains("MainWorld", StringComparison.OrdinalIgnoreCase)
+        || path.Contains("WorldTree", StringComparison.OrdinalIgnoreCase)
+        || path.Contains("TreeWorld", StringComparison.OrdinalIgnoreCase))
+    .OrderBy(path => path)
+    .ToArray());
+var externalActorPackages = provider.Files.Keys
+    .Where(path => path.Contains("/ExternalActors/", StringComparison.OrdinalIgnoreCase))
+    .OrderBy(path => path)
+    .ToArray();
+Write("external-actor-packages.raw.json", externalActorPackages);
+var mapIconAssets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+{
+    ["fast-travel"] = "Pal/Content/Pal/Blueprint/UI/WorldMap/IconWidgets/T_worldmap_icon_fasttravel",
+    ["tower"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_tower",
+    ["fast-travel-tower"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_FTtower",
+    ["dungeon"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_dungeon",
+    ["wanted"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_Bounty",
+    ["wanted-unknown"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_Bounty_Unknown",
+    ["treasure"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_Search_Treasure",
+    ["oil-rig"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_Oilrig"
+};
+var mapIconDirectory = Path.Combine(output, "map-icons");
+Directory.CreateDirectory(mapIconDirectory);
+var exportedMapIcons = 0;
+foreach (var icon in mapIconAssets)
+{
+    try
+    {
+        var texture = provider.LoadPackageObject<UTexture2D>(icon.Value);
+        using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
+        if (bitmap is null) continue;
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 90);
+        using var target = File.Create(Path.Combine(mapIconDirectory, $"{icon.Key}.webp"));
+        encoded.SaveTo(target);
+        exportedMapIcons++;
+    }
+    catch (Exception error)
+    {
+        Console.Error.WriteLine($"Could not export map icon {icon.Key}: {error.Message}");
+    }
+}
 var iconDirectory = Path.Combine(output, "item-icons");
 Directory.CreateDirectory(iconDirectory);
 var itemRows = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable").RowMap;
@@ -184,6 +255,6 @@ foreach (var row in itemRows)
         Console.Error.WriteLine($"Could not export item icon {row.Key.Text}: {error.Message}");
     }
 }
-Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), itemDescriptions = localizedDescriptions.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons } });
+Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), itemDescriptions = localizedDescriptions.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons, mapIcons=exportedMapIcons } });
 Console.WriteLine($"Extracted tables and {localizedNames.Count} item-name locales to {output}");
 return 0;
