@@ -20,6 +20,9 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Representative verified golden cases pass.
 - [ ] Old or mixed-version inputs cannot silently produce current results.
 - [ ] Server files are processed locally and secrets never enter URLs, storage, logs, or analytics.
+- [ ] Converging material demand is aggregated before rounding and owned inventory is consumed once.
+- [ ] Ambiguous multi-recipe intermediates require a selection or remain an explicit expansion boundary.
+- [ ] Every emitted server key exists in the current official server guide and deprecated/reserved keys are absent.
 
 ## Localization and search
 
@@ -49,6 +52,11 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Analytics initializes once, honors consent, and uses only approved stable event fields.
 - [ ] Search Console and AdSense values belong to this site.
 - [ ] Ads load only in production/test mode, reserve space, and avoid primary controls.
+- [ ] Static HTML and sitemap use one implemented-route allowlist; placeholders and generic 404s are absent.
+- [ ] Built page count equals implemented routes × 17 locales.
+- [ ] Root redirect and localized documents contain required ownership/account meta declarations.
+- [ ] Built `/ads.txt` exactly matches the authorized common-account line.
+- [ ] SPA data rerenders do not duplicate page views, and consent can trigger the current page once.
 
 ## Build and delivery
 
@@ -57,3 +65,4 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Broken links, missing images, secrets, incorrect domains, and private files are absent.
 - [ ] The deployment artifact is deterministic and static-only.
 - [ ] Production deployment was explicitly authorized.
+- [ ] Staged files exclude private/raw extraction data, `.env`, dependencies, `dist`, logs, and tool `bin`/`obj` output.

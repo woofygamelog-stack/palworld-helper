@@ -32,6 +32,7 @@
 - Breeding special combinations and restrictions take precedence over the general breeding-power rule.
 - Capture and IV formulas must remain experimental or unavailable until the build-specific constants and rounding behavior are verified.
 - Production and crafting calculators must detect recipe cycles and clearly separate direct ingredients, recursively expanded materials, owned quantities, and net requirements.
+- Aggregate all converging crafting demand before applying `ceil(output demand / recipe output)`, then subtract owned inventory exactly once at each node. If an intermediate product has multiple valid recipes, stop expansion at that boundary unless the user explicitly selects a recipe; never choose by array order.
 - Never describe a shortest breeding path as the most practical path. Expose the scoring factors used for practical route ranking.
 
 ## Localization
@@ -65,11 +66,27 @@
 - Load AdSense only in production unless documented test mode is active. Reserve ad space and keep ads away from navigation, map controls, calculator inputs, and primary actions.
 - Target Cloudflare Pages and publish only deterministic static build output unless the user expands the infrastructure scope.
 - Do not deploy or change live external services unless the user explicitly asks for publishing or configuration.
+- Generate localized static HTML and the sitemap from the same explicit implemented-route allowlist. Placeholder/planned routes, incomplete legal pages, and generic 404 views must not receive canonical/hreflang metadata or sitemap entries and must not appear in primary navigation.
+- Keep Search Console and AdSense account meta tags in both the root redirect document and every localized static page. Verify `/ads.txt` exactly, not just its existence.
+- SPA page views are navigation events, not render events. Lazy Pal/item data loads and rerenders on the same pathname must not emit another page view; a page viewed before consent may be emitted once immediately after consent.
+
+## Current verified baselines
+
+- Current normalized game-data target: local Palworld build `24181527`.
+- Published counts for this build are 299 Pals, 44,851 breeding rows, 1,891 legal items, and 1,286 valid recipes; tests must fail closed when these drift without an intentional data refresh.
+- Breeding outcomes remain community-derived and require game-file-based independent verification before production release. Items, recipes, localized item names, map bounds, and the map texture are game-file-derived.
+- Server INI output is limited to keys present in the current official Palworld Server Guide. Recheck that live documentation before adding or retaining any key.
+
+## Repository and release hygiene
+
+- Before the first commit and every release push, inspect the full staged file list. Keep `private/`, installed-game paths, extraction logs, `.env`, `node_modules/`, `dist/`, and extractor `bin/`/`obj/` output out of Git and the static artifact.
+- Commit reproducible extractor/importer source, normalized public data, and intentionally published rights-reviewed assets. Never commit the local extraction workspace merely because it is needed to regenerate output.
 
 ## Required verification
 
 - Run the repository's relevant format, lint, type, unit, integration, localization, and production-build checks.
 - Inspect built output for missing locales, broken links, incorrect metadata/domains, secrets, local paths, source URLs, provenance files, logs, and unintended dynamic infrastructure.
+- Verify exactly 136 localized pages for the current 8-route allowlist unless the implemented route manifest is intentionally changed; when it changes, update the generator and verifier together.
 - Browser-check the changed flow at mobile and desktop widths, in light and dark themes, using `en-US` and at least one non-Latin locale relevant to the change.
 - For data changes, run schema, referential-integrity, version-diff, and representative golden-case checks.
 - Report what passed, what was not run, and any values that remain unverified.

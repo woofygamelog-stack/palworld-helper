@@ -50,6 +50,8 @@ For patch updates, create a structured diff, identify affected entities and calc
 5. Add verified golden cases, boundaries, invalid inputs, and old-version rejection tests.
 6. Expose assumptions and scoring factors in the UI without presenting them as game facts.
 
+For dependency calculators, merge converging demand before rounding process counts, consume owned inventory once per node, reject cycles and non-positive values, and stop at ambiguous multi-recipe intermediates unless a specific recipe is selected.
+
 Do not publish capture-rate, IV, production-time, or similar inferred formulas as exact until their constants and rounding behavior are verified for the supported build.
 
 ## Implement user-facing changes
@@ -60,6 +62,7 @@ Do not publish capture-rate, IV, production-time, or similar inferred formulas a
 4. Keep search, sorting, filter state, themes, keyboard use, focus, empty/error states, and 44px touch targets correct.
 5. Add localized page metadata, canonical, alternates, sitemap behavior, and structured data where the page is indexable.
 6. Keep ads distinct from and away from primary controls.
+7. Add a route to static generation, canonical/hreflang output, sitemap, and primary navigation only after its real content or tool is implemented. Update the route allowlist and built-output assertion in the same change.
 
 For maps, provide both the visual map and an equivalent marker result list. For large datasets, split static payloads and avoid blocking initial rendering.
 
@@ -71,6 +74,14 @@ For maps, provide both the visual map and an equivalent marker result list. For 
 - For each new interaction, consider whether a stable, useful event can be emitted without user-entered values. Track sanitized SPA page views and deduplicate repeated render-driven events.
 - Never send search text, server configuration, save content, IPs, secrets, or free-form user data.
 - Do not add dynamic Cloudflare services or deploy production without explicit authorization.
+- Keep Search Console and AdSense meta declarations in the root redirect as well as localized HTML. Verify the common-account `ads.txt` contents exactly in the production artifact.
+- Emit SPA page views only when the pathname changes, except for the one current-page event allowed immediately after consent; data-load rerenders must remain silent.
+
+## Prepare commits and releases
+
+- Confirm repository initialization and remote state rather than assuming Git already exists.
+- Before staging, ensure `.gitignore` excludes `private/`, `.env`, dependencies, `dist/`, logs, and extractor/compiler `bin` and `obj` directories.
+- Inspect the complete staged name list before committing. Published normalized datasets and approved web assets may be committed; local game exports, provenance manifests, installed-game paths, and build artifacts may not.
 
 ## Verify and report
 
