@@ -1,7 +1,6 @@
 import { readFile, writeFile, copyFile } from "node:fs/promises";
+import { collectionRoutes as routes, supportedLocales as locales } from "../src/route-manifest.ts";
 
-const locales = ["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
-const routes = ["","map","pals","skills","calculators","calculators/breeding","calculators/crafting","database","server-tools/settings-generator"];
 const origin = process.env.VITE_SITE_ORIGIN || "https://palworld-helper.woofy.blog";
 const [palData,itemData,skillData]=await Promise.all([readFile("public/data/pals.json","utf8").then(JSON.parse),readFile("public/data/items.json","utf8").then(JSON.parse),readFile("public/data/skills.json","utf8").then(JSON.parse)]);
 const entityRoutes=[...palData.pals.map(pal=>`pals/${encodeURIComponent(pal.id)}`),...itemData.items.map(item=>`items/${encodeURIComponent(item.id)}`),...skillData.activeSkills.map(skill=>`skills/active/${encodeURIComponent(skill.id)}`),...skillData.passiveSkills.map(skill=>`skills/passive/${encodeURIComponent(skill.id)}`)];

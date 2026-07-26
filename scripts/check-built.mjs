@@ -1,9 +1,8 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
+import { collectionRoutes as routes, supportedLocales as locales } from "../src/route-manifest.ts";
 
 const root=process.cwd(),dist=path.join(root,"dist");
-const locales=["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
-const routes=["","map","pals","skills","calculators","calculators/breeding","calculators/crafting","database","server-tools/settings-generator"];
 const [palData,itemData,skillData,index,sitemap,wrangler]=await Promise.all([
   readFile("public/data/pals.json","utf8").then(JSON.parse),
   readFile("public/data/items.json","utf8").then(JSON.parse),

@@ -5,9 +5,9 @@ import path from "node:path";
 const root=process.cwd();
 const source=process.env.PAL_EXTRACTED_DATA||path.join(root,"private","extracted","build-24181527");
 const gameBuild=process.env.PAL_GAME_BUILD||"24181527";
-const files={items:"items.raw.json",recipes:"recipes.raw.json",names:"item-names.raw.json",map:"map-meta.raw.json",image:"world-map.webp"};
+const files={items:"items.raw.json",recipes:"recipes.raw.json",names:"item-names.raw.json",descriptions:"item-descriptions.raw.json",map:"map-meta.raw.json",image:"world-map.webp"};
 const bytes=Object.fromEntries(await Promise.all(Object.entries(files).map(async([key,name])=>[key,await readFile(path.join(source,name))])));
-const rawItems=JSON.parse(bytes.items), rawRecipes=JSON.parse(bytes.recipes), rawNames=JSON.parse(bytes.names), map=JSON.parse(bytes.map);
+const rawItems=JSON.parse(bytes.items), rawRecipes=JSON.parse(bytes.recipes), rawNames=JSON.parse(bytes.names), rawDescriptions=JSON.parse(bytes.descriptions), map=JSON.parse(bytes.map);
 const localeMap={de:"de-DE",en:"en-US","es-MX":"es-419",es:"es-ES",fr:"fr-FR",id:"id-ID",it:"it-IT",ko:"ko-KR",pl:"pl-PL","pt-BR":"pt-BR",ru:"ru-RU",th:"th-TH",tr:"tr-TR",vi:"vi-VN","zh-Hans":"zh-CN","zh-Hant":"zh-TW",ja:"ja-JP"};
 const strip=value=>String(value).split("::").at(-1);
 const legalEntries=Object.entries(rawItems).filter(([,item])=>item.bLegalInGame===true);
@@ -16,6 +16,7 @@ if(canonical.size!==legalEntries.length) throw new Error("Case-insensitive dupli
 const resolveId=id=>canonical.get(String(id).toLocaleLowerCase("en-US"));
 
 const localeLookups=Object.fromEntries(Object.entries(rawNames).map(([from,table])=>[from,new Map(Object.entries(table).map(([key,value])=>[key.toLocaleLowerCase("en-US"),value]))]));
+const descriptionLookups=Object.fromEntries(Object.entries(rawDescriptions).map(([from,table])=>[from,new Map(Object.entries(table).map(([key,value])=>[key.toLocaleLowerCase("en-US"),value]))]));
 const missingNames=[];
 const items=legalEntries.map(([id,item])=>{
   const nameKey=item.OverrideName!=="None"?item.OverrideName:`ITEM_NAME_${id}`;
@@ -24,8 +25,14 @@ const items=legalEntries.map(([id,item])=>{
     if(typeof value!=="string"||!value.trim()) missingNames.push(`${to}:${id}:${nameKey}`);
     return [to,value];
   }));
-  return {id,names,type:strip(item.TypeA),subtype:strip(item.TypeB),rank:item.Rank,rarity:item.Rarity,maxStack:item.MaxStackCount,weight:item.Weight,price:item.Price};
+  const descriptionKey=(item.OverrideDescription&&item.OverrideDescription!=="None")?item.OverrideDescription:`ITEM_DESC_${id}`;
+  const descriptions=Object.fromEntries(Object.entries(localeMap).map(([from,to])=>[to,descriptionLookups[from]?.get(descriptionKey.toLocaleLowerCase("en-US"))||""]));
+  return {id,names,descriptions,type:strip(item.TypeA),subtype:strip(item.TypeB),rank:item.Rank,rarity:item.Rarity,maxStack:item.MaxStackCount,weight:item.Weight,price:item.Price};
 }).sort((a,b)=>a.id.localeCompare(b.id));
+const itemsById=new Map(items.map(item=>[item.id,item]));
+for(const item of items) for(const locale of Object.values(localeMap)) item.descriptions[locale]=String(item.descriptions[locale]||"")
+  .replace(/<itemName id=\|([^|]+)\|\/>/g,(_match,id)=>itemsById.get(id)?.names[locale]||id)
+  .replace(/<[^>]+>/g,"");
 if(missingNames.length) throw new Error(`Missing official item names: ${missingNames.slice(0,20).join(", ")}`);
 
 let illegalProduct=0, illegalIngredient=0;

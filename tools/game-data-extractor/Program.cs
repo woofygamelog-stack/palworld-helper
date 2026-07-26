@@ -92,6 +92,20 @@ foreach (var asset in localeAssets)
 }
 localizedNames["ja"] = DumpTextTable("Pal/Content/Pal/DataTable/Text/DT_ItemNameText");
 Write("item-names.raw.json", localizedNames);
+var descriptionAssets = provider.Files.Select(file => file.Key)
+    .Where(path => path.Contains("/DataTable/Text/DT_ItemDescriptionText_Common.uasset", StringComparison.OrdinalIgnoreCase))
+    .OrderBy(path => path).ToList();
+var localizedDescriptions = new Dictionary<string,Dictionary<string,string>>();
+foreach (var asset in descriptionAssets)
+{
+    var marker = "/L10N/";
+    var start = asset.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+    if (start < 0) continue;
+    var lang = asset[(start + marker.Length)..].Split('/')[0];
+    localizedDescriptions[lang] = DumpTextTable(asset[..^7]);
+}
+localizedDescriptions["ja"] = DumpTextTable("Pal/Content/Pal/DataTable/Text/DT_ItemDescriptionText");
+Write("item-descriptions.raw.json", localizedDescriptions);
 var iconDirectory = Path.Combine(output, "item-icons");
 Directory.CreateDirectory(iconDirectory);
 var itemRows = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable").RowMap;
@@ -124,6 +138,6 @@ foreach (var row in itemRows)
         Console.Error.WriteLine($"Could not export item icon {row.Key.Text}: {error.Message}");
     }
 }
-Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons } });
+Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), itemDescriptions = localizedDescriptions.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons } });
 Console.WriteLine($"Extracted tables and {localizedNames.Count} item-name locales to {output}");
 return 0;
