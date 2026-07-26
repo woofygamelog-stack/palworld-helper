@@ -15,7 +15,7 @@
 - light/dark/system 테마, 포커스 표시, 검색 초기화·빈 상태·결과 알림, 동작 줄이기 설정
 - 구현된 8개 경로 × 17개 언어 = 136개 정적 페이지와 canonical/hreflang/sitemap 검증
 - 분석·광고는 동의 전 비활성화하고 검색어·핀·서버 입력을 전송하지 않음
-- Palworld 전용 GA4 `G-GPSMFR1377`, Search Console 검증 메타, 소유자 공통 AdSense 게시자 계정 설정
+- Palworld 전용 GA4 `G-FF7N186M72`, Search Console 검증 메타, 소유자 공통 AdSense 게시자 계정 설정
 - 중복 방지 SPA 페이지 조회와 도구·계산기·테마·언어·핀·복사 동작의 값 제한 이벤트
 
 ## 다음 구현 대상

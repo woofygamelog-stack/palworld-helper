@@ -24,7 +24,8 @@ assert.match(main, /localStorage\.getItem\("pw-consent"\)!=="granted"/, "analyti
 assert.match(main, /import\.meta\.env\.PROD&&site\.adsenseClient/, "AdSense must be production-only and site-configured");
 assert.match(main, /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=/, "AdSense must use the authorized Google loader URL");
 assert.match(main, /script\.crossOrigin="anonymous"/, "AdSense loader must use anonymous cross-origin mode");
-assert.match(config, /G-GPSMFR1377/, "Palworld Analytics measurement ID must be configured");
+assert.match(config, /G-FF7N186M72/, "Palworld Analytics measurement ID must be configured");
+assert.doesNotMatch(config, /G-GPSMFR1377/, "superseded Analytics measurement ID must not remain configured");
 assert.match(config, /vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ/, "Palworld Search Console verification must be configured");
 assert.match(config, /ca-pub-1986785092914105/, "owner-approved shared AdSense publisher must be configured");
 assert.match(indexHtml, /name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"/, "Search Console verification must exist in static HTML");
