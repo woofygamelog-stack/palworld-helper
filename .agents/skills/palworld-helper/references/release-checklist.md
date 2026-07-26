@@ -23,6 +23,9 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Converging material demand is aggregated before rounding and owned inventory is consumed once.
 - [ ] Ambiguous multi-recipe intermediates require a selection or remain an explicit expansion boundary.
 - [ ] Every emitted server key exists in the current official server guide and deprecated/reserved keys are absent.
+- [ ] Capture probability is exact only when build-specific constants, modifier order, caps, rounding, and representative golden cases are verified; otherwise it is unavailable or explicitly experimental.
+- [ ] Breeding and crafting calculators share a bounded responsive layout and show available Pal/item/element imagery without broken requests.
+- [ ] Server tooling supports categorized basic/advanced settings, local INI import, official-default diff, validation, conflicts, security/performance warnings, and platform guidance without persisting user content.
 
 ## Localization and search
 
@@ -34,6 +37,10 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Search covers localized names, official names, safe aliases, IDs, categories, and relevant keywords.
 - [ ] Search result count, active filters, reset, keyboard behavior, and empty state work.
 - [ ] Raw searches and free-form values are excluded from analytics.
+- [ ] Pal collections default to Paldeck-number order with deterministic variant placement.
+- [ ] Pal filters cover official element and game-derived rarity/progression; item filters cover game-derived category, subtype, and rarity.
+- [ ] Search covers official English names, Paldeck numbers, elements, work suitability, skills, item categories, ingredients, and recipe outputs where applicable.
+- [ ] No invented performance tier is presented without an explicit versioned scoring rubric.
 
 ## UI and accessibility
 
@@ -42,6 +49,9 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Text, focus, status, charts, maps, tables, errors, and ads meet contrast requirements.
 - [ ] Semantic labels, headings, controls, visible focus, and 44px touch targets are present.
 - [ ] Maps have keyboard access and an equivalent marker list.
+- [ ] Implemented Pal/item cards, search results, calculators, recipes, and map marker details link to localized entity detail pages.
+- [ ] Entity and element images have useful alt text where informative, explicit decorative treatment where not, and non-requesting fallbacks when unavailable.
+- [ ] Boss, habitat, fast-travel, and local-pin map layers have type filters, reset, result count, bounded rendering, and URL-restorable non-canonical state.
 
 ## SEO and integrations
 
@@ -57,6 +67,11 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Root redirect and localized documents contain required ownership/account meta declarations.
 - [ ] Built `/ads.txt` exactly matches the authorized common-account line.
 - [ ] SPA data rerenders do not duplicate page views, and consent can trigger the current page once.
+- [ ] Every absolute production URL uses `https://palworld-helper.woofy.blog`; placeholder `.example` domains fail the build.
+- [ ] Static generation, canonical/hreflang metadata, internal links, sitemap, and built-output checks consume one shared collection/detail route manifest.
+- [ ] Expected page count is derived from the route manifest, entity counts, and 17 locales rather than a permanently fixed number.
+- [ ] Public UI, SEO copy, and structured data contain no build number, data version, update version, or version badge.
+- [ ] Favicon, Apple touch icon, and web-manifest icons resolve in the built artifact.
 
 ## Build and delivery
 

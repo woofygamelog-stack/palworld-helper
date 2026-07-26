@@ -22,6 +22,7 @@
 - Attach `gameVersion`, extraction date, and verification status to version-sensitive generated datasets.
 - Distinguish `missing`, `unknown`, `notApplicable`, and numeric zero. If a value or formula is unverified, label it unavailable or experimental; do not estimate it.
 - Keep acquisition manifests, source URLs, installed-game paths, extraction logs, and rights notes private and outside the static build and sitemap.
+- Retain build, game-version, extraction-date, and verification metadata for internal validation, provenance, patch diffs, and tests, but do not expose build numbers, data versions, update versions, or version badges in public UI, public SEO copy, or structured data unless the user explicitly reverses this product requirement.
 - Do not bypass DRM, encryption, authentication, paywalls, robots restrictions, or access controls. Do not publish assets whose license conditions cannot be honored.
 
 ## Calculator rules
@@ -34,6 +35,7 @@
 - Production and crafting calculators must detect recipe cycles and clearly separate direct ingredients, recursively expanded materials, owned quantities, and net requirements.
 - Aggregate all converging crafting demand before applying `ceil(output demand / recipe output)`, then subtract owned inventory exactly once at each node. If an intermediate product has multiple valid recipes, stop expansion at that boundary unless the user explicitly selects a recipe; never choose by array order.
 - Never describe a shortest breeding path as the most practical path. Expose the scoring factors used for practical route ranking.
+- Do not publish capture probability as exact until build-specific constants, modifier order, caps, and rounding have game-file or in-game golden-case verification. Until then, expose only clearly labeled unavailable or experimental information.
 
 ## Localization
 
@@ -55,6 +57,13 @@
 - Support `light`, `dark`, and `system`, defaulting to `system` until the user explicitly chooses. Apply the effective theme before first paint and persist only explicit choices.
 - Use semantic controls, headings, labels, tables, visible focus, non-color state cues, and minimum 44×44 CSS pixel touch targets.
 - Make maps keyboard operable and provide an equivalent searchable/list representation of markers.
+- Sort the Pal collection by official Paldeck number by default, placing variants deterministically with their base number. This project-specific product rule overrides the general localized-name sorting default for the Pal collection; localized collation still applies to explicitly name-sorted views and equal-name tie-breaking.
+- Group and filter Pals by official element and game-derived rarity/progression fields. Do not invent S/A/B performance tiers without an explicit, versioned scoring rubric visible to users.
+- Group and filter items by game-derived category, subtype, and rarity. Search Pals and items across localized name, official English name, immutable ID, Paldeck number where applicable, safe aliases, elements, work suitability, skills, categories, recipes, ingredients, and outputs.
+- Provide crawlable localized detail pages for implemented Pal and item entities. Link collection cards, calculator selections/results, recipes, and map markers to the corresponding detail pages.
+- Show entity and element images wherever they materially improve recognition, including collections, detail pages, calculator selections/results, and map marker details. Use explicit fallbacks and never trigger large numbers of missing-image requests.
+- Keep calculator content widths consistent across breeding and crafting, prevent over-wide result panels, and verify responsive layouts at 360, 768, 1024, and 1440 CSS pixels.
+- Map layers must support verified boss Pals, Pal habitats, fast-travel points, and local pins when those datasets are implemented. Provide layer/type filters, Pal search, reset, result counts, URL-restorable non-canonical state, keyboard controls, and an equivalent marker list. Default layers must not render an unbounded marker set.
 - Verify representative mobile, tablet, and desktop widths and prevent horizontal overflow.
 
 ## SEO, measurement, monetization, and deployment
@@ -67,6 +76,8 @@
 - Target Cloudflare Pages and publish only deterministic static build output unless the user expands the infrastructure scope.
 - Do not deploy or change live external services unless the user explicitly asks for publishing or configuration.
 - Generate localized static HTML and the sitemap from the same explicit implemented-route allowlist. Placeholder/planned routes, incomplete legal pages, and generic 404 views must not receive canonical/hreflang metadata or sitemap entries and must not appear in primary navigation.
+- The production origin is `https://palworld-helper.woofy.blog`. Canonical, hreflang, `x-default`, Open Graph, structured data, sitemap, robots, manifests, and generated absolute URLs must use this origin and must fail validation if placeholder domains such as `.example` remain.
+- Generate collection routes and implemented entity detail routes from one typed route manifest shared by static generation, metadata, internal linking, sitemap generation, and built-output verification. Verify the expected page count from the manifest and entity counts rather than a permanently hard-coded total.
 - Keep Search Console and AdSense account meta tags in both the root redirect document and every localized static page. Verify `/ads.txt` exactly, not just its existence.
 - SPA page views are navigation events, not render events. Lazy Pal/item data loads and rerenders on the same pathname must not emit another page view; a page viewed before consent may be emitted once immediately after consent.
 
@@ -76,6 +87,7 @@
 - Published counts for this build are 299 Pals, 44,851 breeding rows, 1,891 legal items, and 1,286 valid recipes; tests must fail closed when these drift without an intentional data refresh.
 - Breeding outcomes remain community-derived and require game-file-based independent verification before production release. Items, recipes, localized item names, map bounds, and the map texture are game-file-derived.
 - Server INI output is limited to keys present in the current official Palworld Server Guide. Recheck that live documentation before adding or retaining any key.
+- Server tooling should support a categorized basic/advanced form, local INI import, parsing and validation, official-default diff, type/range/deprecated/conflict checks, security and performance warnings, and Windows/Linux application guidance. Never persist or transmit INI contents, passwords, IPs, or server names.
 
 ## Repository and release hygiene
 
@@ -86,7 +98,9 @@
 
 - Run the repository's relevant format, lint, type, unit, integration, localization, and production-build checks.
 - Inspect built output for missing locales, broken links, incorrect metadata/domains, secrets, local paths, source URLs, provenance files, logs, and unintended dynamic infrastructure.
-- Verify exactly 136 localized pages for the current 8-route allowlist unless the implemented route manifest is intentionally changed; when it changes, update the generator and verifier together.
+- Verify the localized page count derived from the shared implemented-route manifest. The current 136-page baseline applies only while the 8-route collection manifest remains unchanged; Pal/item detail routes must update generation, sitemap, linking, and verification together.
+- Verify that public HTML, metadata, structured data, and visible UI contain no build number, data-version label, update-version badge, placeholder production domain, or unintentionally indexable privacy/legal route.
+- Verify favicon and web-manifest icon references, entity-image coverage and fallbacks, detail-page links, Paldeck ordering, category/element/tier filters, calculator image rendering, and map-layer filters.
 - Browser-check the changed flow at mobile and desktop widths, in light and dark themes, using `en-US` and at least one non-Latin locale relevant to the change.
 - For data changes, run schema, referential-integrity, version-diff, and representative golden-case checks.
 - Report what passed, what was not run, and any values that remain unverified.

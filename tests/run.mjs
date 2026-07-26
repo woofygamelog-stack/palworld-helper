@@ -126,6 +126,8 @@ assert.deepEqual(expandRecipe("PalSphere_Mega",1,unambiguousRecipes),{CopperOre:
 assert.deepEqual(expandRecipe("PalSphere_Mega",10,unambiguousRecipes,{Wood:10,Stone:10,CopperIngot:2}),{CopperOre:16,Pal_crystal_S:10,Stone:20,Wood:20},"Mega Sphere owned-material golden case must consume stock once and expand the remainder");
 assert.match(main,/recipeCounts\.get\(recipe\.productId\)===1/,"recursive crafting must not guess among ambiguous intermediate recipes");
 assert.match(main,/\["\/map","\/database","\/calculators\/crafting"\]\.includes\(current\).*ensureItemData/,"item data must load only on routes that use it");
-assert.match(main,/\["\/pals","\/calculators","\/calculators\/breeding"\]\.includes\(current\).*ensurePalData/,"Pal data must load only on routes that use it");
+assert.match(main,/\["\/map","\/pals","\/calculators","\/calculators\/breeding"\]\.includes\(current\).*ensurePalData/,"Pal data must load only on routes that use it");
+assert.match(main,/current==="\/map"\)ensureMapData/,"map marker data must load only on the map route");
+assert.doesNotMatch(main,/href\(\"\/privacy\"\)/,"privacy policy must not be exposed in the public UI");
 
 console.log("Passed 96 core safety, provenance, localization, search, loading, data, map and calculator assertions.");

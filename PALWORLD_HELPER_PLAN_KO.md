@@ -657,7 +657,19 @@ tests/golden
 
 ### 14.1 Analytics
 
-사이트 전용 GA4 property와 web stream을 사용한다. ID는 나중에 프로젝트 설정으로 주입한다.
+사이트 전용 GA4 property와 web stream을 사용한다. 이 프로젝트의 확정 Measurement ID는 `G-FF7N186M72`이며 Palworld 전용 공개 설정에서만 주입한다. 환경 변수로 재정의할 수 있더라도 production 빌드와 배포 설정은 이 값과 일치해야 하며, 이전 프로젝트나 폐기된 Measurement ID가 남아 있으면 출시를 중단한다.
+
+Analytics 설정 확인·수정 작업계획:
+
+1. 소스 설정, `.env` 예시, Cloudflare Pages 환경 변수, 빌드 스크립트에서 실제 적용되는 Measurement ID를 전수 검색해 `G-FF7N186M72`로 통일한다.
+2. production 빌드 산출물에서 GA 로더 URL과 `gtag('config', ...)`가 동일한 ID를 사용하는지 확인하고, 다른 `G-` ID가 포함되지 않았는지 자동 검사한다.
+3. 사용자가 동의하기 전에는 GA 스크립트·쿠키·이벤트가 생성되지 않고, 거부 시에도 로드되지 않는지 브라우저에서 확인한다.
+4. SPA 자동 page view는 끄고, 실제 경로 변경당 `page_view`가 한 번만 발생하는지와 동의 직후 현재 페이지가 최대 한 번 기록되는지 확인한다.
+5. DebugView 또는 Tag Assistant로 `page_view`, `tool_open`, `calculation_complete`, `map_layer_toggle`, `filter_apply`, `outbound_contact`의 수신 여부와 허용된 파라미터만 포함되는지 확인한다.
+6. 검색 원문, 지도 좌표·핀 이름, 서버명·IP·비밀번호·INI 내용, 보유 수량, 메모 등 자유 입력값이 이벤트·URL·로그로 전송되지 않도록 회귀 테스트를 추가한다.
+7. production 도메인의 데이터 스트림 URL이 `https://palworld-helper.woofy.blog`인지 GA 관리 화면에서 확인하고, 다른 도메인 또는 중복 태그가 연결되어 있으면 수정한다.
+
+완료 조건: production 산출물과 실제 사이트가 `G-FF7N186M72` 하나만 사용하고, 동의 전송 차단·SPA 중복 방지·민감 입력 제외가 자동 테스트와 브라우저 네트워크 검사에서 모두 통과한다.
 
 허용 이벤트 예:
 
@@ -802,7 +814,8 @@ locale 경로 전환 시 중복 page_view가 발생하지 않도록 초기화를
 
 ### Phase 6 — 측정·수익화·출시 (1주)
 
-- GA4와 consent 설정(ID 제공 시)
+- GA4 `G-FF7N186M72`와 consent 설정 검증·수정
+- production 산출물, Tag Assistant/DebugView, SPA 중복 page view, 자유 입력 제외 회귀 테스트
 - Search Console 검증(ID/파일 제공 시)
 - AdSense, ads.txt, 광고 자리(ID 제공 및 승인 시)
 - Cloudflare Pages preview
@@ -882,7 +895,7 @@ locale 경로 전환 시 중복 page_view가 발생하지 않도록 초기화를
 - 합법적으로 설치된 게임 파일을 데이터 추출에 사용할 수 있는지
 - 우선 지원 플랫폼 범위(Steam/Xbox/PS5/Mac 차이)
 - Cloudflare 계정/프로젝트(배포 시점)
-- GA4 Measurement ID(나중에 제공 가능)
+- GA4 Measurement ID: `G-FF7N186M72`(확정, production 데이터 스트림·도메인 연결 상태 확인 필요)
 - Search Console 검증값 또는 파일(나중에 제공 가능)
 - AdSense publisher/slot ID와 ads.txt 행(승인 후)
 - 쿠키/광고 동의 적용 대상 지역과 법무 문구

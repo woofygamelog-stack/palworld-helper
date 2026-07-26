@@ -11,6 +11,8 @@
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
     "data:import:pals": "node scripts/import-pal-data.mjs",
     "data:import:items": "node scripts/import-item-data.mjs",
+    "data:import:map": "node scripts/import-map-data.mjs",
+    "data:import:images": "node scripts/import-images.mjs",
     "check": "npm run typecheck && npm run check:i18n && npm test && npm run build"
   },
   "devDependencies": {

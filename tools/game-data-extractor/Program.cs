@@ -51,6 +51,9 @@ void Write(string name, object value) => File.WriteAllText(Path.Combine(output, 
 Write("items.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable"));
 Write("recipes.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemRecipeDataTable"));
 Write("map.raw.json", DumpTable("Pal/Content/Pal/DataTable/WorldMapUIData/DT_WorldMapUIData"));
+Write("boss-spawns.raw.json", DumpTable("Pal/Content/Pal/DataTable/UI/DT_BossSpawnerLoactionData"));
+Write("pal-spawner-placement.raw.json", DumpTable("Pal/Content/Pal/DataTable/Spawner/DT_PalSpawnerPlacement"));
+Write("pal-wild-spawners.raw.json", DumpTable("Pal/Content/Pal/DataTable/Spawner/DT_PalWildSpawner"));
 
 var mapTable = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/WorldMapUIData/DT_WorldMapUIData");
 var mainMap = mapTable.RowMap.FirstOrDefault(row => row.Key.Text == "MainMap").Value
@@ -89,6 +92,38 @@ foreach (var asset in localeAssets)
 }
 localizedNames["ja"] = DumpTextTable("Pal/Content/Pal/DataTable/Text/DT_ItemNameText");
 Write("item-names.raw.json", localizedNames);
-Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count } });
+var iconDirectory = Path.Combine(output, "item-icons");
+Directory.CreateDirectory(iconDirectory);
+var itemRows = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable").RowMap;
+var textureFiles = provider.Files.Keys
+    .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+    .Where(path => Path.GetFileName(path).StartsWith("T_itemicon_", StringComparison.OrdinalIgnoreCase) || Path.GetFileName(path).StartsWith("T_icon_item_", StringComparison.OrdinalIgnoreCase))
+    .OrderByDescending(path => path.StartsWith("Pal/Content/Others/InventoryItemIcon/Texture/", StringComparison.OrdinalIgnoreCase))
+    .GroupBy(path => Path.GetFileNameWithoutExtension(path), StringComparer.OrdinalIgnoreCase)
+    .ToDictionary(group => group.Key, group => group.First()[..^7], StringComparer.OrdinalIgnoreCase);
+var exportedIcons = 0;
+foreach (var row in itemRows)
+{
+    var iconName = row.Value.Get<FName>("IconName").Text;
+    if (string.IsNullOrWhiteSpace(iconName) || iconName.Equals("None", StringComparison.OrdinalIgnoreCase)) continue;
+    var candidates = new[] { $"t_itemicon_{iconName}", $"t_icon_item_{iconName}" };
+    var assetPath = candidates.Select(candidate => textureFiles.GetValueOrDefault(candidate)).FirstOrDefault(path => path is not null);
+    if (assetPath is null) continue;
+    try
+    {
+        var texture = provider.LoadPackageObject<UTexture2D>(assetPath);
+        using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
+        if (bitmap is null) continue;
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 82);
+        using var target = File.Create(Path.Combine(iconDirectory, $"{row.Key.Text}.webp"));
+        encoded.SaveTo(target);
+        exportedIcons++;
+    }
+    catch (Exception error)
+    {
+        Console.Error.WriteLine($"Could not export item icon {row.Key.Text}: {error.Message}");
+    }
+}
+Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons } });
 Console.WriteLine($"Extracted tables and {localizedNames.Count} item-name locales to {output}");
 return 0;

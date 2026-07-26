@@ -66,6 +66,16 @@ Do not publish capture-rate, IV, production-time, or similar inferred formulas a
 
 For maps, provide both the visual map and an equivalent marker result list. For large datasets, split static payloads and avoid blocking initial rendering.
 
+For this project:
+
+- Keep build/version metadata internal for validation and provenance; remove it from public UI, SEO copy, and structured data.
+- Default the Pal collection to official Paldeck-number order with deterministic variant placement.
+- Treat official elements, rarity, progression, item categories, and subtypes as source data. Do not invent performance tiers without an explicit versioned rubric.
+- Build implemented Pal/item detail pages as first-class localized routes and link them from collections, calculators, recipes, search results, and map markers.
+- Reuse optimized entity and element images in lists, details, calculators, and map details with explicit fallbacks.
+- Keep breeding and crafting calculators on a shared responsive width/layout system.
+- Support verified boss, habitat, fast-travel, and local-pin map layers with filters, reset, URL-restorable state, bounded rendering, and an equivalent list.
+
 ## Implement integrations safely
 
 - Read identifiers from Palworld-specific configuration.
@@ -76,6 +86,12 @@ For maps, provide both the visual map and an equivalent marker result list. For 
 - Do not add dynamic Cloudflare services or deploy production without explicit authorization.
 - Keep Search Console and AdSense meta declarations in the root redirect as well as localized HTML. Verify the common-account `ads.txt` contents exactly in the production artifact.
 - Emit SPA page views only when the pathname changes, except for the one current-page event allowed immediately after consent; data-load rerenders must remain silent.
+- Use `https://palworld-helper.woofy.blog` as the production origin. Fail built-output validation when `.example` or another unintended origin appears in canonical, hreflang, Open Graph, sitemap, robots, or structured data.
+
+## Implement server and capture tooling
+
+- Recheck the live official Palworld Server Guide before adding or retaining any server key. Support categorized basic/advanced editing, local INI import, validation, default diff, conflicts, security/performance warnings, and platform instructions without storing or transmitting user content.
+- Publish capture probability as exact only after verifying the current build's constants, modifier order, caps, and rounding with authoritative inputs and golden cases. Otherwise keep it unavailable or explicitly experimental.
 
 ## Prepare commits and releases
 
@@ -86,6 +102,8 @@ For maps, provide both the visual map and an equivalent marker result list. For 
 ## Verify and report
 
 Run checks proportionate to every affected category. Always include localization and production-build checks for release-facing changes. Inspect the built artifact for private provenance, source URLs, local paths, secrets, and unintended runtime services.
+
+Derive expected localized page counts from the shared route/entity manifest instead of assuming 136 after detail routes are implemented. Verify no public build/version text, placeholder domain, broken entity image, missing detail link, or stale sitemap URL remains.
 
 Report:
 
