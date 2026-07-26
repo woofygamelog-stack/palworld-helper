@@ -139,6 +139,7 @@ Write("skill-descriptions.raw.json", DumpLocalizedTextFamily("DT_SkillDescText_C
 Write("pal-long-descriptions.raw.json", DumpLocalizedTextFamily("DT_PalLongDescriptionText", "Pal/Content/Pal/DataTable/Text/DT_PalLongDescriptionText"));
 Write("pal-short-descriptions.raw.json", DumpLocalizedTextFamily("DT_PalShortDescriptionText", "Pal/Content/Pal/DataTable/Text/DT_PalShortDescriptionText"));
 Write("partner-skill-append.raw.json", DumpLocalizedTextFamily("DT_PartnerSkillAppendText", "Pal/Content/Pal/DataTable/Text/DT_PartnerSkillAppendText"));
+Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
 Write("skill-text-assets.raw.json", provider.Files.Keys.Where(path => path.Contains("Skill", StringComparison.OrdinalIgnoreCase) && path.Contains("Text", StringComparison.OrdinalIgnoreCase) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
 Write("text-assets.raw.json", provider.Files.Keys.Where(path => path.Contains("/DataTable/Text/", StringComparison.OrdinalIgnoreCase) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
 Write("map-point-assets.raw.json", provider.Files.Keys.Where(path => (path.Contains("FastTravel", StringComparison.OrdinalIgnoreCase) || path.Contains("WarpPoint", StringComparison.OrdinalIgnoreCase) || path.Contains("FastTravelPoint", StringComparison.OrdinalIgnoreCase)) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
@@ -167,6 +168,14 @@ Write("map-ui-icon-assets.raw.json", provider.Files.Keys
     .Where(path => (path.Contains("Map", StringComparison.OrdinalIgnoreCase) || path.Contains("Icon", StringComparison.OrdinalIgnoreCase)) && mapLayerKeywords.Values.SelectMany(value => value).Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
     .OrderBy(path => path)
     .ToArray());
+Write("work-suitability-icon-assets.raw.json", provider.Files.Keys
+    .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+    .Where(path => path.Contains("Icon", StringComparison.OrdinalIgnoreCase)
+        || path.Contains("Texture/UI", StringComparison.OrdinalIgnoreCase))
+    .Where(path => new[] { "WorkSuit", "Suitability", "WorkIcon", "PalWork", "Work_", "Work/", "BaseCamp" }
+        .Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+    .OrderBy(path => path)
+    .ToArray());
 Write("world-map-packages.raw.json", provider.Files.Keys
     .Where(path => path.EndsWith(".umap", StringComparison.OrdinalIgnoreCase))
     .Where(path => path.Contains("MainWorld", StringComparison.OrdinalIgnoreCase)
@@ -190,6 +199,41 @@ var mapIconAssets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreC
     ["treasure"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_Search_Treasure",
     ["oil-rig"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_compass_Oilrig"
 };
+var workSuitabilityIconAssets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+{
+    ["Kindling"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_00",
+    ["Watering"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_01",
+    ["Planting"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_02",
+    ["GenerateElectricity"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_03",
+    ["Handiwork"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_04",
+    ["Gathering"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_05",
+    ["Lumbering"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_06",
+    ["Mining"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_07",
+    ["MedicineProduction"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_09",
+    ["Cooling"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_10",
+    ["Transporting"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_11",
+    ["Farming"] = "Pal/Content/Pal/Texture/UI/InGame/T_icon_palwork_12"
+};
+var workSuitabilityIconDirectory = Path.Combine(output, "work-suitability-icons");
+Directory.CreateDirectory(workSuitabilityIconDirectory);
+var exportedWorkSuitabilityIcons = 0;
+foreach (var icon in workSuitabilityIconAssets)
+{
+    try
+    {
+        var texture = provider.LoadPackageObject<UTexture2D>(icon.Value);
+        using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
+        if (bitmap is null) continue;
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 90);
+        using var target = File.Create(Path.Combine(workSuitabilityIconDirectory, $"{icon.Key}.webp"));
+        encoded.SaveTo(target);
+        exportedWorkSuitabilityIcons++;
+    }
+    catch (Exception error)
+    {
+        Console.Error.WriteLine($"Could not export work suitability icon {icon.Key}: {error.Message}");
+    }
+}
 var mapIconDirectory = Path.Combine(output, "map-icons");
 Directory.CreateDirectory(mapIconDirectory);
 var exportedMapIcons = 0;
@@ -255,6 +299,6 @@ foreach (var row in itemRows)
         Console.Error.WriteLine($"Could not export item icon {row.Key.Text}: {error.Message}");
     }
 }
-Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), itemDescriptions = localizedDescriptions.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons, mapIcons=exportedMapIcons } });
+Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), itemDescriptions = localizedDescriptions.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons, mapIcons=exportedMapIcons, workSuitabilityIcons=exportedWorkSuitabilityIcons } });
 Console.WriteLine($"Extracted tables and {localizedNames.Count} item-name locales to {output}");
 return 0;

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { findBreedingResult, findParentPairs } from "../src/breeding.ts";
 import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts";
 import { resolveLocale } from "../src/config.ts";
@@ -53,6 +53,12 @@ assert.equal(palData.meta.palCount, 299, "verified Pal count must remain stable 
 assert.equal(palData.meta.localIdMatchCount, palData.meta.palCount, "every published Pal ID must match the local game export");
 assert.equal(palData.pairs.length, 44851, "breeding table must remain complete for this source revision");
 assert.equal(new Set(palData.pals.map(p=>p.id)).size,palData.pals.length,"Pal internal IDs must be unique");
+assert.equal(palData.workSuitabilities.length,12,"all currently published Pal work suitability types must have metadata");
+assert.ok(palData.workSuitabilities.every(work=>Object.keys(work.names).length===17&&Object.values(work.names).every(Boolean)),"every work suitability must use all 17 official localized labels");
+for(const work of palData.workSuitabilities)await access(`public${work.icon}`);
+assert.equal(palData.pals.filter(pal=>pal.descriptions["en-US"]).length,296,"official English Paldeck long-description coverage must remain stable");
+assert.equal(palData.pals.filter(pal=>pal.descriptions["ko-KR"]).length,296,"official Korean Paldeck long-description coverage must remain stable");
+assert.match(main,/category==="habitat"\?!!habitatSelect\?\.value/,"selected Pal habitats must remain enabled independently from point layers");
 const byId=new Map(palData.pals.map(p=>[p.id,p.i]));
 assert.equal(findBreedingResult(palData.pairs,byId.get("Anubis"),byId.get("Anubis"),"WILDCARD","WILDCARD"),byId.get("Anubis"),"Anubis self-pair golden case must pass");
 assert.equal(findBreedingResult(palData.pairs,byId.get("CatMage"),byId.get("FoxMage"),"FEMALE","MALE"),byId.get("CatMage_Fire"),"gender-specific special combination must take precedence");
@@ -157,4 +163,4 @@ assert.match(main,/data-theme-choice/,"theme selection must expose explicit syst
 assert.doesNotMatch(main,/trackEvent\([^\n]*(query|searchInput)/,"global search text must not be sent to analytics");
 assert.match(main,/meta\[name="theme-color"\]/,"theme changes must update the browser theme color");
 
-console.log("Passed 104 core safety, provenance, localization, shell, search, loading, data, map and calculator assertions.");
+console.log("Passed 109 core safety, provenance, localization, shell, search, loading, data, map and calculator assertions.");
