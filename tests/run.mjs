@@ -50,9 +50,12 @@ assert.match(main, /collection_search",\{collection:/, "collection search may em
 assert.doesNotMatch(main, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
 assert.match(main, /fetch\("\/data\/pals\.json"\)/, "verified static Pal data must load from the same origin");
 assert.equal(palData.meta.palCount, 299, "verified Pal count must remain stable for this game build");
+assert.equal(palData.meta.palPortraitCount, palData.meta.palCount, "every published Pal must have a verified portrait");
 assert.equal(palData.meta.localIdMatchCount, palData.meta.palCount, "every published Pal ID must match the local game export");
 assert.equal(palData.pairs.length, 44851, "breeding table must remain complete for this source revision");
 assert.equal(new Set(palData.pals.map(p=>p.id)).size,palData.pals.length,"Pal internal IDs must be unique");
+assert.ok(palData.pals.every(pal=>pal.image===true),"every published Pal must retain its portrait flag after a Pal-data refresh");
+for(const pal of palData.pals)await access(`public/assets/pals/${pal.id}.png`);
 assert.equal(palData.workSuitabilities.length,12,"all currently published Pal work suitability types must have metadata");
 assert.ok(palData.workSuitabilities.every(work=>Object.keys(work.names).length===17&&Object.values(work.names).every(Boolean)),"every work suitability must use all 17 official localized labels");
 for(const work of palData.workSuitabilities)await access(`public${work.icon}`);

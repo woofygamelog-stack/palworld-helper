@@ -37,6 +37,20 @@ const pals = [...db.Pals].sort((a,b) => a.InternalName.localeCompare(b.InternalN
   power:p.BreedingPower, rarity:p.Rarity, size:p.Size, nocturnal:p.Nocturnal, hp:p.Hp, attack:p.Attack, defense:p.Defense,
   work:p.WorkSuitability, guaranteedPassiveIds:p.GuaranteedPassivesInternalIds||[]
 }));
+const palPortraitSource = path.join(sourceRoot,"PalCalc.UI","Resources","Pals");
+const palPortraitTarget = path.join(root,"public","assets","pals");
+await mkdir(palPortraitTarget,{recursive:true});
+let palPortraitCount=0;
+for(const pal of pals){
+  try{
+    await copyFile(path.join(palPortraitSource,`${pal.names["en-US"]}.png`),path.join(palPortraitTarget,`${pal.id}.png`));
+    pal.image=true;
+    palPortraitCount++;
+  }catch(error){
+    if(error?.code!=="ENOENT")throw error;
+    pal.image=false;
+  }
+}
 const indexById = new Map(pals.map(p => [p.id,p.i]));
 const pairs = breeding.Breeding.map(row => {
   const a=indexById.get(row.Parent1InternalName), b=indexById.get(row.Parent2InternalName), child=indexById.get(row.ChildInternalName);
@@ -49,7 +63,7 @@ if (uniquePairKeys.size !== pairs.length) throw new Error(`Duplicate gender-awar
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
 const generatedAt=new Date().toISOString();
 const output = {
-  meta:{schema:1,gameBuild,sourceDbVersion:db.Version,generatedAt,palCount:pals.length,breedingCount:pairs.length,localIdMatchCount:pals.length},
+  meta:{schema:1,gameBuild,sourceDbVersion:db.Version,generatedAt,palCount:pals.length,palPortraitCount,breedingCount:pairs.length,localIdMatchCount:pals.length},
   workSuitabilities,pals,pairs
 };
 await mkdir(path.join(root,"public","data"),{recursive:true});
@@ -58,4 +72,4 @@ await mkdir(path.join(root,"public","assets","work-suitability"),{recursive:true
 for(const work of workSuitabilities)await copyFile(path.join(extractedRoot,"work-suitability-icons",`${work.id}.webp`),path.join(root,"public","assets","work-suitability",`${work.id}.webp`));
 await mkdir(path.join(root,"private","provenance"),{recursive:true});
 await writeFile(path.join(root,"private","provenance","pals.json"),JSON.stringify({schema:1,gameBuild,generatedAt,sourceType:"community-generated data cross-checked against installed game export",sourceRevision:"be2ec7a95c521dea6591469c051e7cb0f6658065",sourcePaths:{database:path.relative(root,dbPath),breeding:path.relative(root,breedingPath),localExport:path.relative(root,localExport)},hashes:{db:sha256(dbBytes),breeding:sha256(breedingBytes),localExport:sha256(localBytes)},verification:{palIdsMatched:pals.length,palIdsMissing:missingLocal.length,breedingRows:pairs.length}},null,2));
-console.log(`Imported ${pals.length} Pals and ${pairs.length} breeding rows; ${missingLocal.length} local ID mismatches.`);
+console.log(`Imported ${pals.length} Pals, ${palPortraitCount} portraits and ${pairs.length} breeding rows; ${missingLocal.length} local ID mismatches.`);

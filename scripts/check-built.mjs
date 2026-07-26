@@ -18,5 +18,7 @@ for(const locale of locales){for(const [family,entity] of [["pals",palData.pals[
 if(/\/guides|\/privacy|\/calculators\/(capture|iv)/.test(sitemap))throw new Error("Placeholder routes must not appear in sitemap");
 for(const asset of ["data/pals.json","data/items.json","data/skills.json","assets/world-map.webp","assets/elements/Fire.png","assets/passive-ranks/3.png","favicon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png","og-image.png","site.webmanifest","sitemap.xml","prerender-report.json","robots.txt","ads.txt","_headers"])await access(path.join(dist,asset));for(let y=0;y<4;y++)for(let x=0;x<4;x++)await access(path.join(dist,"assets","map-tiles",`${x}-${y}.webp`));
 for(const work of palData.workSuitabilities)await access(path.join(dist,work.icon.replace(/^\//,"")));
+if(palData.meta.palPortraitCount!==palData.pals.length||palData.pals.some(pal=>pal.image!==true))throw new Error("Every published Pal must retain its portrait manifest state");
+for(const pal of palData.pals)await access(path.join(dist,"assets","pals",`${pal.id}.png`));
 const adsTxt=await readFile(path.join(dist,"ads.txt"),"utf8");if(adsTxt.trim()!=="google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0")throw new Error("ads.txt must contain the exact authorized account entry");
 console.log(`Validated ${expectedUrls} indexable URLs, one shared index.html and ${allFiles.length} deployed files.`);
