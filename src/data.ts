@@ -1,19 +1,26 @@
-export const officialServerSettings = [
-  {key:"ServerPlayerMaxNum",type:"integer",min:1,max:32,defaultValue:32},
-  {key:"bIsPvP",type:"boolean",defaultValue:false},
-  {key:"bIsUseBackupSaveData",type:"boolean",defaultValue:true}
-] as const;
-export function buildServerIni(input:{players:number;pvp:boolean;backup:boolean}):string { const values=[`ServerPlayerMaxNum=${Math.min(32,Math.max(1,Math.round(input.players)))}`,`bIsPvP=${input.pvp?"True":"False"}`,`bIsUseBackupSaveData=${input.backup?"True":"False"}`];return `[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(${values.join(",")})`; }
-export type ServerSettingsInput={players:number;pvp:boolean;backup:boolean};
-export function parseServerIni(text:string):{value:ServerSettingsInput;warnings:string[]}{
-  const warnings:string[]=[],match=text.match(/OptionSettings\s*=\s*\(([^)]*)\)/i),body=match?.[1]||text;
-  const pairs=new Map(body.split(",").map(part=>part.trim().split("=",2)).filter((pair):pair is [string,string]=>pair.length===2&&Boolean(pair[0])));
-  const known=new Set<string>(officialServerSettings.map(setting=>setting.key));
-  for(const key of pairs.keys())if(!known.has(key))warnings.push(`Unsupported key ignored: ${key}`);
-  const rawPlayers=Number(pairs.get("ServerPlayerMaxNum")??32),players=Number.isFinite(rawPlayers)?Math.round(rawPlayers):32;
-  if(!Number.isFinite(rawPlayers)||players<1||players>32)warnings.push("ServerPlayerMaxNum must be between 1 and 32.");
-  const parseBoolean=(key:string,fallback:boolean)=>{const raw=pairs.get(key);if(raw===undefined)return fallback;if(/^(true|1)$/i.test(raw))return true;if(/^(false|0)$/i.test(raw))return false;warnings.push(`${key} must be True or False.`);return fallback};
-  return {value:{players:Math.min(32,Math.max(1,players)),pvp:parseBoolean("bIsPvP",false),backup:parseBoolean("bIsUseBackupSaveData",true)},warnings};
+export type ServerSettingDefinition={key:string;group:"performance"|"management"|"features"|"balance";type:"boolean"|"integer"|"number"|"text"|"enum";min?:number;max?:number;options?:string[];sensitive?:boolean;defaultValue?:string|number|boolean};
+export const officialServerSettings:ServerSettingDefinition[] = [
+  {key:"ServerPlayerMaxNum",group:"management",type:"integer",min:1,max:32,defaultValue:32},{key:"ServerName",group:"management",type:"text"},{key:"ServerDescription",group:"management",type:"text"},{key:"ServerPassword",group:"management",type:"text",sensitive:true},{key:"AdminPassword",group:"management",type:"text",sensitive:true},{key:"PublicIP",group:"management",type:"text"},{key:"PublicPort",group:"management",type:"integer",min:1,max:65535},{key:"RCONEnabled",group:"management",type:"boolean"},{key:"RCONPort",group:"management",type:"integer",min:1,max:65535},{key:"RESTAPIEnabled",group:"management",type:"boolean"},{key:"RESTAPIPort",group:"management",type:"integer",min:1,max:65535},{key:"CrossplayPlatforms",group:"management",type:"text"},{key:"bAllowClientMod",group:"management",type:"boolean"},{key:"bIsShowJoinLeftMessage",group:"management",type:"boolean"},{key:"bIsUseBackupSaveData",group:"management",type:"boolean",defaultValue:true},{key:"ChatPostLimitPerMinute",group:"management",type:"integer",min:1},
+  {key:"BaseCampMaxNum",group:"performance",type:"integer",min:1},{key:"BaseCampMaxNumInGuild",group:"performance",type:"integer",min:1,max:10},{key:"BaseCampWorkerMaxNum",group:"performance",type:"integer",min:1,max:50},{key:"MaxBuildingLimitNum",group:"performance",type:"integer",min:1},{key:"PhysicsActiveDropItemMaxNum",group:"performance",type:"integer",min:0},{key:"ServerReplicatePawnCullDistance",group:"performance",type:"integer",min:5000,max:15000},
+  {key:"bIsPvP",group:"features",type:"boolean",defaultValue:false},{key:"bEnableFastTravel",group:"features",type:"boolean"},{key:"bEnableFastTravelOnlyBaseCamp",group:"features",type:"boolean"},{key:"bEnableInvaderEnemy",group:"features",type:"boolean"},{key:"bEnableVoiceChat",group:"features",type:"boolean"},{key:"bShowPlayerList",group:"features",type:"boolean"},{key:"bHardcore",group:"features",type:"boolean"},{key:"bAutoResetGuildNoOnlinePlayers",group:"features",type:"boolean"},{key:"AutoResetGuildTimeNoOnlinePlayers",group:"features",type:"number",min:0},
+  {key:"ExpRate",group:"balance",type:"number",min:0},{key:"PalCaptureRate",group:"balance",type:"number",min:0},{key:"PalSpawnNumRate",group:"balance",type:"number",min:0},{key:"DayTimeSpeedRate",group:"balance",type:"number",min:0},{key:"NightTimeSpeedRate",group:"balance",type:"number",min:0},{key:"CollectionDropRate",group:"balance",type:"number",min:0},{key:"CollectionObjectRespawnSpeedRate",group:"balance",type:"number",min:0},{key:"EnemyDropItemRate",group:"balance",type:"number",min:0},{key:"GuildPlayerMaxNum",group:"balance",type:"integer",min:1},{key:"DeathPenalty",group:"balance",type:"enum",options:["None","Item","ItemAndEquipment","All"]},{key:"PalEggDefaultHatchingTime",group:"balance",type:"number",min:0},{key:"BuildObjectDamageRate",group:"balance",type:"number",min:0},{key:"BuildObjectDeteriorationDamageRate",group:"balance",type:"number",min:0},{key:"EquipmentDurabilityDamageRate",group:"balance",type:"number",min:0}
+];
+export type ServerSettingsInput={players:number;pvp:boolean;backup:boolean;values?:Record<string,string|number|boolean>};
+const quote=(value:string)=>`"${value.replace(/\\/g,"\\\\").replace(/"/g,'\\"')}"`;
+export function buildServerIni(input:ServerSettingsInput|Record<string,string|number|boolean>):string {
+  const legacy=input as ServerSettingsInput,values:Record<string,string|number|boolean>={...(legacy.values||{})};
+  if("players" in input)values.ServerPlayerMaxNum=Math.min(32,Math.max(1,Math.round(Number(legacy.players))));
+  if("pvp" in input)values.bIsPvP=legacy.pvp;if("backup" in input)values.bIsUseBackupSaveData=legacy.backup;
+  const known=new Map(officialServerSettings.map(setting=>[setting.key,setting]));
+  const output=Object.entries(values).filter(([key,value])=>known.has(key)&&value!=="").map(([key,value])=>{const setting=known.get(key)!;if(setting.type==="boolean")return `${key}=${value?"True":"False"}`;if(setting.type==="text")return `${key}=${quote(String(value))}`;return `${key}=${value}`});
+  return `[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(${output.join(",")})`;
+}
+function splitSettings(body:string){const parts:string[]=[];let current="",quoted=false,escaped=false,depth=0;for(const char of body){if(escaped){current+=char;escaped=false;continue}if(char==="\\"&&quoted){current+=char;escaped=true;continue}if(char==='"')quoted=!quoted;if(!quoted&&char==="(")depth++;if(!quoted&&char===")")depth--;if(char===","&&!quoted&&depth===0){parts.push(current);current=""}else current+=char}if(current.trim())parts.push(current);return parts}
+export function parseServerIni(text:string):{value:ServerSettingsInput;values:Record<string,string|number|boolean>;warnings:string[]}{
+  const warnings:string[]=[],match=text.match(/OptionSettings\s*=\s*\(([\s\S]*)\)\s*$/i),body=match?.[1]||text,definitions=new Map(officialServerSettings.map(setting=>[setting.key,setting])),values:Record<string,string|number|boolean>={};
+  for(const part of splitSettings(body)){const separator=part.indexOf("=");if(separator<1)continue;const key=part.slice(0,separator).trim(),raw=part.slice(separator+1).trim(),setting=definitions.get(key);if(!setting){warnings.push(`Unsupported key ignored: ${key}`);continue}if(setting.type==="boolean"){if(!/^(true|false|1|0)$/i.test(raw)){warnings.push(`${key} must be True or False.`);continue}values[key]=/^(true|1)$/i.test(raw)}else if(setting.type==="integer"||setting.type==="number"){const number=Number(raw);if(!Number.isFinite(number)){warnings.push(`${key} must be a number.`);continue}const normalized=setting.type==="integer"?Math.round(number):number;if((setting.min!==undefined&&normalized<setting.min)||(setting.max!==undefined&&normalized>setting.max)){warnings.push(`${key} is outside the supported range.`);continue}values[key]=normalized}else{values[key]=raw.replace(/^"|"$/g,"").replace(/\\"/g,'"')}}
+  const players=Number(values.ServerPlayerMaxNum??32),pvp=Boolean(values.bIsPvP??false),backup=Boolean(values.bIsUseBackupSaveData??true);
+  return {value:{players,pvp,backup},values,warnings};
 }
 export type Recipe={id:string;output:number;ingredients:Record<string,number>};
 export function expandRecipe(target:string,quantity:number,recipes:Record<string,Recipe>,owned:Record<string,number>={}){
