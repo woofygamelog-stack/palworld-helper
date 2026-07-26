@@ -10,6 +10,7 @@ const main = await readFile("src/main.ts", "utf8");
 const config = await readFile("src/config.ts", "utf8");
 const indexHtml = await readFile("index.html", "utf8");
 const adsTxt = await readFile("public/ads.txt", "utf8");
+const wranglerConfig = JSON.parse((await readFile("wrangler.jsonc", "utf8")).replace(/^\s*\/\/.*$/gm,""));
 const palData = JSON.parse(await readFile("public/data/pals.json", "utf8"));
 const itemData = JSON.parse(await readFile("public/data/items.json", "utf8"));
 const mapImage = await readFile("public/assets/world-map.webp");
@@ -31,6 +32,10 @@ assert.match(config, /ca-pub-1986785092914105/, "owner-approved shared AdSense p
 assert.match(indexHtml, /name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"/, "Search Console verification must exist in static HTML");
 assert.match(indexHtml, /name="google-adsense-account" content="ca-pub-1986785092914105"/, "AdSense publisher metadata must exist in static HTML");
 assert.equal(adsTxt.trim(),"google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0","ads.txt must use the exact owner-authorized account entry");
+assert.equal(wranglerConfig.name,"palworld-helper","Wrangler project name must match the GitHub/project slug");
+assert.equal(wranglerConfig.assets?.directory,"./dist","Wrangler must deploy only the verified static build output");
+assert.equal(wranglerConfig.main,undefined,"static deployment must not introduce a Worker runtime");
+assert.equal(wranglerConfig.assets?.not_found_handling,undefined,"unknown routes must remain real 404s rather than soft-404 SPA fallbacks");
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
 assert.match(main, /send_page_view:false/, "SPA analytics must disable automatic page views to prevent duplicates");
 assert.match(main, /trackEvent\("page_view",\{page_path:pagePath,locale\}\)/, "SPA navigation must emit a sanitized page view");
