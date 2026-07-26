@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/generate-static.mjs && node scripts/check-built.mjs",
+    "build": "vite build && node --experimental-strip-types scripts/generate-static.mjs && node scripts/check-built.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node tests/run.mjs",
-    "check:i18n": "node scripts/check-i18n.mjs",
+    "test": "node --experimental-strip-types tests/run.mjs",
+    "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
     "data:import:pals": "node scripts/import-pal-data.mjs",
     "data:import:items": "node scripts/import-item-data.mjs",
     "check": "npm run typecheck && npm run check:i18n && npm test && npm run build"
