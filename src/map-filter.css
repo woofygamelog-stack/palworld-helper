@@ -1,0 +1,147 @@
+.map-filter-panel {
+  container-type: inline-size;
+  overflow: hidden;
+}
+
+.map-filter-panel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+}
+
+.map-filter-tools .map-reset-filters {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 70%;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.map-layer-grid {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 8px -3px;
+  padding: 2px 8px 2px 3px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.map-layer-group {
+  display: block;
+  height: auto;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+.map-layer-group + .map-layer-group {
+  margin-top: 6px;
+}
+
+.map-layer-group[hidden] {
+  display: none;
+}
+
+.map-layer-group summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3.5rem 16px 44px;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 2px 4px 2px 9px;
+}
+
+.map-layer-group summary > [data-layer-group-count] {
+  min-width: 3.5rem;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-layer-options {
+  display: flex;
+  flex-flow: row wrap;
+  align-content: flex-start;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 6px;
+}
+
+.map-layer-grid .map-layer-options .check {
+  position: relative;
+  display: grid;
+  flex: 0 0 calc(50% - 3px);
+  order: 0;
+  grid-template-columns: 24px minmax(0, 1fr) minmax(2.25rem, auto) 18px;
+  grid-template-rows: minmax(36px, auto);
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  width: calc(50% - 3px);
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+  padding: 4px 6px;
+}
+
+.map-layer-grid .map-layer-options .check:has(input:checked) {
+  order: -1;
+}
+
+.map-layer-grid .map-layer-options .marker-key {
+  grid-column: 1;
+  grid-row: 1;
+  width: 24px;
+  height: 24px;
+}
+
+.map-layer-grid .map-layer-options .check > span:nth-of-type(2) {
+  display: -webkit-box;
+  grid-column: 2;
+  grid-row: 1;
+  max-height: 2.2rem;
+  padding: 0;
+  overflow: hidden;
+  line-height: 1.1;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.map-layer-grid .map-layer-options .check > b {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 2.25rem;
+  justify-self: end;
+  align-self: center;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-layer-grid .map-layer-options .check::after {
+  position: static;
+  grid-column: 4;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+  width: 18px;
+  height: 18px;
+}
+
+.map-habitat-filter {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: 8px;
+}
+
+@container (max-width: 320px) {
+  .map-layer-grid .map-layer-options .check {
+    flex-basis: 100%;
+    width: 100%;
+  }
+}

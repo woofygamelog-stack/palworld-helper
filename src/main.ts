@@ -1,5 +1,6 @@
 import "./styles.css";
 import "./features.css";
+import "./map-filter.css";
 import { defaultLocale, localeLabels, locales, localizePath, resolveLocale, site, type Locale } from "./config";
 import { messages, type Messages } from "./i18n";
 import { buildServerIni, expandRecipe, officialServerSettings, parseServerIni, type Recipe } from "./data";
