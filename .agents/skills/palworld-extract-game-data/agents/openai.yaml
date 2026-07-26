@@ -1,0 +1,4 @@
+interface:
+  display_name: "Palworld 게임 데이터 추출"
+  short_description: "설치된 Palworld 파일에서 검증된 데이터와 이미지를 추출합니다"
+  default_prompt: "Use $palworld-extract-game-data to extract and validate the requested Palworld data from installed game files."

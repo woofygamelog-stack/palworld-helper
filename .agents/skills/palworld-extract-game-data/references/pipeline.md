@@ -1,0 +1,71 @@
+# Palworld Helper extraction pipeline
+
+## Repository boundaries
+
+- Extractor source: `tools/game-data-extractor/`
+- Private raw extraction: `private/extracted/build-<build>/` or a task-specific sibling
+- Private provenance: `private/provenance/`
+- Public normalized data: `public/data/`
+- Public optimized assets: `public/assets/`
+- Normalizers: `scripts/import-pal-data.mjs`, `scripts/import-item-data.mjs`, `scripts/import-skill-data.mjs`, `scripts/import-map-data.mjs`, `scripts/import-images.mjs`
+- Validators: `tests/run.mjs`, `scripts/validate-map-data.mjs`, `scripts/check-i18n.mjs`, `scripts/check-built.mjs`
+
+The ignore rules must continue to exclude `private/`, raw game exports, `.env`, `node_modules/`, `dist/`, logs, and extractor `bin/` and `obj/` directories.
+
+## Extractor invocation
+
+Build and run the repository extractor with three explicit arguments:
+
+```powershell
+dotnet build tools/game-data-extractor/GameDataExtractor.csproj
+dotnet run --project tools/game-data-extractor/GameDataExtractor.csproj -- "<Palworld Paks directory>" "<build-matched Mappings.usmap>" "<private output directory>"
+```
+
+The current extractor uses CUE4Parse with Unreal Engine 5.1 compatibility and requires a build-compatible `.usmap`. A missing or incompatible mapping is a hard stop; do not reuse an older mapping merely because some assets decode.
+
+The extractor initializes Oodle from its application output. Do not copy or commit game/runtime binaries merely to make a local run reproducible.
+
+## Current raw outputs
+
+| Family | Raw output | Source purpose |
+|---|---|---|
+| Items | `items.raw.json` | Legal item facts and icon references |
+| Recipes | `recipes.raw.json` | Products, ingredients, output counts and work values |
+| Item localization | `item-names.raw.json`, `item-descriptions.raw.json` | Official shipped item text |
+| Skills and Pal text | `skill-names.raw.json`, `skill-descriptions.raw.json`, `pal-long-descriptions.raw.json`, `pal-short-descriptions.raw.json`, `partner-skill-append.raw.json` | Official shipped localized text |
+| Pal parameters | `pal-parameters.raw.json` | Pal parameter joins and partner-skill mapping |
+| Bosses | `boss-spawns.raw.json` | Boss Pal, level and Unreal world location |
+| Habitats | `pal-spawner-placement.raw.json`, `pal-wild-spawners.raw.json` | Field placement and spawn composition |
+| Maps | `map.raw.json`, `map-meta.raw.json`, `map-worlds-meta.raw.json` | Palpagos/World Tree bounds and texture metadata |
+| Map images | `world-map.webp`, `tree-map.webp` | Extracted 8192-pixel source maps for web derivatives |
+| Item images | `item-icons/*.webp` | Decoded item icon textures |
+| Discovery inventories | `text-assets.raw.json`, `skill-text-assets.raw.json`, `map-point-assets.raw.json` | Candidate asset discovery only; paths are not publishable facts |
+| Private manifest | `manifest.json` | Extraction time and raw counts; never publish directly |
+
+## Normalization routing
+
+- Run `npm run data:import:items` after item, recipe, item-text, map metadata, or world-map changes. Set `PAL_EXTRACTED_DATA` and `PAL_GAME_BUILD` when not using the default private path.
+- Run `npm run data:import:skills` after skill text, Pal descriptions, Pal parameters, or element/skill source changes. Set `PAL_EXTRACTED_SOURCE`, `PAL_DATA_SOURCE`, and `PAL_GAME_BUILD` explicitly for refresh workspaces.
+- Run `npm run data:import:map` after boss, spawner, world-bound, or map-texture changes. Verify that the importer selects the intended refresh directory instead of silently falling back.
+- Run `npm run data:import:pals` only with the expected local Pal export and the separately tracked community-normalized breeding source. Keep its community provenance explicit; local ID agreement does not independently verify breeding outcomes.
+- Run `npm run data:import:images` after normalized Pal/item lists exist. Image coverage flags in public JSON must match files actually copied to `public/assets/`.
+
+Importers may accept environment variables so refreshes do not require changing checked-in absolute paths. Never commit a local installation or staging path.
+
+## Map-specific checks
+
+- Preserve separate Palpagos and World Tree bounds and textures.
+- Classify each marker into exactly one implemented world and reject out-of-bounds points.
+- Palworld world coordinates and displayed player-map coordinates use different axes and scale. Keep the transform in one tested function and validate it with multiple known landmarks before changing published coordinates.
+- Do not infer dungeon, merchant, collectible, resource, fast-travel, or other placements from asset names alone. World-placement actors or another independently verified source are required.
+- Generate web tiles with `scripts/generate-map-tiles.mjs`, then validate tile counts, dimensions, seams, world selection, zoom/pan alignment, and marker alignment in a browser.
+
+## Patch refresh gates
+
+1. Record the installed game build and fingerprint relevant PAK indexes or extracted inputs.
+2. Extract into a new build- or task-specific private directory; do not overwrite the last accepted raw set.
+3. Normalize to a comparison output and produce structured count, schema, locale, entity, relationship, image, and coordinate diffs.
+4. Review unexpected changes before replacing public data.
+5. Run golden cases for affected calculators and representative entity/map records.
+6. Keep unsupported or unverified fields unavailable instead of carrying stale values forward silently.
+7. Stage only extractor/importer source, verified normalized public data, and approved optimized assets.

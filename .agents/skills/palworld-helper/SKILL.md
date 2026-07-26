@@ -7,6 +7,8 @@ description: Build, modify, review, or plan the Palworld Helper project, includi
 
 Follow the repository `AGENTS.md` and the global `build-game-helper-sites` skill together with this skill.
 
+For any task that inspects, extracts, refreshes, normalizes, or validates installed Palworld game files or derived assets, also use the project `palworld-extract-game-data` skill and the global `extract-game-data` skill.
+
 ## Load project context
 
 1. Read `../../../AGENTS.md` completely.
