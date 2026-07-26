@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+private/
+games/palworld/data/raw-private/
+tools/**/bin/
+tools/**/obj/
+*.log

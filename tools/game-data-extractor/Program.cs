@@ -1,0 +1,94 @@
+using CUE4Parse.Compression;
+using CUE4Parse.FileProvider;
+using CUE4Parse.MappingsProvider;
+using CUE4Parse.MappingsProvider.Usmap;
+using CUE4Parse.UE4.Assets.Exports.Engine;
+using CUE4Parse.UE4.Assets.Exports.Texture;
+using CUE4Parse.UE4.Assets.Objects;
+using CUE4Parse.UE4.Objects.Core.i18N;
+using CUE4Parse.UE4.Objects.Core.Math;
+using CUE4Parse.UE4.Objects.UObject;
+using CUE4Parse.UE4.Versions;
+using CUE4Parse_Conversion.Textures;
+using Newtonsoft.Json;
+using SkiaSharp;
+
+if (args.Length != 3)
+{
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory>");
+    return 2;
+}
+
+var paks = Path.GetFullPath(args[0]);
+var mappings = Path.GetFullPath(args[1]);
+var output = Path.GetFullPath(args[2]);
+if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
+Directory.CreateDirectory(output);
+
+OodleHelper.Initialize(Path.Combine(AppContext.BaseDirectory, "oo2core_9_win64.dll"));
+#pragma warning disable CS0618 // Current CUE4Parse stable keeps this compatible overload; paths are read-only and explicit.
+var provider = new DefaultFileProvider(paks, SearchOption.AllDirectories, true, new VersionContainer(EGame.GAME_UE5_1));
+#pragma warning restore CS0618
+provider.MappingsContainer = new FileUsmapTypeMappingsProvider(mappings);
+provider.Initialize();
+provider.Mount();
+provider.LoadVirtualPaths();
+
+object DumpTable(string assetPath)
+{
+    var table = provider.LoadPackageObject<UDataTable>(assetPath);
+    return table.RowMap.ToDictionary(row => row.Key.Text, row => row.Value.Properties.ToDictionary(property => property.Name.Text, property => property.Tag));
+}
+
+Dictionary<string,string> DumpTextTable(string assetPath)
+{
+    var table = provider.LoadPackageObject<UDataTable>(assetPath);
+    return table.RowMap.ToDictionary(row => row.Key.Text, row => row.Value.Get<FText>("TextData").Text);
+}
+
+void Write(string name, object value) => File.WriteAllText(Path.Combine(output, name), JsonConvert.SerializeObject(value, Formatting.None));
+
+Write("items.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable"));
+Write("recipes.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemRecipeDataTable"));
+Write("map.raw.json", DumpTable("Pal/Content/Pal/DataTable/WorldMapUIData/DT_WorldMapUIData"));
+
+var mapTable = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/WorldMapUIData/DT_WorldMapUIData");
+var mainMap = mapTable.RowMap.FirstOrDefault(row => row.Key.Text == "MainMap").Value
+    ?? throw new InvalidDataException("MainMap row was not found.");
+var mapProps = mainMap.Properties.ToDictionary(property => property.Name.Text, property => property.Tag);
+var mapMin = mapProps["landScapeRealPositionMin"]!.GetValue<FVector>();
+var mapMax = mapProps["landScapeRealPositionMax"]!.GetValue<FVector>();
+var textureMap = mapProps["textureDataMap"]!.GetValue<UScriptMap>()
+    ?? throw new InvalidDataException("MainMap texture map was not found.");
+UTexture2D? mapTexture = null;
+foreach (var pair in textureMap.Properties)
+{
+    if (pair.Key!.GetValue<FName>().Text != "FirstRegion") continue;
+    var region = pair.Value!.GetValue<FStructFallback>()!.Properties.ToDictionary(property => property.Name.Text, property => property.Tag);
+    if (region["Texture"]!.GetValue<FSoftObjectPath>()!.TryLoad<UTexture2D>(out var loadedTexture) && loadedTexture is not null)
+        mapTexture = loadedTexture;
+}
+if (mapTexture is null) throw new InvalidDataException("Main map texture was not found.");
+using (var bitmap = (mapTexture.Decode(ETexturePlatform.DesktopMobile)
+    ?? throw new InvalidDataException("Main map texture could not be decoded.")).ToSkBitmap())
+using (var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 78))
+using (var target = File.Create(Path.Combine(output, "world-map.webp"))) encoded.SaveTo(target);
+Write("map-meta.raw.json", new { minX=mapMin.X, minY=mapMin.Y, maxX=mapMax.X, maxY=mapMax.Y, width=mapTexture.PlatformData.SizeX, height=mapTexture.PlatformData.SizeY });
+
+var localeAssets = provider.Files.Select(file => file.Key)
+    .Where(path => path.Contains("/DataTable/Text/DT_ItemNameText_Common.uasset", StringComparison.OrdinalIgnoreCase))
+    .OrderBy(path => path).ToList();
+var localizedNames = new Dictionary<string,Dictionary<string,string>>();
+foreach (var asset in localeAssets)
+{
+    var marker = "/L10N/";
+    var start = asset.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+    if (start < 0) continue;
+    var lang = asset[(start + marker.Length)..].Split('/')[0];
+    localizedNames[lang] = DumpTextTable(asset[..^7]);
+}
+localizedNames["ja"] = DumpTextTable("Pal/Content/Pal/DataTable/Text/DT_ItemNameText");
+Write("item-names.raw.json", localizedNames);
+Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count } });
+Console.WriteLine($"Extracted tables and {localizedNames.Count} item-name locales to {output}");
+return 0;

@@ -1,0 +1,9 @@
+{
+  "name": "Palworld Helper",
+  "short_name": "Pal Helper",
+  "start_url": "/en-US/",
+  "display": "standalone",
+  "background_color": "#0b1417",
+  "theme_color": "#087c6e",
+  "icons": []
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Palworld Helper"
+  short_description: "Palworld 도우미 사이트를 정확하고 일관되게 개발"
+  default_prompt: "Use $palworld-helper to implement the next verified Palworld Helper feature."
