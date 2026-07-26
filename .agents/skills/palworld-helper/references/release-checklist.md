@@ -69,6 +69,8 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] SPA data rerenders do not duplicate page views, and consent can trigger the current page once.
 - [ ] Every absolute production URL uses `https://palworld-helper.woofy.blog`; placeholder `.example` domains fail the build.
 - [ ] Static generation, canonical/hreflang metadata, internal links, sitemap, and built-output checks consume one shared collection/detail route manifest.
+- [ ] Route families are explicitly classified as static, prerendered, client, or hybrid; sitemap URLs, physical HTML documents, and meaningful initial-HTML coverage are reported separately.
+- [ ] Total deployed files remain below 80% of the active Cloudflare asset limit, preserving at least 20% growth headroom.
 - [ ] Expected page count is derived from the route manifest, entity counts, and 17 locales rather than a permanently fixed number.
 - [ ] Public UI, SEO copy, and structured data contain no build number, data version, update version, or version badge.
 - [ ] Favicon, Apple touch icon, and web-manifest icons resolve in the built artifact.

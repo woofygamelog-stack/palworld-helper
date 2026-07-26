@@ -1,38 +1,23 @@
-import { access, readFile, readdir } from "node:fs/promises";
+import {access,readFile,readdir} from "node:fs/promises";
 import path from "node:path";
-import { collectionRoutes as routes, supportedLocales as locales } from "../src/route-manifest.ts";
+import {collectionRoutes as routes,deploymentFileBudget,itemPrerenderLimit,supportedLocales as locales} from "../src/route-manifest.ts";
 
 const root=process.cwd(),dist=path.join(root,"dist");
-const [palData,itemData,skillData,index,sitemap,wrangler]=await Promise.all([
-  readFile("public/data/pals.json","utf8").then(JSON.parse),
-  readFile("public/data/items.json","utf8").then(JSON.parse),
-  readFile("public/data/skills.json","utf8").then(JSON.parse),
-  readFile(path.join(dist,"index.html"),"utf8"),
-  readFile(path.join(dist,"sitemap.xml"),"utf8"),
-  readFile("wrangler.jsonc","utf8").then(value=>JSON.parse(value.replace(/^\s*\/\/.*$/gm,"")))
-]);
-if(!index.includes('name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"'))throw new Error("SPA document is missing Search Console verification");
-if(!index.includes('name="google-adsense-account" content="ca-pub-1986785092914105"'))throw new Error("SPA document is missing AdSense metadata");
-if(/palworld-helper\.example|24181527|Data version|Game build/.test(index))throw new Error("SPA document exposes a placeholder domain or public build information");
-if(wrangler.assets?.directory!=="./dist"||wrangler.assets?.not_found_handling!=="single-page-application")throw new Error("Cloudflare Assets must route deep links through the single SPA document");
+const [palData,itemData,skillData,index,sitemap,report,wrangler]=await Promise.all(["pals","items","skills"].map(name=>readFile(`public/data/${name}.json`,"utf8").then(JSON.parse)).concat([readFile(path.join(dist,"index.html"),"utf8"),readFile(path.join(dist,"sitemap.xml"),"utf8"),readFile(path.join(dist,"prerender-report.json"),"utf8").then(JSON.parse),readFile("wrangler.jsonc","utf8").then(value=>JSON.parse(value.replace(/^\s*\/\/.*$/gm,"")))]));
+for(const declaration of ['name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"','name="google-adsense-account" content="ca-pub-1986785092914105"'])if(!index.includes(declaration))throw new Error(`Root document is missing ${declaration}`);
+if(/palworld-helper\.example|24181527|Data version|Game build/.test(index))throw new Error("Root document exposes a placeholder domain or public build information");
+if(wrangler.assets?.directory!=="./dist"||wrangler.assets?.not_found_handling!=="single-page-application")throw new Error("Cloudflare Assets must preserve the SPA fallback for hybrid routes");
 if(wrangler.workers_dev!==false||wrangler.preview_urls!==false||"main" in wrangler)throw new Error("Cloudflare public development hostnames must be disabled and no Worker runtime may be configured");
-const htmlFiles=[];
-async function collectHtml(directory){for(const entry of await readdir(directory,{withFileTypes:true})){const target=path.join(directory,entry.name);if(entry.isDirectory())await collectHtml(target);else if(entry.name.endsWith(".html"))htmlFiles.push(target)}}
-await collectHtml(dist);
-if(htmlFiles.length!==1||path.basename(htmlFiles[0])!=="index.html")throw new Error(`Expected one shared SPA HTML document, found ${htmlFiles.length}`);
-if(/palworld-helper\.example/.test(sitemap))throw new Error("Placeholder domain must not appear in sitemap");
-const expectedPerLocale=routes.length+palData.pals.length+itemData.items.length+skillData.activeSkills.length+skillData.passiveSkills.length+skillData.partnerSkills.length,expectedUrls=locales.length*expectedPerLocale;
-if((sitemap.match(/<url>/g)||[]).length!==expectedUrls)throw new Error(`Sitemap must contain ${expectedUrls} collection and entity URLs`);
-for(const locale of locales){
-  if(!sitemap.includes(`<loc>https://palworld-helper.woofy.blog/${locale}/pals/${encodeURIComponent(palData.pals[0].id)}</loc>`))throw new Error(`${locale}: Pal detail URL missing from sitemap`);
-  if(!sitemap.includes(`<loc>https://palworld-helper.woofy.blog/${locale}/items/${encodeURIComponent(itemData.items[0].id)}</loc>`))throw new Error(`${locale}: item detail URL missing from sitemap`);
-  if(!sitemap.includes(`<loc>https://palworld-helper.woofy.blog/${locale}/skills/active/${encodeURIComponent(skillData.activeSkills[0].id)}</loc>`))throw new Error(`${locale}: active skill detail URL missing from sitemap`);
-  if(!sitemap.includes(`<loc>https://palworld-helper.woofy.blog/${locale}/skills/passive/${encodeURIComponent(skillData.passiveSkills[0].id)}</loc>`))throw new Error(`${locale}: passive skill detail URL missing from sitemap`);
-  if(!sitemap.includes(`<loc>https://palworld-helper.woofy.blog/${locale}/skills/partner/${encodeURIComponent(skillData.partnerSkills[0].id)}</loc>`))throw new Error(`${locale}: partner skill detail URL missing from sitemap`);
-}
+const allFiles=[],htmlFiles=[];async function collect(directory){for(const entry of await readdir(directory,{withFileTypes:true})){const target=path.join(directory,entry.name);if(entry.isDirectory())await collect(target);else{allFiles.push(target);if(entry.name.endsWith(".html"))htmlFiles.push(target)}}}await collect(dist);
+const expectedPerLocale=routes.length+palData.pals.length+itemData.items.length+skillData.activeSkills.length+skillData.passiveSkills.length+skillData.partnerSkills.length,expectedUrls=locales.length*expectedPerLocale,expectedCoverage=locales.length*(routes.length+palData.pals.length+skillData.activeSkills.length+skillData.passiveSkills.length+itemPrerenderLimit);
+if((sitemap.match(/<url>/g)||[]).length!==expectedUrls)throw new Error(`Sitemap must contain ${expectedUrls} URLs`);
+if(report.indexableUrlCount!==expectedUrls||report.initialHtmlCoverage!==expectedCoverage)throw new Error("Prerender coverage report does not match the route manifest");
+if(htmlFiles.length!==expectedCoverage+1)throw new Error(`Expected ${expectedCoverage+1} physical HTML documents, found ${htmlFiles.length}`);
+if(allFiles.length>deploymentFileBudget.hardLimit-deploymentFileBudget.reservedHeadroom)throw new Error(`Deployment contains ${allFiles.length} files and violates the ${deploymentFileBudget.reservedHeadroom}-file growth reserve`);
+const sampleRoutes=[path.join("ko-KR","pals",palData.pals[0].id,"index.html"),path.join("en-US","skills","active",skillData.activeSkills[0].id,"index.html"),path.join("ja-JP","skills","passive",skillData.passiveSkills[0].id,"index.html")];
+for(const relative of sampleRoutes){const html=await readFile(path.join(dist,relative),"utf8");if(!html.includes('<main class="prerender">')||!html.includes('rel="canonical"')||!html.includes('hreflang="x-default"')||!html.includes('application/ld+json'))throw new Error(`${relative}: incomplete meaningful initial HTML`);if(/24181527|Game build|Data version|palworld-helper\.example/.test(html))throw new Error(`${relative}: public provenance or placeholder origin leaked`)}
+for(const locale of locales){for(const [family,entity] of [["pals",palData.pals[0]],["items",itemData.items[0]],["skills/active",skillData.activeSkills[0]],["skills/passive",skillData.passiveSkills[0]],["skills/partner",skillData.partnerSkills[0]]])if(!sitemap.includes(`<loc>https://palworld-helper.woofy.blog/${locale}/${family}/${encodeURIComponent(entity.id)}</loc>`))throw new Error(`${locale}: ${family} detail URL missing from sitemap`)}
 if(/\/guides|\/privacy|\/calculators\/(capture|iv)/.test(sitemap))throw new Error("Placeholder routes must not appear in sitemap");
-for(const asset of ["data/pals.json","data/items.json","data/skills.json","assets/world-map.webp","assets/elements/Fire.png","assets/passive-ranks/3.png","favicon.svg","site.webmanifest","sitemap.xml","robots.txt","ads.txt","_headers"])await access(path.join(dist,asset));
-for(let y=0;y<4;y++)for(let x=0;x<4;x++)await access(path.join(dist,"assets","map-tiles",`${x}-${y}.webp`));
-const adsTxt=await readFile(path.join(dist,"ads.txt"),"utf8");
-if(adsTxt.trim()!=="google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0")throw new Error("ads.txt must contain the exact owner-authorized AdSense account entry");
-console.log(`Validated one SPA HTML document and ${expectedUrls} localized collection/detail URLs.`);
+for(const asset of ["data/pals.json","data/items.json","data/skills.json","assets/world-map.webp","assets/elements/Fire.png","assets/passive-ranks/3.png","favicon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png","og-image.png","site.webmanifest","sitemap.xml","prerender-report.json","robots.txt","ads.txt","_headers"])await access(path.join(dist,asset));for(let y=0;y<4;y++)for(let x=0;x<4;x++)await access(path.join(dist,"assets","map-tiles",`${x}-${y}.webp`));
+const adsTxt=await readFile(path.join(dist,"ads.txt"),"utf8");if(adsTxt.trim()!=="google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0")throw new Error("ads.txt must contain the exact authorized account entry");
+console.log(`Validated ${expectedUrls} indexable URLs, ${expectedCoverage} initial-HTML-covered URLs, ${htmlFiles.length} HTML documents and ${allFiles.length} deployed files.`);

@@ -62,7 +62,7 @@ Do not publish capture-rate, IV, production-time, or similar inferred formulas a
 4. Keep search, sorting, filter state, themes, keyboard use, focus, empty/error states, and 44px touch targets correct.
 5. Add localized page metadata, canonical, alternates, sitemap behavior, and structured data where the page is indexable.
 6. Keep ads distinct from and away from primary controls.
-7. Add implemented collection/entity routes to client routing, canonical/hreflang output, sitemap, and internal linking together. Keep one shared SPA `index.html`; never multiply physical HTML files by locale or entity count.
+7. Add implemented collection/entity routes to client routing, canonical/hreflang output, sitemap, prerender selection, and internal linking together. Classify each family as static, prerendered, client, or hybrid and reject thin HTML copies.
 
 For maps, provide both the visual map and an equivalent marker result list. For large datasets, split static payloads and avoid blocking initial rendering.
 
@@ -72,8 +72,8 @@ For this project:
 - Default the Pal collection to official Paldeck-number order with deterministic variant placement.
 - Treat official elements, rarity, progression, item categories, and subtypes as source data. Do not invent performance tiers without an explicit versioned rubric.
 - Build implemented Pal/item detail pages as first-class localized routes and link them from collections, calculators, recipes, search results, and map markers.
-- Follow the Satisfactory Helper catalog pattern for high-cardinality details: enumerate localized detail URLs in the sitemap, resolve them in the client router from static data, and serve every deep link through Cloudflare Assets `single-page-application` fallback using one physical HTML document.
-- Treat sitemap URL count and physical HTML file count as separate invariants. Validate all Pal/item IDs appear once per locale in the sitemap while the build contains exactly one `index.html`.
+- Prerender substantial Pal and skill details whose official facts answer independent search intent. Use a deterministic relationship-and-content rubric for a priority item subset and retain the client router plus Cloudflare SPA fallback for valid non-prerendered details and interaction-heavy tools.
+- Treat sitemap URL count, physical HTML count, and meaningful initial-HTML SEO coverage as separate invariants. Validate every implemented ID appears once per locale in the sitemap and fail the build if deployed files exceed 80% of the active Cloudflare limit.
 - Reuse optimized entity and element images in lists, details, calculators, and map details with explicit fallbacks.
 - Keep breeding and crafting calculators on a shared responsive width/layout system.
 - Support verified boss, habitat, fast-travel, and local-pin map layers with filters, reset, URL-restorable state, bounded rendering, and an equivalent list.
@@ -105,7 +105,7 @@ For this project:
 
 Run checks proportionate to every affected category. Always include localization and production-build checks for release-facing changes. Inspect the built artifact for private provenance, source URLs, local paths, secrets, and unintended runtime services.
 
-Derive expected sitemap URL counts from the shared route/entity manifest. Require one physical SPA HTML document regardless of route count, and verify direct localized Pal/item deep links render the correct detail after a fresh load. Verify no public build/version text, placeholder domain, broken entity image, missing detail link, or stale sitemap URL remains.
+Derive expected sitemap URL counts, physical HTML counts, and initial-HTML coverage from the shared route/entity manifest. Verify direct localized prerendered and SPA-fallback deep links after a fresh load, deployed-file growth headroom, and the absence of public build/version text, placeholder domains, broken images, missing links, or stale sitemap URLs.
 
 Report:
 
