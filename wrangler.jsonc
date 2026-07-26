@@ -3,6 +3,7 @@
   "name": "palworld-helper",
   "compatibility_date": "2026-07-26",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
   }
 }

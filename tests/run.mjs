@@ -41,7 +41,8 @@ assert.equal(adsTxt.trim(),"google.com, pub-1986785092914105, DIRECT, f08c47fec0
 assert.equal(wranglerConfig.name,"palworld-helper","Wrangler project name must match the GitHub/project slug");
 assert.equal(wranglerConfig.assets?.directory,"./dist","Wrangler must deploy only the verified static build output");
 assert.equal(wranglerConfig.main,undefined,"static deployment must not introduce a Worker runtime");
-assert.equal(wranglerConfig.assets?.not_found_handling,undefined,"unknown routes must remain real 404s rather than soft-404 SPA fallbacks");
+assert.equal(wranglerConfig.assets?.not_found_handling,"single-page-application","collection and entity deep links must reuse the shared SPA document");
+assert.match(main,/history\.replaceState\(\{\},"",localizePath\(locale,location\.pathname\)\)/,"unprefixed entry routes must normalize to the selected locale without another HTML document");
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
 assert.match(main, /send_page_view:false/, "SPA analytics must disable automatic page views to prevent duplicates");
 assert.match(main, /trackEvent\("page_view",\{page_path:pagePath,locale\}\)/, "SPA navigation must emit a sanitized page view");

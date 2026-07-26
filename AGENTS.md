@@ -75,10 +75,11 @@
 - Load AdSense only in production unless documented test mode is active. Reserve ad space and keep ads away from navigation, map controls, calculator inputs, and primary actions.
 - Target Cloudflare Pages and publish only deterministic static build output unless the user expands the infrastructure scope.
 - Do not deploy or change live external services unless the user explicitly asks for publishing or configuration.
-- Generate localized static HTML and the sitemap from the same explicit implemented-route allowlist. Placeholder/planned routes, incomplete legal pages, and generic 404 views must not receive canonical/hreflang metadata or sitemap entries and must not appear in primary navigation.
+- Keep one shared static SPA HTML document for large localized entity catalogs. Enumerate every implemented collection and entity-detail URL in the sitemap and route manifest, but do not emit one HTML file per locale/entity when deterministic client routing can reuse the shared document.
+- On Cloudflare static Assets, use `not_found_handling: "single-page-application"` only for this explicit shared-document architecture. The client router must render a real not-found view for unknown IDs/routes and must never add those unknown URLs to canonical, hreflang, structured data, or the sitemap.
 - The production origin is `https://palworld-helper.woofy.blog`. Canonical, hreflang, `x-default`, Open Graph, structured data, sitemap, robots, manifests, and generated absolute URLs must use this origin and must fail validation if placeholder domains such as `.example` remain.
-- Generate collection routes and implemented entity detail routes from one typed route manifest shared by static generation, metadata, internal linking, sitemap generation, and built-output verification. Verify the expected page count from the manifest and entity counts rather than a permanently hard-coded total.
-- Keep Search Console and AdSense account meta tags in both the root redirect document and every localized static page. Verify `/ads.txt` exactly, not just its existence.
+- Generate collection routes and implemented entity detail routes from one typed route manifest shared by client routing, metadata, internal linking, sitemap generation, and built-output verification. Verify sitemap URL count from route/entity counts separately from physical HTML file count.
+- Keep Search Console and AdSense account meta tags in the shared SPA document. Verify `/ads.txt` exactly, not just its existence.
 - SPA page views are navigation events, not render events. Lazy Pal/item data loads and rerenders on the same pathname must not emit another page view; a page viewed before consent may be emitted once immediately after consent.
 
 ## Current verified baselines
@@ -98,7 +99,7 @@
 
 - Run the repository's relevant format, lint, type, unit, integration, localization, and production-build checks.
 - Inspect built output for missing locales, broken links, incorrect metadata/domains, secrets, local paths, source URLs, provenance files, logs, and unintended dynamic infrastructure.
-- Verify the localized page count derived from the shared implemented-route manifest. The current 136-page baseline applies only while the 8-route collection manifest remains unchanged; Pal/item detail routes must update generation, sitemap, linking, and verification together.
+- Verify that the sitemap count equals `(implemented collection routes + published Pal details + published item details) × locale count`, while the built artifact contains exactly one shared `index.html`. Pal/item changes must update sitemap, linking, and verification together without multiplying HTML files.
 - Verify that public HTML, metadata, structured data, and visible UI contain no build number, data-version label, update-version badge, placeholder production domain, or unintentionally indexable privacy/legal route.
 - Verify favicon and web-manifest icon references, entity-image coverage and fallbacks, detail-page links, Paldeck ordering, category/element/tier filters, calculator image rendering, and map-layer filters.
 - Browser-check the changed flow at mobile and desktop widths, in light and dark themes, using `en-US` and at least one non-Latin locale relevant to the change.

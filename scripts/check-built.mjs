@@ -1,32 +1,33 @@
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 const root=process.cwd(),dist=path.join(root,"dist");
 const locales=["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
 const routes=["","map","pals","skills","calculators","calculators/breeding","calculators/crafting","database","server-tools/settings-generator"];
-let checked=0;
-for(const locale of locales)for(const route of routes){
-  const file=path.join(dist,locale,route,"index.html"),html=await readFile(file,"utf8"),where=`${locale}/${route||"home"}`;
-  if(!html.includes(`<html lang="${locale}"`))throw new Error(`${where}: incorrect html lang`);
-  if((html.match(/<h1[ >]/g)||[]).length!==1)throw new Error(`${where}: expected exactly one static h1`);
-  if(!/<title>[^<]+ · Palworld Helper<\/title>/.test(html))throw new Error(`${where}: localized title missing`);
-  if(!/<meta data-dynamic-meta="true" name="description" content="[^"]+">/.test(html))throw new Error(`${where}: localized description missing`);
-  if(!html.includes('name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"'))throw new Error(`${where}: Search Console verification missing`);
-  if(!html.includes('name="google-adsense-account" content="ca-pub-1986785092914105"'))throw new Error(`${where}: AdSense account metadata missing`);
-  if((html.match(/hreflang=/g)||[]).length!==locales.length+1)throw new Error(`${where}: hreflang count mismatch`);
-  if(!html.includes(`hreflang="x-default" href="https://palworld-helper.woofy.blog/en-US${route?`/${route}`:""}"`))throw new Error(`${where}: x-default mismatch`);
-  if(/palworld-helper\.example|24181527|Data version|Game build/.test(html))throw new Error(`${where}: placeholder domain or public version information found`);
-  if(/Loading…|\bundefined\b|\[object Object\]/.test(html))throw new Error(`${where}: unresolved UI value found`);
-  checked++;
-}
-const index=await readFile(path.join(dist,"index.html"),"utf8");
-if(!index.includes('url=/en-US'))throw new Error("Root redirect must target en-US");
-if(!index.includes('name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"'))throw new Error("Root Search Console verification missing");
-const sitemap=await readFile(path.join(dist,"sitemap.xml"),"utf8");
+const [palData,itemData,index,sitemap,wrangler]=await Promise.all([
+  readFile("public/data/pals.json","utf8").then(JSON.parse),
+  readFile("public/data/items.json","utf8").then(JSON.parse),
+  readFile(path.join(dist,"index.html"),"utf8"),
+  readFile(path.join(dist,"sitemap.xml"),"utf8"),
+  readFile("wrangler.jsonc","utf8").then(value=>JSON.parse(value.replace(/^\s*\/\/.*$/gm,"")))
+]);
+if(!index.includes('name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"'))throw new Error("SPA document is missing Search Console verification");
+if(!index.includes('name="google-adsense-account" content="ca-pub-1986785092914105"'))throw new Error("SPA document is missing AdSense metadata");
+if(/palworld-helper\.example|24181527|Data version|Game build/.test(index))throw new Error("SPA document exposes a placeholder domain or public build information");
+if(wrangler.assets?.directory!=="./dist"||wrangler.assets?.not_found_handling!=="single-page-application")throw new Error("Cloudflare Assets must route deep links through the single SPA document");
+const htmlFiles=[];
+async function collectHtml(directory){for(const entry of await readdir(directory,{withFileTypes:true})){const target=path.join(directory,entry.name);if(entry.isDirectory())await collectHtml(target);else if(entry.name.endsWith(".html"))htmlFiles.push(target)}}
+await collectHtml(dist);
+if(htmlFiles.length!==1||path.basename(htmlFiles[0])!=="index.html")throw new Error(`Expected one shared SPA HTML document, found ${htmlFiles.length}`);
 if(/palworld-helper\.example/.test(sitemap))throw new Error("Placeholder domain must not appear in sitemap");
-if((sitemap.match(/<url>/g)||[]).length!==locales.length*routes.length)throw new Error("Sitemap URL count must match implemented localized routes");
-if(/\/guides|\/privacy|\/calculators\/(capture|iv)/.test(sitemap))throw new Error("Placeholder routes must not appear in the sitemap");
+const expectedPerLocale=routes.length+palData.pals.length+itemData.items.length,expectedUrls=locales.length*expectedPerLocale;
+if((sitemap.match(/<url>/g)||[]).length!==expectedUrls)throw new Error(`Sitemap must contain ${expectedUrls} collection and entity URLs`);
+for(const locale of locales){
+  if(!sitemap.includes(`<loc>https://palworld-helper.woofy.blog/${locale}/pals/${encodeURIComponent(palData.pals[0].id)}</loc>`))throw new Error(`${locale}: Pal detail URL missing from sitemap`);
+  if(!sitemap.includes(`<loc>https://palworld-helper.woofy.blog/${locale}/items/${encodeURIComponent(itemData.items[0].id)}</loc>`))throw new Error(`${locale}: item detail URL missing from sitemap`);
+}
+if(/\/guides|\/privacy|\/calculators\/(capture|iv)/.test(sitemap))throw new Error("Placeholder routes must not appear in sitemap");
 for(const asset of ["data/pals.json","data/items.json","data/skills.json","assets/world-map.webp","assets/elements/Fire.png","assets/passive-ranks/3.png","favicon.svg","site.webmanifest","sitemap.xml","robots.txt","ads.txt","_headers"])await access(path.join(dist,asset));
 const adsTxt=await readFile(path.join(dist,"ads.txt"),"utf8");
 if(adsTxt.trim()!=="google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0")throw new Error("ads.txt must contain the exact owner-authorized AdSense account entry");
-console.log(`Validated ${checked} localized HTML pages, root redirect, SEO metadata and required static assets.`);
+console.log(`Validated one SPA HTML document and ${expectedUrls} localized collection/detail URLs.`);
