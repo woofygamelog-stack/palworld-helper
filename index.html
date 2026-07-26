@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="/site.webmanifest" />
     <script>
-      (() => { const t = localStorage.getItem("pw-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; })();
+      (() => { const t = localStorage.getItem("pw-theme"); const mode = t === "light" || t === "dark" ? t : "system"; document.documentElement.dataset.theme = mode; const dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches); document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#071a31" : "#edf7f5"); })();
     </script>
     <title>Palworld Helper</title>
   </head>

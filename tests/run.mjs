@@ -148,4 +148,13 @@ assert.match(main,/\["\/map","\/pals","\/calculators","\/calculators\/breeding"\
 assert.match(main,/current==="\/map"\)ensureMapData/,"map marker data must load only on the map route");
 assert.doesNotMatch(main,/href\(\"\/privacy\"\)/,"privacy policy must not be exposed in the public UI");
 
-console.log("Passed 96 core safety, provenance, localization, search, loading, data, map and calculator assertions.");
+assert.match(main,/shellNavigation\.map\(item=>shellLink\(item\)\)/,"desktop navigation must use the shared shell route manifest");
+assert.match(main,/shellNavigation\.map\(item=>shellLink\(item,true\)\)/,"compact navigation must use the shared shell route manifest");
+assert.match(main,/aria-current="page"/,"the active shell destination must expose aria-current");
+assert.match(main,/id="global-search-dialog"/,"the shell must provide a global search dialog");
+assert.match(main,/ensureGlobalSearchData/,"global search must load Pal, item and skill data on demand");
+assert.match(main,/data-theme-choice/,"theme selection must expose explicit system, light and dark choices");
+assert.doesNotMatch(main,/trackEvent\([^\n]*(query|searchInput)/,"global search text must not be sent to analytics");
+assert.match(main,/meta\[name="theme-color"\]/,"theme changes must update the browser theme color");
+
+console.log("Passed 104 core safety, provenance, localization, shell, search, loading, data, map and calculator assertions.");
