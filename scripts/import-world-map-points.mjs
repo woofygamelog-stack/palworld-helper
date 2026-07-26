@@ -20,6 +20,8 @@ const icon={
 const actorSubtype=type=>type.replace(/^BP_/i,"").replace(/_C$/i,"");
 const keyOf=value=>value?.Key||"";
 const title=value=>value.replace(/_/g," ").replace(/([a-z])([A-Z])/g,"$1 $2").replace(/\b\w/g,letter=>letter.toUpperCase());
+const SURFACE_RESOURCE_MIN_Z=-20000;
+const surfaceResourceCategories=new Set(["ore","coal","sulfur","quartz"]);
 function publicSubtype(category,type){
   if(category==="egg"){const match=type.match(/palegg_(.+?)_grade_(\d+)/i);return match?`${title(match[1])} · Grade ${Number(match[2])}`:"Pal egg"}
   if(category==="skillFruit"){const match=type.match(/SkillFruits_(.+?)_C$/i);return match?title(match[1]):"Skill fruit tree"}
@@ -54,7 +56,7 @@ function classify(actor){
   return null;
 }
 const pointRows=[];let selected=0,parsed=0;
-for(const file of files){const chunk=JSON.parse(fs.readFileSync(path.join(chunks,file),"utf8"));selected+=chunk.selectedPackageCount;parsed+=chunk.parsedPackageCount;if(chunk.failedPackageCount!==0)throw new Error(`${file} contains failed world cells`);for(const actor of chunk.actors){const kind=classify(actor),x=Number(actor.location?.X),y=Number(actor.location?.Y),z=Number(actor.location?.Z);if(!kind||!Number.isFinite(x)||!Number.isFinite(y)||(x===0&&y===0))continue;const world=worlds.find(candidate=>x>=candidate.minX&&x<=candidate.maxX&&y>=candidate.minY&&y<=candidate.maxY);if(!world)continue;pointRows.push({worldId:world.id,...kind,icon:pointIcon(kind),x,y,...(Number.isFinite(z)?{z}: {})})}}
+for(const file of files){const chunk=JSON.parse(fs.readFileSync(path.join(chunks,file),"utf8"));selected+=chunk.selectedPackageCount;parsed+=chunk.parsedPackageCount;if(chunk.failedPackageCount!==0)throw new Error(`${file} contains failed world cells`);for(const actor of chunk.actors){const kind=classify(actor),x=Number(actor.location?.X),y=Number(actor.location?.Y),z=Number(actor.location?.Z);if(!kind||!Number.isFinite(x)||!Number.isFinite(y)||(x===0&&y===0))continue;if(surfaceResourceCategories.has(kind.category)&&(!Number.isFinite(z)||z<=SURFACE_RESOURCE_MIN_Z))continue;const world=worlds.find(candidate=>x>=candidate.minX&&x<=candidate.maxX&&y>=candidate.minY&&y<=candidate.maxY);if(!world)continue;pointRows.push({worldId:world.id,...kind,icon:pointIcon(kind),x,y,...(Number.isFinite(z)?{z}: {})})}}
 if(selected!==9977||parsed!==9977)throw new Error(`Incomplete cooked-world scan: selected ${selected}, parsed ${parsed}`);
 pointRows.sort((a,b)=>a.worldId.localeCompare(b.worldId)||a.category.localeCompare(b.category)||a.x-b.x||a.y-b.y||a.subtype.localeCompare(b.subtype));
 const points=pointRows.map((point,index)=>({id:`${point.category}-${index+1}`,...point}));
