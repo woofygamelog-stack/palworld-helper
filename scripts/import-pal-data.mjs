@@ -22,7 +22,7 @@ if (missingLocal.length) throw new Error(`IDs missing from local game export: ${
 const pals = [...db.Pals].sort((a,b) => a.InternalName.localeCompare(b.InternalName)).map((p,index) => ({
   i:index, id:p.InternalName, dex:p.Id.PalDexNo, variant:p.Id.IsVariant, names:Object.fromEntries(Object.entries(localeMap).map(([from,to]) => [to,p.LocalizedNames[from]])),
   power:p.BreedingPower, rarity:p.Rarity, size:p.Size, nocturnal:p.Nocturnal, hp:p.Hp, attack:p.Attack, defense:p.Defense,
-  work:p.WorkSuitability
+  work:p.WorkSuitability, guaranteedPassiveIds:p.GuaranteedPassivesInternalIds||[]
 }));
 const indexById = new Map(pals.map(p => [p.id,p.i]));
 const pairs = breeding.Breeding.map(row => {

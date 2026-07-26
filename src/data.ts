@@ -4,6 +4,17 @@ export const officialServerSettings = [
   {key:"bIsUseBackupSaveData",type:"boolean",defaultValue:true}
 ] as const;
 export function buildServerIni(input:{players:number;pvp:boolean;backup:boolean}):string { const values=[`ServerPlayerMaxNum=${Math.min(32,Math.max(1,Math.round(input.players)))}`,`bIsPvP=${input.pvp?"True":"False"}`,`bIsUseBackupSaveData=${input.backup?"True":"False"}`];return `[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(${values.join(",")})`; }
+export type ServerSettingsInput={players:number;pvp:boolean;backup:boolean};
+export function parseServerIni(text:string):{value:ServerSettingsInput;warnings:string[]}{
+  const warnings:string[]=[],match=text.match(/OptionSettings\s*=\s*\(([^)]*)\)/i),body=match?.[1]||text;
+  const pairs=new Map(body.split(",").map(part=>part.trim().split("=",2)).filter((pair):pair is [string,string]=>pair.length===2&&Boolean(pair[0])));
+  const known=new Set<string>(officialServerSettings.map(setting=>setting.key));
+  for(const key of pairs.keys())if(!known.has(key))warnings.push(`Unsupported key ignored: ${key}`);
+  const rawPlayers=Number(pairs.get("ServerPlayerMaxNum")??32),players=Number.isFinite(rawPlayers)?Math.round(rawPlayers):32;
+  if(!Number.isFinite(rawPlayers)||players<1||players>32)warnings.push("ServerPlayerMaxNum must be between 1 and 32.");
+  const parseBoolean=(key:string,fallback:boolean)=>{const raw=pairs.get(key);if(raw===undefined)return fallback;if(/^(true|1)$/i.test(raw))return true;if(/^(false|0)$/i.test(raw))return false;warnings.push(`${key} must be True or False.`);return fallback};
+  return {value:{players:Math.min(32,Math.max(1,players)),pvp:parseBoolean("bIsPvP",false),backup:parseBoolean("bIsUseBackupSaveData",true)},warnings};
+}
 export type Recipe={id:string;output:number;ingredients:Record<string,number>};
 export function expandRecipe(target:string,quantity:number,recipes:Record<string,Recipe>,owned:Record<string,number>={}){
   if(!target||!Number.isFinite(quantity)||quantity<=0)throw new Error("Invalid recipe target or quantity");
