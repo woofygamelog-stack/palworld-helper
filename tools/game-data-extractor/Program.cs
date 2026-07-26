@@ -54,6 +54,7 @@ Write("map.raw.json", DumpTable("Pal/Content/Pal/DataTable/WorldMapUIData/DT_Wor
 Write("boss-spawns.raw.json", DumpTable("Pal/Content/Pal/DataTable/UI/DT_BossSpawnerLoactionData"));
 Write("pal-spawner-placement.raw.json", DumpTable("Pal/Content/Pal/DataTable/Spawner/DT_PalSpawnerPlacement"));
 Write("pal-wild-spawners.raw.json", DumpTable("Pal/Content/Pal/DataTable/Spawner/DT_PalWildSpawner"));
+Write("pal-parameters.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalMonsterParameter"));
 
 var mapTable = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/WorldMapUIData/DT_WorldMapUIData");
 var mainMap = mapTable.RowMap.FirstOrDefault(row => row.Key.Text == "MainMap").Value
@@ -106,6 +107,32 @@ foreach (var asset in descriptionAssets)
 }
 localizedDescriptions["ja"] = DumpTextTable("Pal/Content/Pal/DataTable/Text/DT_ItemDescriptionText");
 Write("item-descriptions.raw.json", localizedDescriptions);
+Dictionary<string,Dictionary<string,string>> DumpLocalizedTextFamily(string commonFile, string japaneseAsset)
+{
+    var assets = provider.Files.Select(file => file.Key)
+        .Where(path => path.EndsWith($"/{commonFile}.uasset", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(path => path).ToList();
+    var result = new Dictionary<string,Dictionary<string,string>>();
+    foreach (var asset in assets)
+    {
+        var marker = "/L10N/";
+        var start = asset.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (start < 0) continue;
+        var lang = asset[(start + marker.Length)..].Split('/')[0];
+        result[lang] = DumpTextTable(asset[..^7]);
+    }
+    var japanesePath = provider.Files.Keys.FirstOrDefault(path => path.EndsWith($"/{Path.GetFileName(japaneseAsset)}.uasset", StringComparison.OrdinalIgnoreCase));
+    if (japanesePath is not null) result["ja"] = DumpTextTable(japanesePath[..^7]);
+    return result;
+}
+Write("skill-names.raw.json", DumpLocalizedTextFamily("DT_SkillNameText_Common", "Pal/Content/Pal/DataTable/Text/DT_SkillNameText"));
+Write("skill-descriptions.raw.json", DumpLocalizedTextFamily("DT_SkillDescText_Common", "Pal/Content/Pal/DataTable/Text/DT_SkillDescText"));
+Write("pal-long-descriptions.raw.json", DumpLocalizedTextFamily("DT_PalLongDescriptionText", "Pal/Content/Pal/DataTable/Text/DT_PalLongDescriptionText"));
+Write("pal-short-descriptions.raw.json", DumpLocalizedTextFamily("DT_PalShortDescriptionText", "Pal/Content/Pal/DataTable/Text/DT_PalShortDescriptionText"));
+Write("partner-skill-append.raw.json", DumpLocalizedTextFamily("DT_PartnerSkillAppendText", "Pal/Content/Pal/DataTable/Text/DT_PartnerSkillAppendText"));
+Write("skill-text-assets.raw.json", provider.Files.Keys.Where(path => path.Contains("Skill", StringComparison.OrdinalIgnoreCase) && path.Contains("Text", StringComparison.OrdinalIgnoreCase) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
+Write("text-assets.raw.json", provider.Files.Keys.Where(path => path.Contains("/DataTable/Text/", StringComparison.OrdinalIgnoreCase) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
+Write("map-point-assets.raw.json", provider.Files.Keys.Where(path => (path.Contains("FastTravel", StringComparison.OrdinalIgnoreCase) || path.Contains("WarpPoint", StringComparison.OrdinalIgnoreCase) || path.Contains("FastTravelPoint", StringComparison.OrdinalIgnoreCase)) && path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)).OrderBy(path => path).ToArray());
 var iconDirectory = Path.Combine(output, "item-icons");
 Directory.CreateDirectory(iconDirectory);
 var itemRows = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable").RowMap;
@@ -115,6 +142,14 @@ var textureFiles = provider.Files.Keys
     .OrderByDescending(path => path.StartsWith("Pal/Content/Others/InventoryItemIcon/Texture/", StringComparison.OrdinalIgnoreCase))
     .GroupBy(path => Path.GetFileNameWithoutExtension(path), StringComparer.OrdinalIgnoreCase)
     .ToDictionary(group => group.Key, group => group.First()[..^7], StringComparer.OrdinalIgnoreCase);
+var iconLikeTextures = provider.Files.Keys
+    .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+    .Where(path => Path.GetFileName(path).Contains("icon", StringComparison.OrdinalIgnoreCase))
+    .Select(path => path[..^7])
+    .OrderByDescending(path => path.Contains("InventoryItemIcon", StringComparison.OrdinalIgnoreCase))
+    .ThenBy(path => path)
+    .ToList();
+string NormalizeAssetName(string value) => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 var exportedIcons = 0;
 foreach (var row in itemRows)
 {
@@ -122,6 +157,11 @@ foreach (var row in itemRows)
     if (string.IsNullOrWhiteSpace(iconName) || iconName.Equals("None", StringComparison.OrdinalIgnoreCase)) continue;
     var candidates = new[] { $"t_itemicon_{iconName}", $"t_icon_item_{iconName}" };
     var assetPath = candidates.Select(candidate => textureFiles.GetValueOrDefault(candidate)).FirstOrDefault(path => path is not null);
+    if (assetPath is null)
+    {
+        var normalizedIcon = NormalizeAssetName(iconName);
+        assetPath = iconLikeTextures.FirstOrDefault(path => NormalizeAssetName(Path.GetFileName(path)).EndsWith(normalizedIcon, StringComparison.Ordinal));
+    }
     if (assetPath is null) continue;
     try
     {
