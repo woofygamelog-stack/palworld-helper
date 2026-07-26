@@ -20,5 +20,6 @@ for(const asset of ["data/pals.json","data/items.json","data/skills.json","asset
 for(const work of palData.workSuitabilities)await access(path.join(dist,work.icon.replace(/^\//,"")));
 if(palData.meta.palPortraitCount!==palData.pals.length||palData.pals.some(pal=>pal.image!==true))throw new Error("Every published Pal must retain its portrait manifest state");
 for(const pal of palData.pals)await access(path.join(dist,"assets","pals",`${pal.id}.png`));
+for(const pal of palData.pals)for(const description of Object.values(pal.descriptions))if(/<[^>]+>|Error_Code:|\||이\(가\)|은\(는\)|을\(를\)|과\(와\)/.test(description))throw new Error(`${pal.id} exposes unresolved game-runtime description markup`);
 const adsTxt=await readFile(path.join(dist,"ads.txt"),"utf8");if(adsTxt.trim()!=="google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0")throw new Error("ads.txt must contain the exact authorized account entry");
 console.log(`Validated ${expectedUrls} indexable URLs, one shared index.html and ${allFiles.length} deployed files.`);

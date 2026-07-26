@@ -61,6 +61,12 @@ assert.ok(palData.workSuitabilities.every(work=>Object.keys(work.names).length==
 for(const work of palData.workSuitabilities)await access(`public${work.icon}`);
 assert.equal(palData.pals.filter(pal=>pal.descriptions["en-US"]).length,296,"official English Paldeck long-description coverage must remain stable");
 assert.equal(palData.pals.filter(pal=>pal.descriptions["ko-KR"]).length,296,"official Korean Paldeck long-description coverage must remain stable");
+for(const pal of palData.pals)for(const description of Object.values(pal.descriptions)){
+  assert.doesNotMatch(description,/<[^>]+>|Error_Code:|\|/,`${pal.id} descriptions must not expose game-runtime markup`);
+}
+assert.ok(palData.pals.every(pal=>!/이\(가\)|은\(는\)|을\(를\)|과\(와\)/.test(pal.descriptions["ko-KR"])),"Korean Pal descriptions must resolve selectable particles");
+assert.match(palData.pals.find(pal=>pal.id==="PinkCat").descriptions["ko-KR"],/까부냥이 핥아/,"PinkCat description must resolve its localized name and Korean subject particle");
+assert.match(palData.pals.find(pal=>pal.id==="LilyQueen").descriptions["ko-KR"],/태양 폭발/,"active-skill markup must resolve to the official localized skill name");
 assert.match(main,/category==="habitat"\?!!habitatSelect\?\.value/,"selected Pal habitats must remain enabled independently from point layers");
 const byId=new Map(palData.pals.map(p=>[p.id,p.i]));
 assert.equal(findBreedingResult(palData.pairs,byId.get("Anubis"),byId.get("Anubis"),"WILDCARD","WILDCARD"),byId.get("Anubis"),"Anubis self-pair golden case must pass");

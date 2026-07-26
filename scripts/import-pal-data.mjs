@@ -9,11 +9,12 @@ const extractedRoot = process.env.PAL_EXTRACTED_SOURCE || path.join(root, "priva
 const gameBuild = process.env.PAL_GAME_BUILD || "24181527";
 const dbPath = path.join(sourceRoot, "PalCalc.Model", "db.json");
 const breedingPath = path.join(sourceRoot, "PalCalc.Model", "breeding.json");
-const [dbBytes, breedingBytes, localBytes, longDescriptionBytes, shortDescriptionBytes, uiCommonBytes] = await Promise.all([
+const [dbBytes, breedingBytes, localBytes, longDescriptionBytes, shortDescriptionBytes, uiCommonBytes, skillNameBytes] = await Promise.all([
   readFile(dbPath), readFile(breedingPath), readFile(localExport),
   readFile(path.join(extractedRoot,"pal-long-descriptions.raw.json")),
   readFile(path.join(extractedRoot,"pal-short-descriptions.raw.json")),
-  readFile(path.join(extractedRoot,"ui-common.raw.json"))
+  readFile(path.join(extractedRoot,"ui-common.raw.json")),
+  readFile(path.join(extractedRoot,"skill-names.raw.json"))
 ]);
 const db = JSON.parse(dbBytes.toString("utf8"));
 const breeding = JSON.parse(breedingBytes.toString("utf8"));
@@ -21,10 +22,25 @@ const localNameMap = new Set(JSON.parse(localBytes.toString("utf8")).NameMap || 
 const longDescriptions = JSON.parse(longDescriptionBytes.toString("utf8"));
 const shortDescriptions = JSON.parse(shortDescriptionBytes.toString("utf8"));
 const uiCommon = JSON.parse(uiCommonBytes.toString("utf8"));
+const skillNames = JSON.parse(skillNameBytes.toString("utf8"));
 const localeMap = { de:"de-DE", en:"en-US", "es-MX":"es-419", es:"es-ES", fr:"fr-FR", id:"id-ID", it:"it-IT", ko:"ko-KR", pl:"pl-PL", "pt-BR":"pt-BR", ru:"ru-RU", th:"th-TH", tr:"tr-TR", vi:"vi-VN", "zh-Hans":"zh-CN", "zh-Hant":"zh-TW", ja:"ja-JP" };
 const localizedExtracted=(tables,key)=>Object.fromEntries(Object.entries(localeMap).map(([from,to])=>[to,tables[from]?.[key]||tables.en?.[key]||""]));
 const workSuitabilityKeys={Kindling:"EmitFlame",Watering:"Watering",Planting:"Seeding",GenerateElectricity:"GenerateElectricity",Handiwork:"Handcraft",Gathering:"Collection",Lumbering:"Deforest",Mining:"Mining",MedicineProduction:"ProductMedicine",Cooling:"Cool",Transporting:"Transport",Farming:"MonsterFarm"};
 const workSuitabilities=Object.entries(workSuitabilityKeys).map(([id,key])=>({id,names:localizedExtracted(uiCommon,`COMMON_WORK_SUITABILITY_${key}`),icon:`/assets/work-suitability/${id}.webp`}));
+const characterAliases={GhostAnglerFish:"GhostAnglerfish",GhostAnglerFish_Fire:"GhostAnglerfish_Fire",Mothmon:"Mothman",SnowTigerBeastMan:"SnowTigerBeastman"};
+const palSourceById=new Map(db.Pals.map(pal=>[pal.InternalName,pal]));
+const hasKoreanFinalConsonant=value=>{const character=[...value].at(-1)||"",code=character.charCodeAt(0);return code>=0xac00&&code<=0xd7a3&&(code-0xac00)%28!==0};
+const resolveKoreanParticles=value=>value.replace(/([가-힣]+)(이\(가\)|은\(는\)|을\(를\)|과\(와\))/g,(_,word,particle)=>{const final=hasKoreanFinalConsonant(word),forms={"이(가)":["이","가"],"은(는)":["은","는"],"을(를)":["을","를"],"과(와)":["과","와"]};return `${word}${forms[particle][final?0:1]}`});
+const normalizeDescription=(value,sourceLocale)=>{
+  let normalized=value.split(/\r?\n/).filter(line=>!line.includes("Error_Code:126DC")).join("\n");
+  normalized=normalized.replace(/<characterName id=\|([^|]+)\|\/>/g,(_,rawId)=>{const id=characterAliases[rawId]||rawId,pal=palSourceById.get(id);if(!pal)throw new Error(`Unknown character-name reference: ${rawId}`);return pal.LocalizedNames[sourceLocale]||pal.LocalizedNames.en||id});
+  normalized=normalized.replace(/<activeSkillName id=\|([^|]+)\|\/>/g,(_,id)=>skillNames[sourceLocale]?.[`ACTION_SKILL_${id}`]||skillNames.en?.[`ACTION_SKILL_${id}`]||id);
+  normalized=normalized.replace(/\|/g,"").replace(/[ \t]+\n/g,"\n").trim();
+  if(sourceLocale==="ko")normalized=resolveKoreanParticles(normalized);
+  if(/<[^>]+>|Error_Code:|\|/.test(normalized))throw new Error(`Unresolved description markup in ${sourceLocale}: ${normalized}`);
+  return normalized;
+};
+const localizedDescription=key=>Object.fromEntries(Object.entries(localeMap).map(([from,to])=>[to,normalizeDescription(longDescriptions[from]?.[key]||longDescriptions.en?.[key]||"",from)]));
 
 if (db.Pals.length < 250) throw new Error(`Unexpected Pal count: ${db.Pals.length}`);
 if (breeding.Breeding.length < 30000) throw new Error(`Unexpected breeding row count: ${breeding.Breeding.length}`);
@@ -33,7 +49,7 @@ if (missingLocal.length) throw new Error(`IDs missing from local game export: ${
 
 const pals = [...db.Pals].sort((a,b) => a.InternalName.localeCompare(b.InternalName)).map((p,index) => ({
   i:index, id:p.InternalName, dex:p.Id.PalDexNo, variant:p.Id.IsVariant, names:Object.fromEntries(Object.entries(localeMap).map(([from,to]) => [to,p.LocalizedNames[from]])),
-  descriptions:localizedExtracted(longDescriptions,`PAL_LONG_DESC_${p.InternalName}`), shortDescriptions:localizedExtracted(shortDescriptions,`PAL_SHORT_DESC_${p.InternalName}`),
+  descriptions:localizedDescription(`PAL_LONG_DESC_${p.InternalName}`), shortDescriptions:localizedExtracted(shortDescriptions,`PAL_SHORT_DESC_${p.InternalName}`),
   power:p.BreedingPower, rarity:p.Rarity, size:p.Size, nocturnal:p.Nocturnal, hp:p.Hp, attack:p.Attack, defense:p.Defense,
   work:p.WorkSuitability, guaranteedPassiveIds:p.GuaranteedPassivesInternalIds||[]
 }));
