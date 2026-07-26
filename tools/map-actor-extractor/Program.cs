@@ -43,7 +43,8 @@ var keywords = new[]
     "FastTravelPoint", "TowerFastTravel", "WarpAltar", "DungeonEntrance", "DungeonPortal", "DungeonExit", "DungeonFixedEntrance", "SealArea",
     "Bounty", "Wanted", "NPCSpawner", "Merchant", "Trader", "TreasureBoxSpawner", "ItemChest",
     "PalEgg", "Lifmunk", "Effigy", "SkillFruit", "MapObjectSpawner", "ResourceSpawner",
-    "OreSpawner", "Coal", "Sulfur", "Quartz", "OilField", "Paldium", "Berry", "Mushroom", "MonoNPCSpawner"
+    "OreSpawner", "Coal", "Sulfur", "Quartz", "OilField", "Paldium", "Berry", "Mushroom", "MonoNPCSpawner",
+    "FishingSpot", "RandomIncidentSpawner", "Statue", "Lifmunk", "ItemPickupTower", "PalLevelObject"
 };
 var typeCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 var actors = new List<object>();
@@ -59,6 +60,7 @@ foreach (var mapPackage in selected)
         parsed++;
         foreach (var actorIndex in level.Actors)
         {
+            if (actorIndex is null) continue;
             var actor = actorIndex.Load<AActor>();
             if (actor is null) continue;
             var actorType = actor.ExportType ?? "Unknown";

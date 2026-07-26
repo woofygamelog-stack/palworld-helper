@@ -5,7 +5,8 @@ const pointData=JSON.parse(fs.readFileSync("public/data/map-points.json","utf8")
 const worldById=new Map(data.worlds.map(world=>[world.id,world]));
 if(pointData.points.length!==Object.values(pointData.counts).reduce((sum,count)=>sum+count,0))throw new Error("Map point count mismatch");
 const pointIds=new Set();
-for(const point of pointData.points){const world=worldById.get(point.worldId);if(!world)throw new Error(`Unknown point world ${point.id}`);if(point.x<world.minX||point.x>world.maxX||point.y<world.minY||point.y>world.maxY)throw new Error(`Out-of-bounds point ${point.id}`);if(pointIds.has(point.id))throw new Error(`Duplicate point ${point.id}`);pointIds.add(point.id)}
+for(const point of pointData.points){const world=worldById.get(point.worldId);if(!world)throw new Error(`Unknown point world ${point.id}`);if(point.x<world.minX||point.x>world.maxX||point.y<world.minY||point.y>world.maxY)throw new Error(`Out-of-bounds point ${point.id}`);if(pointIds.has(point.id))throw new Error(`Duplicate point ${point.id}`);if(!point.icon?.startsWith("/assets/")||!fs.existsSync(`public${point.icon}`))throw new Error(`Missing point icon ${point.id}`);if(/BP_|_C$|Spawner|LevelObject/i.test(point.subtype))throw new Error(`Internal actor type leaked through ${point.id}`);pointIds.add(point.id)}
+for(const [category,count] of Object.entries({redBerry:1939,mushroom:274,oil:185,egg:1816,skillFruit:47,merchant:16,palMerchant:6,fishing:546,randomEvent:87,dungeon:31,bounty:24,collectibleShrine:104,palStatue:11}))if(pointData.counts[category]!==count)throw new Error(`Unexpected ${category} count ${pointData.counts[category]}`);
 const fail=message=>{throw new Error(`Map validation failed: ${message}`)};
 if(data.meta.gameBuild!=="24181527")fail("unexpected game build");
 if(data.meta.bossCount!==data.bosses.length||data.meta.habitatCount!==data.habitats.length)fail("metadata count mismatch");
