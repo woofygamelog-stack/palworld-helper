@@ -160,6 +160,10 @@ unambiguousRecipes[selectedMega.productId]={id:selectedMega.id,output:selectedMe
 assert.deepEqual(expandRecipe("PalSphere_Mega",1,unambiguousRecipes),{CopperOre:2,Pal_crystal_S:1,Stone:3,Wood:3},"Mega Sphere expanded BOM must match verified recipes while stopping at ambiguous recipe boundaries");
 assert.deepEqual(expandRecipe("PalSphere_Mega",10,unambiguousRecipes,{Wood:10,Stone:10,CopperIngot:2}),{CopperOre:16,Pal_crystal_S:10,Stone:20,Wood:20},"Mega Sphere owned-material golden case must consume stock once and expand the remainder");
 assert.match(main,/recipeCounts\.get\(recipe\.productId\)===1/,"recursive crafting must not guess among ambiguous intermediate recipes");
+assert.match(main,/function enhancePalSelect/,"breeding Pal selectors must use an image-capable searchable combobox");
+assert.match(main,/class=\"pair-card\"/,"reverse breeding results must render image-capable Pal pair cards");
+assert.match(main,/data-dynamic-link/,"dynamically rendered breeding results must support client-side detail navigation");
+assert.match(main,/palVisual\(pal,"result"\)/,"forward breeding results must render a Pal image card");
 assert.match(main,/\["\/map","\/database","\/calculators\/crafting"\]\.includes\(current\).*ensureItemData/,"item data must load only on routes that use it");
 assert.match(main,/\["\/map","\/pals","\/calculators","\/calculators\/breeding"\]\.includes\(current\).*ensurePalData/,"Pal data must load only on routes that use it");
 assert.match(main,/current==="\/map"\)ensureMapData/,"map marker data must load only on the map route");
