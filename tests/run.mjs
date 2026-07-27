@@ -133,6 +133,8 @@ assert.equal(skillData.meta.gameBuild,"24181527","skill data must match the veri
 assert.equal(skillData.elements.length,9,"all nine game elements must be published");
 assert.equal(skillData.activeSkills.length,320,"active skill count must remain stable for this source revision");
 assert.equal(skillData.passiveSkills.length,115,"only displayable standard passive skills with descriptions must be published");
+assert.ok(skillData.passiveSkills.every(skill=>Object.keys(skill.descriptions).length===17&&Object.values(skill.descriptions).every(description=>description.trim().length>0)),"every passive skill must publish all 17 official localized descriptions");
+assert.ok(skillData.passiveSkills.every(skill=>[-3,-2,-1,1,2,3,4,5].includes(skill.rank)),"every passive skill must map to an extracted rank icon");
 assert.ok(skillData.elements.every(element=>Object.keys(element.names).length===17),"every element must have all supported localized names");
 assert.ok(skillData.activeSkills.every(skill=>skillData.elements.some(element=>element.id===skill.elementId)),"every active skill must reference a published element");
 assert.ok(palData.pals.every(pal=>Array.isArray(pal.guaranteedPassiveIds)),"every Pal must expose a deterministic guaranteed-passive list");
