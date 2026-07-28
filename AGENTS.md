@@ -81,6 +81,7 @@
 - Generate collection routes and implemented entity detail routes from one typed route manifest shared by client routing, metadata, internal linking, sitemap generation, and built-output verification. Verify sitemap URL count from route/entity counts separately from physical HTML file count.
 - Keep Search Console and AdSense account meta tags in the shared SPA document. Verify `/ads.txt` exactly, not just its existence.
 - SPA page views are navigation events, not render events. Lazy Pal/item data loads and rerenders on the same pathname must not emit another page view; a page viewed before consent may be emitted once immediately after consent.
+- Treat Analytics deduplication state as proof of successful queue handoff. Do not mark a page or one-shot event as tracked before the sender exists and accepts it. Require an execution-order regression test for clean storage, consent grant, sender initialization, first page delivery, same-path rerender silence, and the next pathname delivery; source-pattern assertions alone are insufficient.
 
 ## Current verified baselines
 

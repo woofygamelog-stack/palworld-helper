@@ -90,6 +90,7 @@ For this project:
 - Do not add dynamic Cloudflare services or deploy production without explicit authorization.
 - Keep Search Console and AdSense meta declarations in the root redirect as well as localized HTML. Verify the common-account `ads.txt` contents exactly in the production artifact.
 - Emit SPA page views only when the pathname changes, except for the one current-page event allowed immediately after consent; data-load rerenders must remain silent.
+- Treat Analytics tracking state as successful queue handoff state. Never set the last-page or one-shot-event marker before the sender exists and accepts the event. Regression-test the actual consent-to-initialization sequence, including first delivery, same-path rerender deduplication, and the next pathname navigation; static source matching alone is insufficient.
 - Use `https://palworld-helper.woofy.blog` as the production origin. Fail built-output validation when `.example` or another unintended origin appears in canonical, hreflang, Open Graph, sitemap, robots, or structured data.
 
 ## Implement server and capture tooling

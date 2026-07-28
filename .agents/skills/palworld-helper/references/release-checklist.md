@@ -67,6 +67,8 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Root redirect and localized documents contain required ownership/account meta declarations.
 - [ ] Built `/ads.txt` exactly matches the authorized common-account line.
 - [ ] SPA data rerenders do not duplicate page views, and consent can trigger the current page once.
+- [ ] Analytics deduplication markers change only after a successful queue handoff; missing or failed senders leave the page/event eligible for retry.
+- [ ] An execution-order test covers clean storage → consent grant → sender initialization → one current-page event → same-path rerender silence → one event after pathname change; source-pattern assertions are not the only coverage.
 - [ ] Every absolute production URL uses `https://palworld-helper.woofy.blog`; placeholder `.example` domains fail the build.
 - [ ] Static generation, canonical/hreflang metadata, internal links, sitemap, and built-output checks consume one shared collection/detail route manifest.
 - [ ] Route families are explicitly classified as static, prerendered, client, or hybrid; sitemap URLs, physical HTML documents, and meaningful initial-HTML coverage are reported separately.

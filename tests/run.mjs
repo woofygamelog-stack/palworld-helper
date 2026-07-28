@@ -4,6 +4,7 @@ import { findBreedingResult, findParentPairs } from "../src/breeding.ts";
 import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts";
 import { resolveLocale } from "../src/config.ts";
 import { expandRecipe, parseServerIni } from "../src/data.ts";
+import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -46,11 +47,36 @@ assert.equal(wranglerConfig.assets?.not_found_handling,"single-page-application"
 assert.match(main,/history\.replaceState\(\{\},"",localizePath\(locale,location\.pathname\)\)/,"unprefixed entry routes must normalize to the selected locale without another HTML document");
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
 assert.match(main, /send_page_view:false/, "SPA analytics must disable automatic page views to prevent duplicates");
-assert.match(main, /trackEvent\("page_view",\{page_path:pagePath,locale\}\)/, "SPA navigation must emit a sanitized page view");
-assert.match(main, /if\(trackEvent\("page_view",\{page_path:pagePath,locale\}\)\)lastTrackedPage=pagePath/, "a page must be marked tracked only after it reaches the Analytics queue");
-assert.doesNotMatch(main, /lastTrackedPage=pagePath;trackEvent\("page_view"/, "consent-time rendering must not discard the first page view before Analytics initializes");
+assert.match(main, /installGtagQueue\(win\)/, "Analytics must install the official command queue before loading gtag.js");
+assert.doesNotMatch(main, /gtag=\(\.\.\.args\)=>/, "Analytics must not queue ordinary arrays in place of Arguments commands");
 assert.match(main, /collection_search",\{collection:/, "collection search may emit only a stable collection identifier");
 assert.doesNotMatch(main, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
+
+let analyticsConsent=false;
+let analyticsPath="/en-US";
+let analyticsLocale="en-US";
+const analyticsTarget={};
+const analytics=createAnalyticsTracker({
+  consentGranted:()=>analyticsConsent,
+  currentPath:()=>analyticsPath,
+  currentLocale:()=>analyticsLocale,
+  sender:()=>analyticsTarget.gtag
+});
+assert.equal(analytics.trackPageView(),false,"Analytics must not track before consent");
+analyticsConsent=true;
+assert.equal(analytics.trackPageView(),false,"Analytics must not consume the page before the sender is initialized");
+installGtagQueue(analyticsTarget);
+analyticsTarget.gtag("js",new Date(0));
+analyticsTarget.gtag("config","G-FF7N186M72",{send_page_view:false});
+assert.equal(analytics.trackPageView(),true,"consent initialization must emit the current page once");
+assert.equal(analytics.trackPageView(),false,"same-path rerenders must not emit another page view");
+analyticsPath="/en-US/pals";
+assert.equal(analytics.trackPageView(),true,"a pathname change must emit one new page view");
+assert.deepEqual(analyticsTarget.dataLayer.map(command=>Object.prototype.toString.call(command)),[
+  "[object Arguments]","[object Arguments]","[object Arguments]","[object Arguments]"
+],"every Google tag command must use an Arguments object");
+assert.deepEqual(Array.from(analyticsTarget.dataLayer[2]),["event","page_view",{page_path:"/en-US",locale:"en-US"}],"the first consented page view must be queued with sanitized fields");
+assert.deepEqual(Array.from(analyticsTarget.dataLayer[3]),["event","page_view",{page_path:"/en-US/pals",locale:"en-US"}],"SPA navigation must queue exactly one new page view");
 assert.match(main, /fetch\("\/data\/pals\.json"\)/, "verified static Pal data must load from the same origin");
 assert.equal(palData.meta.palCount, 299, "verified Pal count must remain stable for this game build");
 assert.equal(palData.meta.palPortraitCount, palData.meta.palCount, "every published Pal must have a verified portrait");
