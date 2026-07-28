@@ -5,6 +5,7 @@ import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts
 import { resolveLocale } from "../src/config.ts";
 import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
+import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -107,6 +108,16 @@ assert.equal(itemData.meta.gameBuild,"24181527","item data must match the verifi
 assert.equal(itemData.items.length,1891,"only legal in-game items from this build must be published");
 assert.equal(itemData.recipes.length,1286,"every recipe with legal product and ingredient references must be published");
 assert.equal(itemData.meta.localeCount,17,"official item names must cover all supported interface locales");
+assert.equal(itemCategoryProvenance,"gpt","site-owned item category translations must record their provenance");
+assert.deepEqual([...new Set(itemData.items.map(item=>item.type))].sort(),[...itemCategories].sort(),"every extracted item category must have a localized UI mapping");
+for(const locale of Object.keys(messageCatalogs)){
+  assert.ok(itemCategoryFieldLabels[locale],`${locale} must localize the item category field label`);
+  assert.ok(itemCategories.every(category=>itemCategoryLabel(category,locale)),`${locale} must localize every item category`);
+}
+assert.equal(itemCategoryLabel("Armor","ko-KR"),"방어구","Korean armor category must be localized");
+assert.equal(itemCategoryLabel("Blueprint","ko-KR"),"설계도","Korean schematic category must be localized");
+assert.doesNotMatch(main,/item-card[^\n]*<code>\$\{esc\(item\.id\)\}/,"item cards must not expose internal item IDs");
+assert.doesNotMatch(main,/<span>\$\{esc\(item\.subtype\)\}<\/span>/,"item cards and details must not expose raw subtype enums");
 assert.equal(itemData.meta.blueprintTargetCount,475,"every legal blueprint unlock relationship in the extracted recipe table must be retained");
 assert.equal(itemData.meta.unavailableUnlockItem,1,"the one recipe referencing an unavailable blueprint must remain explicit");
 assert.equal(itemData.items.find(item=>item.id==="Blueprint_Accessory_AT_1_2")?.unlocksItemId,"Accessory_AT_1","blueprint target links must come from the official UnlockItemID recipe field");
@@ -192,7 +203,7 @@ assert.deepEqual(expandRecipe("A",1,convergingRecipes,{A:1}),{},"owned target pr
 assert.throws(()=>expandRecipe("A",1,{A:{id:"A",output:1,ingredients:{B:1}},B:{id:"B",output:1,ingredients:{A:1}}}),/Recipe cycle/,"recipe cycles must fail closed");
 assert.throws(()=>expandRecipe("A",0,convergingRecipes),/Invalid recipe target or quantity/,"zero target quantity must be rejected");
 assert.throws(()=>expandRecipe("A",1,{A:{id:"A",output:0,ingredients:{E:1}}}),/Invalid recipe output/,"non-positive recipe output must be rejected");
-assert.match(main,/\[\$\{esc\(recipe\.id\)\}\]/,"recipe selector must distinguish products with multiple recipe rows");
+assert.match(main,/totals\.get\(recipe\.productId\).*number.*totals\.get\(recipe\.productId\)/,"recipe selector must distinguish multiple recipe rows without exposing recipe IDs");
 const productRecipeCounts=new Map();
 for(const recipe of itemData.recipes)productRecipeCounts.set(recipe.productId,(productRecipeCounts.get(recipe.productId)||0)+1);
 const selectedMega=itemData.recipes.find(recipe=>recipe.id==="PalSphere_Mega");
