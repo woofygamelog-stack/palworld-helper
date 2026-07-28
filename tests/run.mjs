@@ -10,6 +10,7 @@ import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategor
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
 const featureStyles = await readFile("src/features.css", "utf8");
+const styles = await readFile("src/styles.css", "utf8");
 const config = await readFile("src/config.ts", "utf8");
 const indexHtml = await readFile("index.html", "utf8");
 const adsTxt = await readFile("public/ads.txt", "utf8");
@@ -118,6 +119,9 @@ assert.equal(itemCategoryLabel("Armor","ko-KR"),"방어구","Korean armor catego
 assert.equal(itemCategoryLabel("Blueprint","ko-KR"),"설계도","Korean schematic category must be localized");
 assert.doesNotMatch(main,/item-card[^\n]*<code>\$\{esc\(item\.id\)\}/,"item cards must not expose internal item IDs");
 assert.doesNotMatch(main,/<span>\$\{esc\(item\.subtype\)\}<\/span>/,"item cards and details must not expose raw subtype enums");
+assert.match(styles,/\.item-card\{display:flex;flex-direction:column;/,"item cards must keep their header, category and stats in a stable vertical flow");
+assert.match(styles,/\.item-categories\{[^}]*margin:\.75rem 0 1rem/,"item categories must have visible separation from the item image and stats");
+assert.match(styles,/\.item-stats\{[^}]*margin:auto 0 0/,"item stats must stay aligned at the bottom across one-line and wrapped item names");
 assert.equal(itemData.meta.blueprintTargetCount,475,"every legal blueprint unlock relationship in the extracted recipe table must be retained");
 assert.equal(itemData.meta.unavailableUnlockItem,1,"the one recipe referencing an unavailable blueprint must remain explicit");
 assert.equal(itemData.items.find(item=>item.id==="Blueprint_Accessory_AT_1_2")?.unlocksItemId,"Accessory_AT_1","blueprint target links must come from the official UnlockItemID recipe field");
