@@ -55,6 +55,9 @@
 - Do not send raw search text or other free-form input to analytics.
 - Preserve useful filter/calculator state in shareable URLs when appropriate, but exclude transient state from canonical URLs and sitemaps.
 - Support `light`, `dark`, and `system`, defaulting to `system` until the user explicitly chooses. Apply the effective theme before first paint and persist only explicit choices.
+- Keep every internal page header, including collection, entity-detail, skill, calculator, map, server-tool, and placeholder routes, limited to the verified-dataset eyebrow and one `h1`. Do not render descriptive paragraphs, lore, category labels, or usage instructions inside the page-header region. The home page's marketing hero is the only exception unless the user explicitly changes this product rule.
+- Keep visible descriptions where they are useful, but place entity lore and facts inside the detail content and place calculator, map, and server instructions beside the controls they explain. Do not duplicate that copy in the page header. Preserve localized SEO descriptions through metadata even when the corresponding text is intentionally absent from the visible header.
+- Treat the internal-header structure as a shared component contract and cover it with a regression test so a route cannot reintroduce a header description by passing additional copy.
 - Use semantic controls, headings, labels, tables, visible focus, non-color state cues, and minimum 44×44 CSS pixel touch targets.
 - Make maps keyboard operable and provide an equivalent searchable/list representation of markers.
 - Sort the Pal collection by official Paldeck number by default, placing variants deterministically with their base number. This project-specific product rule overrides the general localized-name sorting default for the Pal collection; localized collation still applies to explicitly name-sorted views and equal-name tie-breaking.
