@@ -259,46 +259,82 @@ Directory.CreateDirectory(iconDirectory);
 var itemRows = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable").RowMap;
 var textureFiles = provider.Files.Keys
     .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
-    .Where(path => Path.GetFileName(path).StartsWith("T_itemicon_", StringComparison.OrdinalIgnoreCase) || Path.GetFileName(path).StartsWith("T_icon_item_", StringComparison.OrdinalIgnoreCase))
-    .OrderByDescending(path => path.StartsWith("Pal/Content/Others/InventoryItemIcon/Texture/", StringComparison.OrdinalIgnoreCase))
-    .GroupBy(path => Path.GetFileNameWithoutExtension(path), StringComparer.OrdinalIgnoreCase)
-    .ToDictionary(group => group.Key, group => group.First()[..^7], StringComparer.OrdinalIgnoreCase);
-var iconLikeTextures = provider.Files.Keys
-    .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
-    .Where(path => Path.GetFileName(path).Contains("icon", StringComparison.OrdinalIgnoreCase))
     .Select(path => path[..^7])
-    .OrderByDescending(path => path.Contains("InventoryItemIcon", StringComparison.OrdinalIgnoreCase))
+    .OrderByDescending(path => path.Contains("InventoryItemIcon/Texture", StringComparison.OrdinalIgnoreCase))
+    .ThenByDescending(path => path.Contains("InventoryItemIcon", StringComparison.OrdinalIgnoreCase))
+    .ThenByDescending(path => path.Contains("Texture/UI", StringComparison.OrdinalIgnoreCase))
     .ThenBy(path => path)
     .ToList();
 string NormalizeAssetName(string value) => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+var textureNames = textureFiles
+    .GroupBy(path => NormalizeAssetName(Path.GetFileName(path)), StringComparer.Ordinal)
+    .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
+var decodedIcons = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+var iconSources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+var unresolvedIcons = new List<object>();
+var decodeFailures = new List<object>();
+foreach (var iconName in itemRows.Values
+    .Select(row => row.Get<FName>("IconName").Text)
+    .Where(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("None", StringComparison.OrdinalIgnoreCase))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
+{
+    var normalizedIcon = NormalizeAssetName(iconName);
+    var candidateNames = new[]
+    {
+        normalizedIcon,
+        NormalizeAssetName($"T_itemicon_{iconName}"),
+        NormalizeAssetName($"T_icon_item_{iconName}"),
+        NormalizeAssetName($"T_icon_{iconName}"),
+        NormalizeAssetName($"T_{iconName}")
+    }.Distinct(StringComparer.Ordinal);
+    var candidates = candidateNames
+        .SelectMany(name => textureNames.GetValueOrDefault(name) ?? [])
+        .Concat(textureFiles.Where(path => NormalizeAssetName(Path.GetFileName(path)).EndsWith(normalizedIcon, StringComparison.Ordinal)))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    if (candidates.Length == 0)
+    {
+        unresolvedIcons.Add(new { iconName, reason = "no candidate texture" });
+        continue;
+    }
+    Exception? lastError = null;
+    foreach (var assetPath in candidates)
+    {
+        try
+        {
+            var texture = provider.LoadPackageObject<UTexture2D>(assetPath);
+            using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
+            if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0) continue;
+            using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 82);
+            using var stream = new MemoryStream();
+            encoded.SaveTo(stream);
+            if (stream.Length == 0) continue;
+            decodedIcons[iconName] = stream.ToArray();
+            iconSources[iconName] = assetPath;
+            break;
+        }
+        catch (Exception error) { lastError = error; }
+    }
+    if (!decodedIcons.ContainsKey(iconName))
+        decodeFailures.Add(new { iconName, candidates, error = lastError?.Message ?? "all candidates failed to decode" });
+}
+var expectedItemIcons = itemRows.Count(row => row.Value.Get<bool>("bLegalInGame"));
 var exportedIcons = 0;
-foreach (var row in itemRows)
+foreach (var row in itemRows.Where(row => row.Value.Get<bool>("bLegalInGame")))
 {
     var iconName = row.Value.Get<FName>("IconName").Text;
-    if (string.IsNullOrWhiteSpace(iconName) || iconName.Equals("None", StringComparison.OrdinalIgnoreCase)) continue;
-    var candidates = new[] { $"t_itemicon_{iconName}", $"t_icon_item_{iconName}" };
-    var assetPath = candidates.Select(candidate => textureFiles.GetValueOrDefault(candidate)).FirstOrDefault(path => path is not null);
-    if (assetPath is null)
+    if (!decodedIcons.TryGetValue(iconName, out var bytes))
     {
-        var normalizedIcon = NormalizeAssetName(iconName);
-        assetPath = iconLikeTextures.FirstOrDefault(path => NormalizeAssetName(Path.GetFileName(path)).EndsWith(normalizedIcon, StringComparison.Ordinal));
+        unresolvedIcons.Add(new { itemId = row.Key.Text, iconName, reason = "legal item has no decoded icon" });
+        continue;
     }
-    if (assetPath is null) continue;
-    try
-    {
-        var texture = provider.LoadPackageObject<UTexture2D>(assetPath);
-        using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
-        if (bitmap is null) continue;
-        using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 82);
-        using var target = File.Create(Path.Combine(iconDirectory, $"{row.Key.Text}.webp"));
-        encoded.SaveTo(target);
-        exportedIcons++;
-    }
-    catch (Exception error)
-    {
-        Console.Error.WriteLine($"Could not export item icon {row.Key.Text}: {error.Message}");
-    }
+    File.WriteAllBytes(Path.Combine(iconDirectory, $"{row.Key.Text}.webp"), bytes);
+    exportedIcons++;
 }
-Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), itemDescriptions = localizedDescriptions.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons, mapIcons=exportedMapIcons, workSuitabilityIcons=exportedWorkSuitabilityIcons } });
+Write("item-icon-sources.raw.json", new { schema = 1, itemCount = expectedItemIcons, exportedIcons, iconSources, unresolvedIcons, decodeFailures });
+Write("manifest.json", new { schema = 1, extractedAt = DateTimeOffset.UtcNow, tableCounts = new { itemNames = localizedNames.ToDictionary(x=>x.Key,x=>x.Value.Count), itemDescriptions = localizedDescriptions.ToDictionary(x=>x.Key,x=>x.Value.Count), localeCount=localizedNames.Count, itemIcons=exportedIcons, expectedItemIcons, mapIcons=exportedMapIcons, workSuitabilityIcons=exportedWorkSuitabilityIcons } });
+if (exportedIcons != expectedItemIcons)
+    throw new InvalidDataException($"Item icon coverage is incomplete: {exportedIcons}/{expectedItemIcons}. See item-icon-sources.raw.json.");
 Console.WriteLine($"Extracted tables and {localizedNames.Count} item-name locales to {output}");
 return 0;

@@ -15,6 +15,7 @@ const adsTxt = await readFile("public/ads.txt", "utf8");
 const wranglerConfig = JSON.parse((await readFile("wrangler.jsonc", "utf8")).replace(/^\s*\/\/.*$/gm,""));
 const palData = JSON.parse(await readFile("public/data/pals.json", "utf8"));
 const itemData = JSON.parse(await readFile("public/data/items.json", "utf8"));
+const imageManifest = JSON.parse(await readFile("public/assets/image-manifest.json", "utf8"));
 const skillData = JSON.parse(await readFile("public/data/skills.json", "utf8"));
 const mapImage = await readFile("public/assets/world-map.webp");
 
@@ -106,6 +107,12 @@ assert.equal(itemData.meta.gameBuild,"24181527","item data must match the verifi
 assert.equal(itemData.items.length,1891,"only legal in-game items from this build must be published");
 assert.equal(itemData.recipes.length,1286,"every recipe with legal product and ingredient references must be published");
 assert.equal(itemData.meta.localeCount,17,"official item names must cover all supported interface locales");
+assert.equal(imageManifest.gameBuild,itemData.meta.gameBuild,"image manifest must match the item data build");
+assert.equal(imageManifest.itemCount,itemData.items.length,"every legal item must have a published icon");
+assert.equal(imageManifest.expectedItemCount,itemData.items.length,"image manifest must record the complete expected item set");
+assert.equal(imageManifest.missingItemCount,0,"published item icon coverage must have no gaps");
+assert.ok(itemData.items.every(item=>item.image===true),"every legal item must carry a verified image flag");
+for(const item of itemData.items)await access(`public/assets/items/${item.id}.webp`);
 assert.equal(new Set(itemData.items.map(item=>item.id.toLowerCase())).size,itemData.items.length,"item IDs must be unique without case ambiguity");
 const itemIds=new Set(itemData.items.map(item=>item.id));
 assert.ok(itemData.items.every(item=>Object.keys(item.names).length===17&&Object.values(item.names).every(Boolean)),"every item must have all 17 official localized names");
