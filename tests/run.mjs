@@ -6,6 +6,7 @@ import { resolveLocale } from "../src/config.ts";
 import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
 import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
+import { groupItemDropSources } from "../src/drop-relations.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -52,7 +53,7 @@ assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics mus
 assert.match(main, /send_page_view:false/, "SPA analytics must disable automatic page views to prevent duplicates");
 assert.match(main, /installGtagQueue\(win\)/, "Analytics must install the official command queue before loading gtag.js");
 assert.doesNotMatch(main, /gtag=\(\.\.\.args\)=>/, "Analytics must not queue ordinary arrays in place of Arguments commands");
-assert.match(main, /collection_search",\{collection:/, "collection search may emit only a stable collection identifier");
+assert.match(main, /collection_search",\s*\{\s*collection:/, "collection search may emit only a stable collection identifier");
 assert.doesNotMatch(main, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
 
 let analyticsConsent=false;
@@ -122,7 +123,14 @@ assert.deepEqual(itemData.drops.filter(drop=>drop.palId==="Anubis"&&drop.level==
 ],"Anubis base drop table must match the current extracted game row");
 assert.match(main,/dropLabels:Record<Locale/,"drop relationship UI must provide labels for every supported locale");
 assert.match(main,/itemData\.drops\.filter\(drop=>drop\.palId===pal\.id\)/,"Pal details must render normalized item drops");
-assert.match(main,/itemData\.drops\.filter\(drop=>drop\.itemId===item\.id\)/,"item details must render reverse Pal drop relationships");
+assert.match(main,/renderItemDropSection\(item\)/,"item details must render reverse Pal drop relationships in the detail template");
+assert.doesNotMatch(main,/function bindDropRelations/,"drop relationships must not depend on post-render DOM insertion");
+const leatherSources=groupItemDropSources("Leather",palData.pals,itemData.drops);
+assert.equal(leatherSources.length,77,"Leather detail must expose all 77 unique Pal sources");
+assert.equal(leatherSources.flatMap(source=>source.drops).length,115,"Leather Pal cards must preserve all 115 level-specific drop rows");
+assert.ok(leatherSources.every((source,index)=>index===0||leatherSources[index-1].pal.dex<=source.pal.dex),"item drop Pal sources must use deterministic Paldeck ordering");
+assert.ok(groupItemDropSources("TechnologyBook_G2",palData.pals,itemData.drops).some(source=>source.pal.id==="Anubis"),"Technology Manual detail must link back to Anubis");
+assert.deepEqual(groupItemDropSources("Accessory_AirDash1",palData.pals,itemData.drops),[],"items without Pal drops must produce an explicit empty result");
 assert.equal(itemCategoryProvenance,"gpt","site-owned item category translations must record their provenance");
 assert.deepEqual([...new Set(itemData.items.map(item=>item.type))].sort(),[...itemCategories].sort(),"every extracted item category must have a localized UI mapping");
 for(const locale of Object.keys(messageCatalogs)){
