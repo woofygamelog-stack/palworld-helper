@@ -120,6 +120,9 @@ assert.equal(itemCategoryLabel("Blueprint","ko-KR"),"설계도","Korean schemati
 assert.doesNotMatch(main,/item-card[^\n]*<code>\$\{esc\(item\.id\)\}/,"item cards must not expose internal item IDs");
 assert.doesNotMatch(main,/<span>\$\{esc\(item\.subtype\)\}<\/span>/,"item cards and details must not expose raw subtype enums");
 assert.match(styles,/\.item-card\{display:flex;flex-direction:column;/,"item cards must keep their header, category and stats in a stable vertical flow");
+assert.match(main,/hero\(itemName\(item\)\)/,"item detail headers must omit the duplicated description");
+assert.match(main,/usedIn\.length\.toLocaleString\(locale\).*\$\{m\.results\}/,"item detail result headings must include the localized actual count");
+assert.doesNotMatch(main,/usedIn\.slice\(0,80\)/,"item detail result headings and rendered cards must not disagree because of a hidden cap");
 assert.match(styles,/\.item-categories\{[^}]*margin:\.75rem 0 1rem/,"item categories must have visible separation from the item image and stats");
 assert.match(styles,/\.item-stats\{[^}]*margin:auto 0 0/,"item stats must stay aligned at the bottom across one-line and wrapped item names");
 assert.equal(itemData.meta.blueprintTargetCount,475,"every legal blueprint unlock relationship in the extracted recipe table must be retained");
