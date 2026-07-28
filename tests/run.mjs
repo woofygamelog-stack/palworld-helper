@@ -107,6 +107,10 @@ assert.equal(itemData.meta.gameBuild,"24181527","item data must match the verifi
 assert.equal(itemData.items.length,1891,"only legal in-game items from this build must be published");
 assert.equal(itemData.recipes.length,1286,"every recipe with legal product and ingredient references must be published");
 assert.equal(itemData.meta.localeCount,17,"official item names must cover all supported interface locales");
+assert.equal(itemData.meta.blueprintTargetCount,475,"every legal blueprint unlock relationship in the extracted recipe table must be retained");
+assert.equal(itemData.meta.unavailableUnlockItem,1,"the one recipe referencing an unavailable blueprint must remain explicit");
+assert.equal(itemData.items.find(item=>item.id==="Blueprint_Accessory_AT_1_2")?.unlocksItemId,"Accessory_AT_1","blueprint target links must come from the official UnlockItemID recipe field");
+assert.match(main,/class="blueprint-product"/,"blueprint cards must show the verified unlocked-product image when available");
 assert.equal(imageManifest.gameBuild,itemData.meta.gameBuild,"image manifest must match the item data build");
 const imagedItems=itemData.items.filter(item=>item.image===true);
 assert.equal(imageManifest.itemCount,imagedItems.length,"item image manifest must match verified image flags");

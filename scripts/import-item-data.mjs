@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -27,7 +28,7 @@ const items=legalEntries.map(([id,item])=>{
   }));
   const descriptionKey=(item.OverrideDescription&&item.OverrideDescription!=="None")?item.OverrideDescription:`ITEM_DESC_${id}`;
   const descriptions=Object.fromEntries(Object.entries(localeMap).map(([from,to])=>[to,descriptionLookups[from]?.get(descriptionKey.toLocaleLowerCase("en-US"))||""]));
-  return {id,names,descriptions,type:strip(item.TypeA),subtype:strip(item.TypeB),rank:item.Rank,rarity:item.Rarity,maxStack:item.MaxStackCount,weight:item.Weight,price:item.Price};
+  return {id,names,descriptions,type:strip(item.TypeA),subtype:strip(item.TypeB),rank:item.Rank,rarity:item.Rarity,maxStack:item.MaxStackCount,weight:item.Weight,price:item.Price,image:existsSync(path.join(root,"public","assets","items",`${id}.webp`))};
 }).sort((a,b)=>a.id.localeCompare(b.id));
 const itemsById=new Map(items.map(item=>[item.id,item]));
 for(const item of items) for(const locale of Object.values(localeMap)) item.descriptions[locale]=String(item.descriptions[locale]||"")
@@ -35,7 +36,7 @@ for(const item of items) for(const locale of Object.values(localeMap)) item.desc
   .replace(/<[^>]+>/g,"");
 if(missingNames.length) throw new Error(`Missing official item names: ${missingNames.slice(0,20).join(", ")}`);
 
-let illegalProduct=0, illegalIngredient=0;
+let illegalProduct=0, illegalIngredient=0, unavailableUnlockItem=0;
 const correctedCase=new Set();
 const recipes=[];
 for(const [id,row] of Object.entries(rawRecipes)){
@@ -52,16 +53,28 @@ for(const [id,row] of Object.entries(rawRecipes)){
   }
   if(!valid){illegalIngredient++;continue}
   if(!(row.Product_Count>0)||!(row.WorkAmount>=0)||ingredients.some(x=>!(x.count>0))) throw new Error(`Invalid recipe numeric value: ${id}`);
-  recipes.push({id,productId,output:row.Product_Count,workAmount:row.WorkAmount,ingredients,energyType:strip(row.EnergyType),energyAmount:row.EnergyAmount});
+  const unlockItemId=row.UnlockItemID&&row.UnlockItemID!=="None"?resolveId(row.UnlockItemID):undefined;
+  if(row.UnlockItemID&&row.UnlockItemID!=="None"&&!unlockItemId)unavailableUnlockItem++;
+  recipes.push({id,productId,output:row.Product_Count,workAmount:row.WorkAmount,ingredients,energyType:strip(row.EnergyType),energyAmount:row.EnergyAmount,...(unlockItemId?{unlockItemId}: {})});
 }
 recipes.sort((a,b)=>a.id.localeCompare(b.id));
 if(new Set(recipes.map(r=>r.id)).size!==recipes.length) throw new Error("Duplicate recipe IDs found");
 const itemIds=new Set(items.map(item=>item.id));
 if(recipes.some(r=>!itemIds.has(r.productId)||r.ingredients.some(i=>!itemIds.has(i.itemId)))) throw new Error("Published recipe has a broken item reference");
+const blueprintTargets=new Map();
+for(const recipe of recipes){
+  if(!recipe.unlockItemId)continue;
+  const unlockItem=itemsById.get(recipe.unlockItemId);
+  if(unlockItem?.type!=="Blueprint")continue;
+  const previous=blueprintTargets.get(recipe.unlockItemId);
+  if(previous&&previous!==recipe.productId)throw new Error(`Blueprint ${recipe.unlockItemId} unlocks multiple products: ${previous}, ${recipe.productId}`);
+  blueprintTargets.set(recipe.unlockItemId,recipe.productId);
+}
+for(const [blueprintId,productId] of blueprintTargets)itemsById.get(blueprintId).unlocksItemId=productId;
 if(!(map.minX<map.maxX&&map.minY<map.maxY&&map.width===8192&&map.height===8192)) throw new Error("Unexpected official map metadata");
 
 const generatedAt=new Date().toISOString();
-const publicData={meta:{schema:1,gameBuild,generatedAt,itemCount:items.length,recipeCount:recipes.length,localeCount:Object.keys(localeMap).length,excludedRecipes:{illegalProduct,illegalIngredient},caseCorrections:[...correctedCase].sort()},items,recipes,map};
+const publicData={meta:{schema:1,gameBuild,generatedAt,itemCount:items.length,recipeCount:recipes.length,localeCount:Object.keys(localeMap).length,excludedRecipes:{illegalProduct,illegalIngredient},unavailableUnlockItem,blueprintTargetCount:blueprintTargets.size,caseCorrections:[...correctedCase].sort()},items,recipes,map};
 await mkdir(path.join(root,"public","data"),{recursive:true});
 await mkdir(path.join(root,"public","assets"),{recursive:true});
 await writeFile(path.join(root,"public","data","items.json"),JSON.stringify(publicData));

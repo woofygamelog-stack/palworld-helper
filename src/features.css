@@ -132,3 +132,4 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{opacity:.58;cur
 .pair-card>a{min-height:56px;padding:.3rem}
 .pair-card .pal-visual>span:last-child{overflow:hidden}
 .pair-card .pal-visual small,.pair-card .pal-visual strong,.pair-card>a>small{white-space:nowrap;word-break:keep-all}
+.blueprint-visual{position:relative;display:inline-grid;flex:0 0 auto}.blueprint-visual>.item-image,.blueprint-visual>.entity-image{grid-area:1/1}.blueprint-product{position:absolute;right:-4px;bottom:-4px;width:42px;height:42px;object-fit:contain;border:2px solid var(--surface);border-radius:12px;background:var(--surface);box-shadow:0 2px 8px #001a2430}.blueprint-visual.detail{align-self:start}.blueprint-visual.detail .blueprint-product{width:64px;height:64px;right:-8px;bottom:-8px;border-radius:16px}
