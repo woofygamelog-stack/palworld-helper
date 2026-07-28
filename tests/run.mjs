@@ -46,6 +46,8 @@ assert.match(main,/history\.replaceState\(\{\},"",localizePath\(locale,location\
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
 assert.match(main, /send_page_view:false/, "SPA analytics must disable automatic page views to prevent duplicates");
 assert.match(main, /trackEvent\("page_view",\{page_path:pagePath,locale\}\)/, "SPA navigation must emit a sanitized page view");
+assert.match(main, /if\(trackEvent\("page_view",\{page_path:pagePath,locale\}\)\)lastTrackedPage=pagePath/, "a page must be marked tracked only after it reaches the Analytics queue");
+assert.doesNotMatch(main, /lastTrackedPage=pagePath;trackEvent\("page_view"/, "consent-time rendering must not discard the first page view before Analytics initializes");
 assert.match(main, /collection_search",\{collection:/, "collection search may emit only a stable collection identifier");
 assert.doesNotMatch(main, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
 assert.match(main, /fetch\("\/data\/pals\.json"\)/, "verified static Pal data must load from the same origin");
