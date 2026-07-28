@@ -136,7 +136,6 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{opacity:.58;cur
 
 /* Keep item-detail headings, relationships and the primary action on a stable vertical rhythm. */
 .page-hero h1{margin-bottom:0}
-.page-hero>p:not(.eyebrow){margin-top:clamp(2.25rem,4vw,3.25rem);margin-bottom:0}
 .item-detail .entity-detail-content{display:flex;flex-direction:column;min-width:0}
 .item-detail .entity-description{margin-bottom:1rem}
 .item-detail .detail-section{margin-top:clamp(1.5rem,2.5vw,2rem)}

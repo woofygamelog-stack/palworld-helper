@@ -121,6 +121,8 @@ assert.doesNotMatch(main,/item-card[^\n]*<code>\$\{esc\(item\.id\)\}/,"item card
 assert.doesNotMatch(main,/<span>\$\{esc\(item\.subtype\)\}<\/span>/,"item cards and details must not expose raw subtype enums");
 assert.match(styles,/\.item-card\{display:flex;flex-direction:column;/,"item cards must keep their header, category and stats in a stable vertical flow");
 assert.match(main,/hero\(itemName\(item\)\)/,"item detail headers must omit the duplicated description");
+assert.match(main,/function hero\(title:string,\.\.\._descriptions:string\[\]\).*<h1>\$\{title\}<\/h1><\/section>/,"all internal page headers must render only the verification badge and title");
+assert.doesNotMatch(main,/function hero[^\n]*\$\{body\}/,"internal page headers must never render page descriptions");
 assert.match(main,/usedIn\.length\.toLocaleString\(locale\).*\$\{m\.results\}/,"item detail result headings must include the localized actual count");
 assert.doesNotMatch(main,/usedIn\.slice\(0,80\)/,"item detail result headings and rendered cards must not disagree because of a hidden cap");
 assert.match(styles,/\.item-categories\{[^}]*margin:\.75rem 0 1rem/,"item categories must have visible separation from the item image and stats");
