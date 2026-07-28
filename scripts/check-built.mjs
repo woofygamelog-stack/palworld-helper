@@ -19,8 +19,12 @@ if(/\/guides|\/privacy|\/calculators\/(capture|iv)/.test(sitemap))throw new Erro
 for(const asset of ["data/pals.json","data/items.json","data/skills.json","assets/image-manifest.json","assets/world-map.webp","assets/elements/Fire.png","assets/passive-ranks/3.png","favicon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png","og-image.png","site.webmanifest","sitemap.xml","prerender-report.json","robots.txt","ads.txt","_headers"])await access(path.join(dist,asset));for(let y=0;y<4;y++)for(let x=0;x<4;x++)await access(path.join(dist,"assets","map-tiles",`${x}-${y}.webp`));
 const builtItems=JSON.parse(await readFile(path.join(dist,"data","items.json"),"utf8"));
 const builtImageManifest=JSON.parse(await readFile(path.join(dist,"assets","image-manifest.json"),"utf8"));
-if(builtImageManifest.itemCount!==builtItems.items.length||builtImageManifest.expectedItemCount!==builtItems.items.length||builtImageManifest.missingItemCount!==0)throw new Error(`Built item icon coverage is incomplete: ${builtImageManifest.itemCount}/${builtItems.items.length}`);
-for(const item of builtItems.items){if(item.image!==true)throw new Error(`Built item has no verified image flag: ${item.id}`);await access(path.join(dist,"assets","items",`${item.id}.webp`));}
+const imagedItems=builtItems.items.filter(item=>item.image===true),missingItemImages=builtItems.items.length-imagedItems.length;
+if(builtImageManifest.gameBuild!==builtItems.meta.gameBuild||builtImageManifest.itemCount!==imagedItems.length)throw new Error(`Built item image manifest mismatch: manifest=${builtImageManifest.itemCount}, flags=${imagedItems.length}`);
+const builtItemImages=(await readdir(path.join(dist,"assets","items"))).filter(name=>name.endsWith(".webp"));
+if(builtItemImages.length!==imagedItems.length)throw new Error(`Built item image file mismatch: files=${builtItemImages.length}, flags=${imagedItems.length}`);
+for(const item of imagedItems)await access(path.join(dist,"assets","items",`${item.id}.webp`));
+if(missingItemImages)console.warn(`Item image extraction remains incomplete: ${imagedItems.length}/${builtItems.items.length}. Run npm run check:item-images before accepting a complete data refresh.`);
 for(const work of palData.workSuitabilities)await access(path.join(dist,work.icon.replace(/^\//,"")));
 if(palData.meta.palPortraitCount!==palData.pals.length||palData.pals.some(pal=>pal.image!==true))throw new Error("Every published Pal must retain its portrait manifest state");
 for(const pal of palData.pals)await access(path.join(dist,"assets","pals",`${pal.id}.png`));
