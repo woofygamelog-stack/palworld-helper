@@ -114,6 +114,9 @@ assert.match(main,/class="blueprint-product"/,"blueprint cards must show the ver
 assert.equal(imageManifest.gameBuild,itemData.meta.gameBuild,"image manifest must match the item data build");
 const imagedItems=itemData.items.filter(item=>item.image===true);
 assert.equal(imageManifest.itemCount,imagedItems.length,"item image manifest must match verified image flags");
+assert.equal(imagedItems.length,itemData.items.length,"every legal item must have a verified display image");
+assert.equal(imageManifest.missingItemCount,0,"item image manifest must not permit missing display images");
+assert.equal(imageManifest.derivedOfficialItemCount,76,"unresolvable cooked icons must use the reviewed official-derived image plan");
 for(const item of imagedItems)await access(`public/assets/items/${item.id}.webp`);
 assert.equal(new Set(itemData.items.map(item=>item.id.toLowerCase())).size,itemData.items.length,"item IDs must be unique without case ambiguity");
 const itemIds=new Set(itemData.items.map(item=>item.id));

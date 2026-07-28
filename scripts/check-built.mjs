@@ -20,11 +20,10 @@ for(const asset of ["data/pals.json","data/items.json","data/skills.json","asset
 const builtItems=JSON.parse(await readFile(path.join(dist,"data","items.json"),"utf8"));
 const builtImageManifest=JSON.parse(await readFile(path.join(dist,"assets","image-manifest.json"),"utf8"));
 const imagedItems=builtItems.items.filter(item=>item.image===true),missingItemImages=builtItems.items.length-imagedItems.length;
-if(builtImageManifest.gameBuild!==builtItems.meta.gameBuild||builtImageManifest.itemCount!==imagedItems.length)throw new Error(`Built item image manifest mismatch: manifest=${builtImageManifest.itemCount}, flags=${imagedItems.length}`);
+if(builtImageManifest.gameBuild!==builtItems.meta.gameBuild||builtImageManifest.itemCount!==imagedItems.length||builtImageManifest.expectedItemCount!==builtItems.items.length||builtImageManifest.missingItemCount!==0||builtImageManifest.directItemCount+builtImageManifest.derivedOfficialItemCount!==builtItems.items.length||missingItemImages)throw new Error(`Built item image coverage is incomplete: ${imagedItems.length}/${builtItems.items.length}`);
 const builtItemImages=(await readdir(path.join(dist,"assets","items"))).filter(name=>name.endsWith(".webp"));
 if(builtItemImages.length!==imagedItems.length)throw new Error(`Built item image file mismatch: files=${builtItemImages.length}, flags=${imagedItems.length}`);
 for(const item of imagedItems)await access(path.join(dist,"assets","items",`${item.id}.webp`));
-if(missingItemImages)console.warn(`Item image extraction remains incomplete: ${imagedItems.length}/${builtItems.items.length}. Run npm run check:item-images before accepting a complete data refresh.`);
 for(const work of palData.workSuitabilities)await access(path.join(dist,work.icon.replace(/^\//,"")));
 if(palData.meta.palPortraitCount!==palData.pals.length||palData.pals.some(pal=>pal.image!==true))throw new Error("Every published Pal must retain its portrait manifest state");
 for(const pal of palData.pals)await access(path.join(dist,"assets","pals",`${pal.id}.png`));
