@@ -50,8 +50,41 @@ The extractor initializes Oodle from its application output. Do not copy or comm
 - Run `npm run data:import:map` after boss, spawner, world-bound, or map-texture changes. Verify that the importer selects the intended refresh directory instead of silently falling back.
 - Run `npm run data:import:pals` only with the expected local Pal export and the separately tracked community-normalized breeding source. Keep its community provenance explicit; local ID agreement does not independently verify breeding outcomes.
 - Run `npm run data:import:images` after normalized Pal/item lists exist. Image coverage flags in public JSON must match files actually copied to `public/assets/`.
+- Run `npm run data:complete:item-images` only after direct extraction/import has been audited. It creates the reviewed official-derived presentation layer; it does not convert those images into direct extraction results.
 
 Importers may accept environment variables so refreshes do not require changing checked-in absolute paths. Never commit a local installation or staging path.
+
+## Item-image resolution and coverage
+
+`DT_ItemDataTable.IconName` is an `FName` lookup key, not a guaranteed texture basename. Resolve item images in this order:
+
+1. Read an authoritative item-icon mapping table or UI resolver when present.
+2. Follow Blueprint/CDO properties, `FSoftObjectPath`, object properties, redirectors, sprites, material texture parameters, and atlas metadata.
+3. Match exact normalized texture names only as discovery candidates.
+4. Confirm each candidate through a serialized reference or a reviewed representative visual comparison before calling it verified.
+
+Scan relevant packages broadly enough to include `InventoryItemIcon`, UI textures, plugins, DLC/update content, materials, sprites, and atlases. Record candidate paths and decode errors privately. Do not publish PAK paths or assume that the first lexical/normalized filename match is correct.
+
+Use these provenance classes:
+
+| Class | Meaning | May satisfy direct extraction? |
+|---|---|---|
+| `direct` | Unique texture resolved and decoded from the item's authoritative reference | Yes |
+| `shared-official` | Game data authoritatively assigns the same official texture to multiple items | Yes, but report sharing |
+| `atlas-official` | Authoritative atlas/sprite region cropped from an official texture | Yes |
+| `derived-official` | Deterministic copy/composition of already extracted official assets for presentation coverage | No |
+| `missing` | No accepted display image | No |
+
+Never use `image: true`, a valid WebP header, or `1891/1891` file coverage alone as proof of direct extraction. The public image manifest must separately total direct and derived counts, while the private manifest retains per-item source class, source key/path, transform, hash, and review status.
+
+For build `24181527`, the accepted presentation baseline is 1,891 item images: 1,815 directly imported and 76 reviewed `derived-official` images. Treat those 76 as technical debt to replace when authoritative references and a compatible mapping become available. Do not report them as newly extracted source icons. Any count drift requires a new audit rather than silently carrying the baseline forward.
+
+Direct extraction and presentation completion are separate gates:
+
+- Direct extraction gate: build-compatible mapping proven, authoritative references resolved, decode failures zero for the claimed direct set, and provenance classes reviewed.
+- Presentation gate: every legal item has a valid, nontransparent WebP; flags, files, and manifest agree; known shared hashes are explained; cards, details, calculators, and blueprint overlays issue no missing requests.
+
+If unique icons cannot be resolved, report the blocked count and reason. Only use `derived-official` assets when complete visual coverage is an explicit product requirement. Keep the mapping deterministic in `scripts/complete-item-images.mjs`, use semantically close official assets, visually inspect representative families, and fail when the reviewed 76-item plan drifts.
 
 ## Map-specific checks
 
