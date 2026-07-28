@@ -7,6 +7,7 @@ import { expandRecipe, parseServerIni } from "../src/data.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
+const featureStyles = await readFile("src/features.css", "utf8");
 const config = await readFile("src/config.ts", "utf8");
 const indexHtml = await readFile("index.html", "utf8");
 const adsTxt = await readFile("public/ads.txt", "utf8");
@@ -164,6 +165,8 @@ assert.deepEqual(expandRecipe("PalSphere_Mega",10,unambiguousRecipes,{Wood:10,St
 assert.match(main,/recipeCounts\.get\(recipe\.productId\)===1/,"recursive crafting must not guess among ambiguous intermediate recipes");
 assert.match(main,/function enhancePalSelect/,"breeding Pal selectors must use an image-capable searchable combobox");
 assert.match(main,/class=\"pair-card\"/,"reverse breeding results must render image-capable Pal pair cards");
+assert.match(featureStyles,/\.pair-list>\.pair-card-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,20rem\),1fr\)\)/,"reverse-breeding cards must override the legacy child grid with a readable responsive minimum width");
+assert.match(featureStyles,/\.pair-card \.pal-visual small,\.pair-card \.pal-visual strong,\.pair-card>a>small\{white-space:nowrap;word-break:keep-all\}/,"reverse-breeding labels must not break into vertical text");
 assert.match(main,/data-dynamic-link/,"dynamically rendered breeding results must support client-side detail navigation");
 assert.match(main,/palVisual\(pal,"result"\)/,"forward breeding results must render a Pal image card");
 assert.match(main,/\["\/map","\/database","\/calculators\/crafting"\]\.includes\(current\).*ensureItemData/,"item data must load only on routes that use it");

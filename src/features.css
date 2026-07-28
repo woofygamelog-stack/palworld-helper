@@ -125,3 +125,10 @@ html{scroll-padding-top:calc(var(--header-height) + 1rem)}
 @container(max-width:650px){.calculator.wide .breed-grid{grid-template-columns:1fr}.breed-parent-card{grid-template-columns:1fr}.calculator.wide .breed-output{grid-column:auto}.reverse-breed{grid-template-columns:1fr}.pal-combobox-panel{width:100%}.pair-card{grid-template-columns:1fr}.pair-card>b{justify-self:center}.pair-card>a>small{padding-left:3.35rem}}
 .server-form fieldset{background:color-mix(in srgb,var(--surface) 88%,transparent)}.server-form legend{color:var(--accent-2)}
 button:disabled,input:disabled,select:disabled,textarea:disabled{opacity:.58;cursor:not-allowed}
+
+/* Keep reverse-breeding results readable and isolate them from the legacy pair-list child grid. */
+.pair-list>.pair-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:.65rem;padding:0;border:0}
+.pair-card{min-width:0;gap:.5rem;padding:.6rem}
+.pair-card>a{min-height:56px;padding:.3rem}
+.pair-card .pal-visual>span:last-child{overflow:hidden}
+.pair-card .pal-visual small,.pair-card .pal-visual strong,.pair-card>a>small{white-space:nowrap;word-break:keep-all}
