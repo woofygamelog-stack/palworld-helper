@@ -213,6 +213,8 @@ assert.match(main,/id="skill-rank"/,"passive skill collections must provide a ra
 assert.match(main,/partnerSkillName\(skill,pal\)/,"partner skill names must safely fall back through linked Pal names");
 assert.match(featureStyles,/\.skill-name-link,\.pal-passives strong a\{[^}]*text-decoration:none/,"skill name links must remove the default underline");
 assert.match(featureStyles,/\.passive-rank-group\[data-passive-group="5"\]/,"highest passive ranks must have a game-inspired rank accent");
+assert.match(featureStyles,/\.passive-rank-group\[data-passive-group="1"\],\.passive-rank-group\[data-passive-group="2"\],\.passive-rank-group\[data-passive-group="3"\]\{--rank-accent:#ffdd00\}/,"positive passive ranks 1 through 3 must use the extracted game-yellow accent");
+assert.match(featureStyles,/\.passive-rank-group:is\(\[data-passive-group="1"\],\[data-passive-group="2"\],\[data-passive-group="3"\]\) \.passive-rank-heading img/,"game-yellow rank accents must tint the extracted rank icon masks");
 assert.doesNotMatch(main,/<code>\$\{esc\(skill\.id\)\}<\/code>/,"skill cards and details must not expose internal identifiers");
 assert.match(main,/const description=localized\(skill\.descriptions\);setMeta\(localized\(skill\.names\),description\|\|labels\.active\)/,"active skill details must use the official localized description in metadata");
 assert.match(main,/<p class="entity-description">\$\{esc\(description\)\}<\/p>/,"skill details must render the official localized description in the detail content");
