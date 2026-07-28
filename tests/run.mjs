@@ -109,6 +109,20 @@ assert.equal(itemData.meta.gameBuild,"24181527","item data must match the verifi
 assert.equal(itemData.items.length,1891,"only legal in-game items from this build must be published");
 assert.equal(itemData.recipes.length,1286,"every recipe with legal product and ingredient references must be published");
 assert.equal(itemData.meta.localeCount,17,"official item names must cover all supported interface locales");
+assert.equal(itemData.meta.dropCount,itemData.drops.length,"Pal drop metadata must match the normalized relationship count");
+assert.equal(itemData.meta.dropPalCount,298,"current game files must provide drop rows for 298 published Pals");
+assert.deepEqual(itemData.meta.excludedDrops.items,["poppy"],"unpublished drop items must remain explicit");
+const palIdsForDrops=new Set(palData.pals.map(pal=>pal.id));
+assert.ok(itemData.drops.every(drop=>palIdsForDrops.has(drop.palId)&&itemData.items.some(item=>item.id===drop.itemId)&&Number.isInteger(drop.level)&&drop.level>=0&&drop.rate>0&&drop.rate<=100&&Number.isInteger(drop.min)&&Number.isInteger(drop.max)&&drop.min>=0&&drop.max>=drop.min),"every published Pal drop must have valid references, level, rate and quantity");
+assert.equal(new Set(itemData.drops.map(drop=>`${drop.palId}:${drop.level}:${drop.itemId}`)).size,itemData.drops.length,"Pal drop relationships must be unique");
+assert.deepEqual(itemData.drops.filter(drop=>drop.palId==="Anubis"&&drop.level===0),[
+  {palId:"Anubis",itemId:"Bone",level:0,rate:100,min:3,max:5},
+  {palId:"Anubis",itemId:"PalUpgradeStone3",level:0,rate:100,min:1,max:1},
+  {palId:"Anubis",itemId:"TechnologyBook_G2",level:0,rate:5,min:1,max:1}
+],"Anubis base drop table must match the current extracted game row");
+assert.match(main,/dropLabels:Record<Locale/,"drop relationship UI must provide labels for every supported locale");
+assert.match(main,/itemData\.drops\.filter\(drop=>drop\.palId===pal\.id\)/,"Pal details must render normalized item drops");
+assert.match(main,/itemData\.drops\.filter\(drop=>drop\.itemId===item\.id\)/,"item details must render reverse Pal drop relationships");
 assert.equal(itemCategoryProvenance,"gpt","site-owned item category translations must record their provenance");
 assert.deepEqual([...new Set(itemData.items.map(item=>item.type))].sort(),[...itemCategories].sort(),"every extracted item category must have a localized UI mapping");
 for(const locale of Object.keys(messageCatalogs)){

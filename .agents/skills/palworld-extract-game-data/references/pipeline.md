@@ -34,6 +34,7 @@ The extractor initializes Oodle from its application output. Do not copy or comm
 | Item localization | `item-names.raw.json`, `item-descriptions.raw.json` | Official shipped item text |
 | Skills and Pal text | `skill-names.raw.json`, `skill-descriptions.raw.json`, `pal-long-descriptions.raw.json`, `pal-short-descriptions.raw.json`, `partner-skill-append.raw.json` | Official shipped localized text |
 | Pal parameters | `pal-parameters.raw.json` | Pal parameter joins and partner-skill mapping |
+| Pal drops | `pal-drops.raw.json`, `pal-drops-common.raw.json` | Level-specific Pal item drops, rates, and quantity ranges |
 | Bosses | `boss-spawns.raw.json` | Boss Pal, level and Unreal world location |
 | Habitats | `pal-spawner-placement.raw.json`, `pal-wild-spawners.raw.json` | Field placement and spawn composition |
 | Maps | `map.raw.json`, `map-meta.raw.json`, `map-worlds-meta.raw.json` | Palpagos/World Tree bounds and texture metadata |

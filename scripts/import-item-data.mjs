@@ -6,9 +6,10 @@ import path from "node:path";
 const root=process.cwd();
 const source=process.env.PAL_EXTRACTED_DATA||path.join(root,"private","extracted","build-24181527");
 const gameBuild=process.env.PAL_GAME_BUILD||"24181527";
-const files={items:"items.raw.json",recipes:"recipes.raw.json",names:"item-names.raw.json",descriptions:"item-descriptions.raw.json",map:"map-meta.raw.json",image:"world-map.webp"};
+const files={items:"items.raw.json",recipes:"recipes.raw.json",names:"item-names.raw.json",descriptions:"item-descriptions.raw.json",map:"map-meta.raw.json",drops:"pal-drops.raw.json",dropsCommon:"pal-drops-common.raw.json",image:"world-map.webp"};
 const bytes=Object.fromEntries(await Promise.all(Object.entries(files).map(async([key,name])=>[key,await readFile(path.join(source,name))])));
-const rawItems=JSON.parse(bytes.items), rawRecipes=JSON.parse(bytes.recipes), rawNames=JSON.parse(bytes.names), rawDescriptions=JSON.parse(bytes.descriptions), map=JSON.parse(bytes.map);
+const rawItems=JSON.parse(bytes.items), rawRecipes=JSON.parse(bytes.recipes), rawNames=JSON.parse(bytes.names), rawDescriptions=JSON.parse(bytes.descriptions), map=JSON.parse(bytes.map),rawDrops=JSON.parse(bytes.drops),rawDropsCommon=JSON.parse(bytes.dropsCommon);
+if(bytes.drops.toString("utf8")!==bytes.dropsCommon.toString("utf8"))throw new Error("Pal drop tables differ; source precedence must be reviewed");
 const localeMap={de:"de-DE",en:"en-US","es-MX":"es-419",es:"es-ES",fr:"fr-FR",id:"id-ID",it:"it-IT",ko:"ko-KR",pl:"pl-PL","pt-BR":"pt-BR",ru:"ru-RU",th:"th-TH",tr:"tr-TR",vi:"vi-VN","zh-Hans":"zh-CN","zh-Hant":"zh-TW",ja:"ja-JP"};
 const strip=value=>String(value).split("::").at(-1);
 const legalEntries=Object.entries(rawItems).filter(([,item])=>item.bLegalInGame===true);
@@ -73,13 +74,31 @@ for(const recipe of recipes){
 for(const [blueprintId,productId] of blueprintTargets)itemsById.get(blueprintId).unlocksItemId=productId;
 if(!(map.minX<map.maxX&&map.minY<map.maxY&&map.width===8192&&map.height===8192)) throw new Error("Unexpected official map metadata");
 
+const palData=JSON.parse(await readFile(path.join(root,"public","data","pals.json")));
+if(palData.meta.gameBuild!==gameBuild)throw new Error("Pal and drop datasets use different game builds");
+const palIds=new Set(palData.pals.map(pal=>pal.id)),drops=[],excludedDropCharacters=new Set(),excludedDropItems=new Set();
+for(const [rowId,row] of Object.entries(rawDrops)){
+  if(!palIds.has(row.CharacterID)){excludedDropCharacters.add(row.CharacterID);continue}
+  if(!Number.isInteger(row.Level)||row.Level<0)throw new Error(`Invalid Pal drop level: ${rowId}`);
+  for(let slot=1;slot<=10;slot++){
+    const itemId=row[`ItemId${slot}`],rate=Number(row[`Rate${slot}`]),min=Number(row[`min${slot}`]),max=Number(row[`Max${slot}`]);
+    if(!itemId||itemId==="None"||rate===0)continue;
+    if(!itemIds.has(itemId)){excludedDropItems.add(itemId);continue}
+    if(!(rate>0&&rate<=100&&Number.isInteger(min)&&Number.isInteger(max)&&min>=0&&max>=min))throw new Error(`Invalid Pal drop values: ${rowId}:${slot}`);
+    drops.push({palId:row.CharacterID,itemId,level:row.Level,rate,min,max});
+  }
+}
+drops.sort((a,b)=>a.palId.localeCompare(b.palId)||a.level-b.level||a.itemId.localeCompare(b.itemId));
+if(new Set(drops.map(drop=>`${drop.palId}:${drop.level}:${drop.itemId}`)).size!==drops.length)throw new Error("Duplicate Pal drop relationship found");
+
 const generatedAt=new Date().toISOString();
-const publicData={meta:{schema:1,gameBuild,generatedAt,itemCount:items.length,recipeCount:recipes.length,localeCount:Object.keys(localeMap).length,excludedRecipes:{illegalProduct,illegalIngredient},unavailableUnlockItem,blueprintTargetCount:blueprintTargets.size,caseCorrections:[...correctedCase].sort()},items,recipes,map};
+const publicMap={minX:map.minX,minY:map.minY,maxX:map.maxX,maxY:map.maxY,width:map.width,height:map.height};
+const publicData={meta:{schema:2,gameBuild,generatedAt,itemCount:items.length,recipeCount:recipes.length,dropCount:drops.length,dropPalCount:new Set(drops.map(drop=>drop.palId)).size,localeCount:Object.keys(localeMap).length,excludedRecipes:{illegalProduct,illegalIngredient},excludedDrops:{characters:excludedDropCharacters.size,items:[...excludedDropItems].sort()},unavailableUnlockItem,blueprintTargetCount:blueprintTargets.size,caseCorrections:[...correctedCase].sort()},items,recipes,drops,map:publicMap};
 await mkdir(path.join(root,"public","data"),{recursive:true});
 await mkdir(path.join(root,"public","assets"),{recursive:true});
 await writeFile(path.join(root,"public","data","items.json"),JSON.stringify(publicData));
 await copyFile(path.join(source,files.image),path.join(root,"public","assets","world-map.webp"));
 const sha256=value=>createHash("sha256").update(value).digest("hex");
 await mkdir(path.join(root,"private","provenance"),{recursive:true});
-await writeFile(path.join(root,"private","provenance","items.json"),JSON.stringify({schema:1,gameBuild,generatedAt,sourceType:"selected tables and texture extracted read-only from installed game files",sourceDirectory:path.relative(root,source),hashes:Object.fromEntries(Object.entries(bytes).map(([key,value])=>[key,sha256(value)])),verification:{rawItemRows:Object.keys(rawItems).length,publishedLegalItems:items.length,rawRecipeRows:Object.keys(rawRecipes).length,publishedRecipes:recipes.length,localeCounts:Object.fromEntries(Object.entries(rawNames).map(([key,value])=>[key,Object.keys(value).length])),excludedRecipes:{illegalProduct,illegalIngredient},caseCorrections:[...correctedCase].sort(),brokenPublishedReferences:0}},null,2));
+await writeFile(path.join(root,"private","provenance","items.json"),JSON.stringify({schema:2,gameBuild,generatedAt,sourceType:"selected tables and texture extracted read-only from installed game files",sourceDirectory:path.relative(root,source),hashes:Object.fromEntries(Object.entries(bytes).map(([key,value])=>[key,sha256(value)])),verification:{rawItemRows:Object.keys(rawItems).length,publishedLegalItems:items.length,rawRecipeRows:Object.keys(rawRecipes).length,publishedRecipes:recipes.length,rawDropRows:Object.keys(rawDrops).length,publishedDrops:drops.length,publishedDropPals:new Set(drops.map(drop=>drop.palId)).size,excludedDrops:{characters:[...excludedDropCharacters].sort(),items:[...excludedDropItems].sort()},localeCounts:Object.fromEntries(Object.entries(rawNames).map(([key,value])=>[key,Object.keys(value).length])),excludedRecipes:{illegalProduct,illegalIngredient},caseCorrections:[...correctedCase].sort(),brokenPublishedReferences:0}},null,2));
 console.log(`Published ${items.length} legal items, ${recipes.length} recipes, ${Object.keys(localeMap).length} locales, and verified ${map.width}x${map.height} map.`);

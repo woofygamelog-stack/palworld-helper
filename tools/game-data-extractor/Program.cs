@@ -58,6 +58,8 @@ Write("boss-spawns.raw.json", DumpTable("Pal/Content/Pal/DataTable/UI/DT_BossSpa
 Write("pal-spawner-placement.raw.json", DumpTable("Pal/Content/Pal/DataTable/Spawner/DT_PalSpawnerPlacement"));
 Write("pal-wild-spawners.raw.json", DumpTable("Pal/Content/Pal/DataTable/Spawner/DT_PalWildSpawner"));
 Write("pal-parameters.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalMonsterParameter"));
+Write("pal-drops.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalDropItem"));
+Write("pal-drops-common.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalDropItem_Common"));
 
 var mapTable = provider.LoadPackageObject<UDataTable>("Pal/Content/Pal/DataTable/WorldMapUIData/DT_WorldMapUIData");
 var extractedWorlds = new Dictionary<string, object>();
