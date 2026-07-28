@@ -8,11 +8,18 @@ const palSource=path.join(root,"private","palcalc-source","PalCalc.UI","Resource
 let palCount=0;
 for(const pal of palData.pals){const source=path.join(palSource,`${pal.names["en-US"]}.png`);pal.image=copy(source,path.join(palTarget,`${pal.id}.png`));if(pal.image)palCount++}
 const extractedSource=process.env.PAL_EXTRACTED_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}`);
-const itemSource=path.join(extractedSource,"item-icons"),itemTarget=path.join(root,"public","assets","items");ensure(itemTarget);
+const itemSource=path.join(extractedSource,"item-icons"),itemTarget=path.join(root,"public","assets","items");
+const itemStage=fs.mkdtempSync(path.join(root,"private","item-icons-import-"));
 let itemCount=0;
-for(const item of itemData.items){item.image=copy(path.join(itemSource,`${item.id}.webp`),path.join(itemTarget,`${item.id}.webp`));if(item.image)itemCount++}
+for(const item of itemData.items){const target=path.join(itemStage,`${item.id}.webp`);item.image=copy(path.join(itemSource,`${item.id}.webp`),target);if(item.image){const bytes=fs.readFileSync(target);if(bytes.length<16||bytes.subarray(0,4).toString("ascii")!=="RIFF"||bytes.subarray(8,12).toString("ascii")!=="WEBP")throw new Error(`Invalid WebP item icon: ${item.id}`);itemCount++}}
 const missingItems=itemData.items.filter(item=>!item.image).map(item=>item.id);
 if(missingItems.length)throw new Error(`Item icon coverage is incomplete: ${itemCount}/${itemData.items.length}; missing ${missingItems.slice(0,20).join(", ")}`);
+const stagedNames=fs.readdirSync(itemStage).filter(name=>name.endsWith(".webp"));
+if(stagedNames.length!==itemData.items.length)throw new Error(`Staged item icon count mismatch: ${stagedNames.length}/${itemData.items.length}`);
+const backup=`${itemTarget}.previous`;
+if(fs.existsSync(backup))fs.rmSync(backup,{recursive:true,force:true});
+if(fs.existsSync(itemTarget))fs.renameSync(itemTarget,backup);
+try{fs.renameSync(itemStage,itemTarget);fs.rmSync(backup,{recursive:true,force:true})}catch(error){if(fs.existsSync(itemTarget))fs.rmSync(itemTarget,{recursive:true,force:true});if(fs.existsSync(backup))fs.renameSync(backup,itemTarget);throw error}
 fs.writeFileSync(path.join(root,"public","data","pals.json"),JSON.stringify(palData));
 fs.writeFileSync(path.join(root,"public","data","items.json"),JSON.stringify(itemData));
 fs.writeFileSync(path.join(root,"public","assets","image-manifest.json"),JSON.stringify({gameBuild,palCount,itemCount,expectedItemCount:itemData.items.length,missingItemCount:0}));

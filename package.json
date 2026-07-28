@@ -9,13 +9,14 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types tests/run.mjs && node scripts/validate-map-data.mjs",
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
+    "check:item-images": "node scripts/check-item-images.mjs",
     "data:import:pals": "node scripts/import-pal-data.mjs",
     "data:import:items": "node scripts/import-item-data.mjs",
     "data:import:map": "node scripts/import-map-data.mjs",
     "data:import:map-points": "node scripts/import-world-map-points.mjs",
     "data:import:images": "node scripts/import-images.mjs",
     "data:import:skills": "node scripts/import-skill-data.mjs",
-    "check": "npm run typecheck && npm run check:i18n && npm test && npm run build"
+    "check": "npm run typecheck && npm run check:i18n && npm run check:item-images && npm test && npm run build"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
