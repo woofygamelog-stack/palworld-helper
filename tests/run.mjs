@@ -196,6 +196,7 @@ assert.equal(skillData.activeSkills.length,317,"only active skills with an offic
 assert.ok(skillData.activeSkills.every(skill=>Object.values(skill.names).every(name=>name.trim().length>0)),"every published active skill must have all 17 official localized names");
 assert.equal(skillData.activeSkills.filter(skill=>Object.values(skill.descriptions).every(description=>description.trim().length>0)).length,314,"official active-skill description coverage must remain stable");
 assert.equal(skillData.passiveSkills.length,115,"only displayable standard passive skills with descriptions must be published");
+assert.equal(skillData.partnerSkills.length,299,"every Pal must retain its partner-skill route");
 assert.ok(skillData.passiveSkills.every(skill=>Object.keys(skill.descriptions).length===17&&Object.values(skill.descriptions).every(description=>description.trim().length>0)),"every passive skill must publish all 17 official localized descriptions");
 assert.ok(skillData.passiveSkills.every(skill=>[-3,-2,-1,1,2,3,4,5].includes(skill.rank)),"every passive skill must map to an extracted rank icon");
 assert.ok(skillData.elements.every(element=>Object.keys(element.names).length===17),"every element must have all supported localized names");
@@ -206,6 +207,12 @@ assert.ok(palData.pals.every(pal=>pal.guaranteedPassiveIds.every(id=>passiveIds.
 assert.match(main,/fetch\("\/data\/skills\.json"\)/,"versioned skill data must load from the same origin");
 assert.match(main,/id="skill-element"/,"skill collection must support element filtering");
 assert.match(main,/role="status"/,"collection result counts must be announced as status updates");
+assert.match(main,/rankOrder=\[5,4,3,2,1,-1,-2,-3\]/,"passive skill groups must be ordered from highest to lowest extracted rank");
+assert.match(main,/data-passive-group=/,"passive skills must render in semantic rank groups");
+assert.match(main,/id="skill-rank"/,"passive skill collections must provide a rank filter");
+assert.match(main,/partnerSkillName\(skill,pal\)/,"partner skill names must safely fall back through linked Pal names");
+assert.match(featureStyles,/\.skill-name-link,\.pal-passives strong a\{[^}]*text-decoration:none/,"skill name links must remove the default underline");
+assert.match(featureStyles,/\.passive-rank-group\[data-passive-group="5"\]/,"highest passive ranks must have a game-inspired rank accent");
 assert.doesNotMatch(main,/<code>\$\{esc\(skill\.id\)\}<\/code>/,"skill cards and details must not expose internal identifiers");
 assert.match(main,/const description=localized\(skill\.descriptions\);setMeta\(localized\(skill\.names\),description\|\|labels\.active\)/,"active skill details must use the official localized description in metadata");
 assert.match(main,/<p class="entity-description">\$\{esc\(description\)\}<\/p>/,"skill details must render the official localized description in the detail content");
@@ -233,7 +240,7 @@ assert.match(featureStyles,/\.pair-card \.pal-visual small,\.pair-card \.pal-vis
 assert.match(main,/data-dynamic-link/,"dynamically rendered breeding results must support client-side detail navigation");
 assert.match(main,/palVisual\(pal,"result"\)/,"forward breeding results must render a Pal image card");
 assert.match(main,/\["\/map","\/database","\/calculators\/crafting"\]\.includes\(current\).*ensureItemData/,"item data must load only on routes that use it");
-assert.match(main,/\["\/map","\/pals","\/calculators","\/calculators\/breeding"\]\.includes\(current\).*ensurePalData/,"Pal data must load only on routes that use it");
+assert.match(main,/\["\/map","\/pals","\/calculators","\/calculators\/breeding"\]\.includes\(current\).*current\.startsWith\("\/skills\/partner"\).*ensurePalData/,"Pal data must load on partner-skill routes");
 assert.match(main,/current==="\/map"\)ensureMapData/,"map marker data must load only on the map route");
 assert.doesNotMatch(main,/href\(\"\/privacy\"\)/,"privacy policy must not be exposed in the public UI");
 
