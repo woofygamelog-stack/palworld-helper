@@ -192,7 +192,9 @@ assert.match(main,/id="item-empty"[^>]*hidden/,"item search must have an explici
 assert.match(main,/filterCollection\(kind\).*input\.focus\(\)/,"clearing search must restore results and keyboard focus");
 assert.equal(skillData.meta.gameBuild,"24181527","skill data must match the verified local game build");
 assert.equal(skillData.elements.length,9,"all nine game elements must be published");
-assert.equal(skillData.activeSkills.length,320,"active skill count must remain stable for this source revision");
+assert.equal(skillData.activeSkills.length,317,"only active skills with an official player-facing name must be published");
+assert.ok(skillData.activeSkills.every(skill=>Object.values(skill.names).every(name=>name.trim().length>0)),"every published active skill must have all 17 official localized names");
+assert.equal(skillData.activeSkills.filter(skill=>Object.values(skill.descriptions).every(description=>description.trim().length>0)).length,314,"official active-skill description coverage must remain stable");
 assert.equal(skillData.passiveSkills.length,115,"only displayable standard passive skills with descriptions must be published");
 assert.ok(skillData.passiveSkills.every(skill=>Object.keys(skill.descriptions).length===17&&Object.values(skill.descriptions).every(description=>description.trim().length>0)),"every passive skill must publish all 17 official localized descriptions");
 assert.ok(skillData.passiveSkills.every(skill=>[-3,-2,-1,1,2,3,4,5].includes(skill.rank)),"every passive skill must map to an extracted rank icon");
@@ -204,6 +206,9 @@ assert.ok(palData.pals.every(pal=>pal.guaranteedPassiveIds.every(id=>passiveIds.
 assert.match(main,/fetch\("\/data\/skills\.json"\)/,"versioned skill data must load from the same origin");
 assert.match(main,/id="skill-element"/,"skill collection must support element filtering");
 assert.match(main,/role="status"/,"collection result counts must be announced as status updates");
+assert.doesNotMatch(main,/<code>\$\{esc\(skill\.id\)\}<\/code>/,"skill cards and details must not expose internal identifiers");
+assert.match(main,/const description=localized\(skill\.descriptions\);setMeta\(localized\(skill\.names\),description\|\|labels\.active\)/,"active skill details must use the official localized description in metadata");
+assert.match(main,/<p class="entity-description">\$\{esc\(description\)\}<\/p>/,"skill details must render the official localized description in the detail content");
 const convergingRecipes={A:{id:"A",output:1,ingredients:{B:1,C:1}},B:{id:"B",output:1,ingredients:{D:1}},C:{id:"C",output:1,ingredients:{D:1}},D:{id:"D",output:2,ingredients:{E:1}}};
 assert.deepEqual(expandRecipe("A",1,convergingRecipes),{E:1},"converging demands must aggregate before process rounding");
 assert.deepEqual(expandRecipe("A",1,convergingRecipes,{D:1}),{E:1},"owned intermediate stock must be consumed once after demands converge");
