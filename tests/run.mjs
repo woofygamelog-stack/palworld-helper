@@ -22,6 +22,7 @@ const palData = JSON.parse(await readFile("public/data/pals.json", "utf8"));
 const itemData = JSON.parse(await readFile("public/data/items.json", "utf8"));
 const imageManifest = JSON.parse(await readFile("public/assets/image-manifest.json", "utf8"));
 const skillData = JSON.parse(await readFile("public/data/skills.json", "utf8"));
+const dungeonData = JSON.parse(await readFile("public/data/dungeons.json", "utf8"));
 const mapImage = await readFile("public/assets/world-map.webp");
 
 assert.match(data, /Math\.min\(32,\s*Math\.max\(1/, "server generator must clamp the official supported player range");
@@ -52,9 +53,16 @@ assert.match(dungeonImporter,/encounterGroupsForSpawners/,"Dungeon encounters mu
 assert.match(dungeonImporter,/memberRole=primary\?"primary"/,"Dungeon boss groups must distinguish the primary boss from companions");
 assert.match(dungeonImporter,/ItemSlot\$\{slot\}_ProbabilityPercent/,"Dungeon item candidates must preserve the source slot boundary");
 assert.doesNotMatch(dungeonImporter,/type==="Material"|materialItemCount/,"Item category must not be reinterpreted as a Dungeon resource");
-assert.doesNotMatch(dungeonImporter,/Treasure_|Lotus|Mushroom|Elixir|Junk/,"Dungeon reward types must not be inferred from Blueprint name patterns");
-assert.doesNotMatch(main,/materialItemCount|dungeon\.rewardKinds|dungeon\.items|dungeon\.encounters/,"Dungeon UI must not consume legacy flattened or inferred fields");
-assert.match(main,/loaded\.meta\.schema!==2.*resourcesVerified!==false.*rewardContentsVerified!==false/,"Dungeon runtime loader must enforce the schema 2 verification boundary");
+assert.match(dungeonImporter,/rewardClassDefaultsRaw\.classes\[classPath\]/,"Dungeon rewards must follow the exact extracted class-default reference");
+assert.match(dungeonImporter,/rewardKindByMapObjectId=new Map/,"Dungeon reward labels must use exact map-object IDs");
+assert.doesNotMatch(dungeonImporter,/LotteryValueBlueprint(?:ClassName|SoftClass)[^\n]*(?:match|includes|startsWith)/,"Dungeon reward kinds must not be inferred from Blueprint path patterns");
+assert.doesNotMatch(main,/materialItemCount|dungeon\.rewardKinds|dungeon\.rewardTypes|dungeon\.items|dungeon\.encounters|dungeon\.resourceStatus|dungeon\.rewardContentsStatus/,"Dungeon UI must not consume legacy flattened or inferred fields");
+assert.match(main,/loaded\.meta\.schema!==3.*resourcesVerified!==false.*rewardSourcesVerified!==true.*rewardContentsVerified!==false/,"Dungeon runtime loader must enforce the schema 3 verification boundary");
+assert.equal(dungeonData.meta.schema,3,"Dungeon public data must use schema 3");
+assert.equal(dungeonData.meta.rewardSourceCount,79,"Dungeon reward source coverage must fail closed on extraction drift");
+assert.equal(dungeonData.meta.rewardItemCandidateCount,819,"Dungeon reward candidate coverage must fail closed on extraction drift");
+assert.ok(dungeonData.dungeons.filter(dungeon=>dungeon.kind==="rotating").every(dungeon=>dungeon.coverage.resources==="unverified"&&dungeon.resources.length===0),"Unlinked Dungeon resources must remain explicitly unpublished");
+assert.ok(dungeonData.dungeons.filter(dungeon=>dungeon.kind==="rotating").every(dungeon=>dungeon.coverage.rewardSources==="verified"&&dungeon.rewardSources.length>0),"Every rotating Dungeon must expose its verified reward sources");
 assert.match(indexHtml, /name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"/, "Search Console verification must exist in static HTML");
 assert.match(indexHtml, /name="google-adsense-account" content="ca-pub-1986785092914105"/, "AdSense publisher metadata must exist in static HTML");
 assert.equal(adsTxt.trim(),"google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0","ads.txt must use the exact owner-authorized account entry");

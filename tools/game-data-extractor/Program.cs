@@ -14,6 +14,7 @@ using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using CUE4Parse_Conversion.Textures;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SkiaSharp;
 
 if (args.Length < 3 || args.Length > 4)
@@ -79,6 +80,107 @@ object DumpClassDefaults(string generatedClassPath)
     return defaults.Properties.ToDictionary(property => property.Name.Text, property => property.Tag);
 }
 
+string NormalizeGameAssetPath(string assetPath)
+{
+    if (!assetPath.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase)) return assetPath;
+    return $"Pal/Content/{assetPath[6..]}";
+}
+
+object DumpReferencedClassDefaults(JObject table)
+{
+    var classPaths = table.Properties()
+        .Select(property => property.Value["LotteryValueBlueprintSoftClass"]?["AssetPathName"]?.Value<string>())
+        .Where(path => !string.IsNullOrWhiteSpace(path) && !string.Equals(path, "None", StringComparison.OrdinalIgnoreCase))
+        .Select(path => NormalizeGameAssetPath(path!))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var classes = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var errors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var classPath in classPaths)
+    {
+        try
+        {
+            classes[classPath] = DumpClassDefaults(classPath);
+        }
+        catch (Exception error)
+        {
+            errors[classPath] = error.Message;
+        }
+    }
+    return new { requestedClassCount = classPaths.Length, extractedClassCount = classes.Count, failedClassCount = errors.Count, classes, errors };
+}
+
+object DumpDungeonLevelActors(JObject dungeonLevels)
+{
+    var keywords = new[]
+    {
+        "MapObjectSpawner", "ResourceSpawner", "Treasure", "ItemChest", "PalEgg", "SkillFruit", "ItemPickup",
+        "RockCopper", "RockCoal", "RockQuartz", "RockSulfur", "PalCrystal", "OreSpawner", "Paldium",
+        "Mushroom", "Lotus", "FishingSpot", "DungeonExit", "DungeonEntrance", "DungeonPortal"
+    };
+    var levels = new List<object>();
+    foreach (var row in dungeonLevels.Properties().OrderBy(property => property.Name, StringComparer.OrdinalIgnoreCase))
+    {
+        var spawnAreaId = row.Value["SpawnAreaId"]?.Value<string>();
+        var levelName = row.Value["LevelName"]?.Value<string>();
+        if (string.IsNullOrWhiteSpace(levelName))
+        {
+            levels.Add(new { rowId = row.Name, spawnAreaId, levelName, candidates = Array.Empty<string>(), parsed = false, error = "LevelName is missing.", typeCounts = new Dictionary<string, int>(), actors = Array.Empty<object>() });
+            continue;
+        }
+        var candidates = provider.Files.Keys
+            .Where(path => path.EndsWith(".umap", StringComparison.OrdinalIgnoreCase))
+            .Where(path => string.Equals(Path.GetFileNameWithoutExtension(path), levelName, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (candidates.Length != 1)
+        {
+            levels.Add(new { rowId = row.Name, spawnAreaId, levelName, candidates, parsed = false, error = candidates.Length == 0 ? "No exact level package match." : "Multiple exact level package matches.", typeCounts = new Dictionary<string, int>(), actors = Array.Empty<object>() });
+            continue;
+        }
+        try
+        {
+            if (!provider.TryLoadPackage(candidates[0], out var package) || package is null) throw new InvalidDataException("Package could not be loaded.");
+            var level = package.GetExports().OfType<ULevel>().FirstOrDefault()
+                ?? throw new InvalidDataException("ULevel export was not found.");
+            var typeCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var actors = new List<object>();
+            foreach (var actorIndex in level.Actors)
+            {
+                if (actorIndex is null) continue;
+                var actor = actorIndex.Load<AActor>();
+                if (actor is null) continue;
+                var actorType = actor.ExportType ?? "Unknown";
+                typeCounts[actorType] = typeCounts.GetValueOrDefault(actorType) + 1;
+                var matchingKeywords = keywords.Where(keyword => actorType.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (matchingKeywords.Length == 0) continue;
+                FVector? location = null;
+                try
+                {
+                    var root = actor.Get<FPackageIndex>("RootComponent").Load<USceneComponent>();
+                    if (root is not null) location = root.GetComponentTransform().Translation;
+                }
+                catch { }
+                actors.Add(new
+                {
+                    actorType,
+                    actorName = actor.Name,
+                    matchingKeywords,
+                    location,
+                    properties = actor.Properties.ToDictionary(property => property.Name.Text, property => property.Tag)
+                });
+            }
+            levels.Add(new { rowId = row.Name, spawnAreaId, levelName, candidates, parsed = true, error = (string?) null, typeCounts, actors = actors.ToArray() });
+        }
+        catch (Exception error)
+        {
+            levels.Add(new { rowId = row.Name, spawnAreaId, levelName, candidates, parsed = false, error = error.Message, typeCounts = new Dictionary<string, int>(), actors = Array.Empty<object>() });
+        }
+    }
+    return new { levelCount = levels.Count, levels };
+}
+
 if (mode == "dungeon")
 {
     var dungeonTables = new Dictionary<string, string>
@@ -93,8 +195,12 @@ if (mode == "dungeon")
         ["item-pickups.raw.json"] = "Pal/Content/Pal/DataTable/Item/DT_ItemPickupDataTable",
         ["map-object-lottery.raw.json"] = "Pal/Content/Pal/DataTable/MapObject/DT_MapObjectLotteryDataTable"
     };
-    foreach (var table in dungeonTables) Write(table.Key, DumpTable(table.Value));
+    var dumpedDungeonTables = dungeonTables.ToDictionary(table => table.Key, table => JObject.FromObject(DumpTable(table.Value)));
+    foreach (var table in dumpedDungeonTables) Write(table.Key, table.Value);
     Write("dungeon-names.raw.json", DumpLocalizedTextFamily("DT_DungeonNameText", "Pal/Content/Pal/DataTable/Text/DT_DungeonNameText"));
+    Write("map-object-names.raw.json", DumpLocalizedTextFamily("DT_MapObjectNameText_Common", "Pal/Content/Pal/DataTable/Text/DT_MapObjectNameText"));
+    Write("dungeon-reward-class-defaults.raw.json", DumpReferencedClassDefaults(dumpedDungeonTables["dungeon-reward-lottery.raw.json"]));
+    Write("dungeon-level-actors.raw.json", DumpDungeonLevelActors(dumpedDungeonTables["dungeon-levels.raw.json"]));
     var dungeonClassDefaults = new Dictionary<string, object>
     {
         ["portal-grass-1"] = DumpClassDefaults("Pal/Content/Pal/Blueprint/MapObject/Dungeon/BP_DungeonPortalMarker_Grass1.BP_DungeonPortalMarker_Grass1_C"),
@@ -115,8 +221,8 @@ if (mode == "dungeon")
         .Select(file => new { file.Name, file.Length, file.LastWriteTimeUtc })
         .ToArray();
     var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
-    Write("dungeon-manifest.json", new { schema = 1, mode, extractedAt = DateTimeOffset.UtcNow, mappingHash, pakFiles, tables = dungeonTables.Keys.OrderBy(value => value).ToArray(), localeCount = 17 });
-    Console.WriteLine($"Extracted {dungeonTables.Count} dungeon tables and official dungeon text for 17 locales to {output}");
+    Write("dungeon-manifest.json", new { schema = 2, mode, extractedAt = DateTimeOffset.UtcNow, mappingHash, pakFiles, tables = dungeonTables.Keys.OrderBy(value => value).ToArray(), derivedRawFiles = new[] { "dungeon-level-actors.raw.json", "dungeon-reward-class-defaults.raw.json", "map-object-names.raw.json" }, localeCount = 17 });
+    Console.WriteLine($"Extracted {dungeonTables.Count} dungeon tables, referenced reward classes, dungeon level actors, and official text for 17 locales to {output}");
     return 0;
 }
 
