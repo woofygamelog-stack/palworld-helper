@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { messageCatalogs, translationProvenance } from "../src/i18n.ts";
 import { npcCopy } from "../src/npc-i18n.ts";
+import { dungeonCopy, dungeonSearchCopy, dungeonTranslationProvenance } from "../src/dungeon-i18n.ts";
 import { uiCopy } from "../src/ui-i18n.ts";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
@@ -55,9 +56,24 @@ for(const locale of expected){
   }
   if(locale!=="en-US"&&uiKeys.filter(key=>catalog[key]!==uiEnglish[key]).length<Math.floor(uiKeys.length*.8))throw new Error(`${locale} UI catalog appears to be an accidental English fallback`);
 }
+const dungeonEnglish=dungeonCopy["en-US"],dungeonKeys=Object.keys(dungeonEnglish).sort();
+for(const locale of expected){
+  const catalog=dungeonCopy[locale];
+  if(!catalog)throw new Error(`Dungeon catalog missing: ${locale}`);
+  if(typeof dungeonSearchCopy[locale]!=="string"||!dungeonSearchCopy[locale].trim())throw new Error(`${locale} Dungeon search copy is empty`);
+  if(JSON.stringify(Object.keys(catalog).sort())!==JSON.stringify(dungeonKeys))throw new Error(`${locale} Dungeon catalog key mismatch`);
+  for(const key of dungeonKeys){
+    if(typeof catalog[key]!=="string"||!catalog[key].trim())throw new Error(`${locale} Dungeon catalog ${key} is empty`);
+    const sourceTokens=[...dungeonEnglish[key].matchAll(/\{[^}]+\}/g)].map(x=>x[0]).sort();
+    const targetTokens=[...catalog[key].matchAll(/\{[^}]+\}/g)].map(x=>x[0]).sort();
+    if(JSON.stringify(sourceTokens)!==JSON.stringify(targetTokens))throw new Error(`${locale} Dungeon catalog ${key} placeholder mismatch`);
+  }
+  if(!dungeonTranslationProvenance[locale])throw new Error(`${locale} Dungeon translation provenance missing`);
+  if(locale!=="en-US"&&dungeonKeys.filter(key=>catalog[key]!==dungeonEnglish[key]).length<Math.floor(dungeonKeys.length*.8))throw new Error(`${locale} Dungeon catalog appears to be an accidental English fallback`);
+}
 const main=await readFile("src/main.ts","utf8");
 if(/\$\{esc\((?:encounter|step)\.variant\)/.test(main))throw new Error("NPC internal variant is rendered directly");
 for(const text of [">Skill Fruit<",">Surgery cost<",">Breeding power<",">Size<","Server management","Import existing INI","Import and validate","INI output","Only settings documented by the official Palworld Server Guide"]){
   if(main.includes(text))throw new Error(`Hard-coded English UI copy remains in main.ts: ${text}`);
 }
-console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, and ${uiKeys.length} supplemental UI message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
+console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, and ${dungeonKeys.length} Dungeon message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);

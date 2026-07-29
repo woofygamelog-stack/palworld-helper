@@ -12,6 +12,7 @@ export const routeFamilies = [
   {path:"calculators/crafting",mode:"client",indexable:true},
   {path:"database",mode:"static",indexable:true},
   {path:"database/npcs",mode:"static",indexable:true},
+  {path:"database/dungeons",mode:"static",indexable:true},
   {path:"server-tools/settings-generator",mode:"client",indexable:true},
 ] as const satisfies readonly {path:string;mode:RenderMode;indexable:boolean}[];
 
@@ -36,6 +37,7 @@ export const entityRouteFamilies = [
   {prefix:"skills/passive",dataset:"passiveSkills",mode:"client",priority:"all"},
   {prefix:"skills/partner",dataset:"partnerSkills",mode:"client",priority:"all"},
   {prefix:"database/npcs",dataset:"npcs",mode:"client",priority:"all"},
+  {prefix:"database/dungeons",dataset:"dungeons",mode:"client",priority:"all"},
 ] as const;
 
 export const deploymentFileBudget={hardLimit:20_000,reservedHeadroom:4_000} as const;

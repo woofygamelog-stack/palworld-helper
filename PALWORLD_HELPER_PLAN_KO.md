@@ -158,6 +158,8 @@ paldb.cc:
 /{locale}/database/passives
 /{locale}/database/npcs
 /{locale}/database/npcs/{npcSlug}
+/{locale}/database/dungeons
+/{locale}/database/dungeons/{dungeonSlug}
 /{locale}/guides
 /{locale}/guides/getting-started
 /{locale}/guides/returning-player
@@ -440,6 +442,16 @@ n = ceil(log(1 - 목표확률) / log(1 - p))
 - 목록은 현지화 표시명과 역할로 검색·필터링하며, 통합 검색과 사이트맵에도 포함한다.
 - 공식 현지화 명칭을 17개 지원 언어에 사용하고, 설명 문구는 동일 변경에서 전 언어를 완성한다.
 
+### 6.14 던전 안내
+
+- 데이터베이스 안에 게임 파일에서 확인된 로테이션 던전과 고정 봉인 영역을 하나의 통합 목록으로 제공한다.
+- 목록은 권장 레벨 진행 순서를 기본으로 유지하고, 공식 17개 언어 이름과 공개 슬러그, 관련 팰·아이템 이름으로 검색하며 고정/로테이션 유형으로 필터링한다.
+- 상세에는 확인된 레벨 범위, 입구 좌표, 입구 유형, 고정 보스 재등장 대기 시간, 등장 가능한 팰과 역할, 자원, 바닥·특수 아이템, 보상 종류를 분리해 표시한다.
+- 로테이션 입구 후보는 실시간 활성 상태로 표현하지 않는다. 여러 단계의 로터리·가중치 계산이 검증되기 전에는 후보 풀만 표시하고 최종 획득 확률을 게시하지 않는다.
+- 입구는 지도 레이어와 공유 가능한 `layers`, `dungeon`, `world` 쿼리로 연결하고, 지도 마커·결과 목록은 다시 던전 상세로 연결한다.
+- 팰·아이템 상세에는 해당 엔터티가 등장하거나 획득 가능한 던전 역링크를 제공하며, 통합 검색과 사이트맵에도 모든 공개 던전 상세를 포함한다.
+- 게임 내부 데이터 테이블·블루프린트 키는 비공개 추출 매니페스트에만 유지하고, 공개 데이터에는 안정적인 프로젝트 슬러그와 불변 팰·아이템 ID만 남긴다.
+
 ## 7. 필요한 데이터 모델
 
 핵심 엔터티:
@@ -451,7 +463,7 @@ n = ceil(log(1 - 목표확률) / log(1 - p))
 - `Skill`, `Passive`, `PartnerSkill`
 - `BreedingRule`: 일반값, 특수 부모쌍, 제한, 우선순위
 - `Item`, `Recipe`, `Technology`, `Structure`
-- `Npc`, `NpcRole`, `NpcEncounter`, `NpcEvent`, `MerchantOffer`, `DropTable`, `Spawn`, `MapMarker`
+- `Npc`, `NpcRole`, `NpcEncounter`, `NpcEvent`, `MerchantOffer`, `Dungeon`, `DungeonEntrance`, `DungeonEncounter`, `DungeonItemPool`, `DropTable`, `Spawn`, `MapMarker`
 - `CaptureRule`, `Sphere`, `StatusModifier`
 - `ServerSetting`: 키, 타입, 기본값, 범위, 버전, 설명
 - `PatchChange`: 추가/변경/삭제와 영향 엔터티
@@ -491,6 +503,7 @@ n = ceil(log(1 - 목표확률) / log(1 - p))
 - 모든 레시피 재료와 결과 존재 여부
 - 교배 조합 대칭성 및 특수 규칙 우선순위
 - 지도 좌표 범위와 중복 마커
+- 던전 이름·레벨·입구·팰·아이템 참조 무결성과 지도 입구 좌표 일치
 - 숫자 타입, 허용 범위, 단위
 - 번역 키/placeholder/마크업 일치
 - 이전 빌드 대비 비정상 대량 변경 감지

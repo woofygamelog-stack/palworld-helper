@@ -26,7 +26,7 @@ var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
 var mode = args.Length == 4 ? args[3] : "full";
-if (mode is not ("full" or "npc")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
+if (mode is not ("full" or "npc" or "dungeon")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -65,12 +65,60 @@ Dictionary<string,Dictionary<string,string>> DumpLocalizedTextFamily(string comm
         var lang = asset[(start + marker.Length)..].Split('/')[0];
         result[lang] = DumpTextTable(asset[..^7]);
     }
-    var japanesePath = provider.Files.Keys.FirstOrDefault(path => path.EndsWith($"/{Path.GetFileName(japaneseAsset)}.uasset", StringComparison.OrdinalIgnoreCase));
-    if (japanesePath is not null) result["ja"] = DumpTextTable(japanesePath[..^7]);
+    result["ja"] = DumpTextTable(japaneseAsset);
     return result;
 }
 
 void Write(string name, object value) => File.WriteAllText(Path.Combine(output, name), JsonConvert.SerializeObject(value, Formatting.None));
+
+object DumpClassDefaults(string generatedClassPath)
+{
+    var generatedClass = provider.LoadPackageObject<UClass>(generatedClassPath);
+    var defaults = generatedClass.ClassDefaultObject.Load<CUE4Parse.UE4.Assets.Exports.UObject>()
+        ?? throw new InvalidDataException($"Class default object was not found for {generatedClassPath}.");
+    return defaults.Properties.ToDictionary(property => property.Name.Text, property => property.Tag);
+}
+
+if (mode == "dungeon")
+{
+    var dungeonTables = new Dictionary<string, string>
+    {
+        ["dungeon-levels.raw.json"] = "Pal/Content/Pal/DataTable/Dungeon/DT_DungeonLevelDataTable",
+        ["dungeon-spawn-areas.raw.json"] = "Pal/Content/Pal/DataTable/Dungeon/DT_DungeonSpawnAreaDataTable",
+        ["dungeon-enemy-spawns.raw.json"] = "Pal/Content/Pal/DataTable/Dungeon/DT_DungeonEnemySpawnDataTable",
+        ["dungeon-item-lottery.raw.json"] = "Pal/Content/Pal/DataTable/Dungeon/DT_DungeonItemLotteryDataTable",
+        ["dungeon-reward-lottery.raw.json"] = "Pal/Content/Pal/DataTable/Dungeon/DT_DungeonRewardSpawnerLotteryDataTable",
+        ["field-lottery-names.raw.json"] = "Pal/Content/Pal/DataTable/Common/DT_FieldLotteryNameDataTable",
+        ["item-lottery.raw.json"] = "Pal/Content/Pal/DataTable/Item/DT_ItemLotteryDataTable",
+        ["item-pickups.raw.json"] = "Pal/Content/Pal/DataTable/Item/DT_ItemPickupDataTable",
+        ["map-object-lottery.raw.json"] = "Pal/Content/Pal/DataTable/MapObject/DT_MapObjectLotteryDataTable"
+    };
+    foreach (var table in dungeonTables) Write(table.Key, DumpTable(table.Value));
+    Write("dungeon-names.raw.json", DumpLocalizedTextFamily("DT_DungeonNameText", "Pal/Content/Pal/DataTable/Text/DT_DungeonNameText"));
+    var dungeonClassDefaults = new Dictionary<string, object>
+    {
+        ["portal-grass-1"] = DumpClassDefaults("Pal/Content/Pal/Blueprint/MapObject/Dungeon/BP_DungeonPortalMarker_Grass1.BP_DungeonPortalMarker_Grass1_C"),
+        ["fixed-grass-1"] = DumpClassDefaults("Pal/Content/Pal/Blueprint/Dungeon/FixedDungeonEntrance/BP_DungeonFixedEntrance_grass_1.BP_DungeonFixedEntrance_grass_1_C"),
+        ["fixed-grass-5"] = DumpClassDefaults("Pal/Content/Pal/Blueprint/Dungeon/FixedDungeonEntrance/BP_DungeonFixedEntrance_grass_5.BP_DungeonFixedEntrance_grass_5_C"),
+        ["fixed-grass-6"] = DumpClassDefaults("Pal/Content/Pal/Blueprint/Dungeon/FixedDungeonEntrance/BP_DungeonFixedEntrance_grass_6.BP_DungeonFixedEntrance_grass_6_C"),
+        ["fixed-grass-7"] = DumpClassDefaults("Pal/Content/Pal/Blueprint/Dungeon/FixedDungeonEntrance/BP_DungeonFixedEntrance_grass_7.BP_DungeonFixedEntrance_grass_7_C")
+    };
+    Write("dungeon-class-defaults.raw.json", dungeonClassDefaults);
+    Write("dungeon-data-assets.raw.json", provider.Files.Keys
+        .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => new[] { "Dungeon", "Lottery", "Treasure", "Reward", "Pickup", "ItemField" }
+            .Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(path => path).ToArray());
+    var pakFiles = Directory.EnumerateFiles(paks, "*", SearchOption.TopDirectoryOnly)
+        .Select(path => new FileInfo(path))
+        .OrderBy(file => file.Name)
+        .Select(file => new { file.Name, file.Length, file.LastWriteTimeUtc })
+        .ToArray();
+    var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
+    Write("dungeon-manifest.json", new { schema = 1, mode, extractedAt = DateTimeOffset.UtcNow, mappingHash, pakFiles, tables = dungeonTables.Keys.OrderBy(value => value).ToArray(), localeCount = 17 });
+    Console.WriteLine($"Extracted {dungeonTables.Count} dungeon tables and official dungeon text for 17 locales to {output}");
+    return 0;
+}
 
 if (mode == "npc")
 {

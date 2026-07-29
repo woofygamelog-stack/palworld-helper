@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { dungeonPublicDefinitions } from "./dungeon-public-config.mjs";
 
 const root=process.cwd(),build="24181527";
 const preferred=path.join(root,"private","extracted",`build-${build}-map-actor-chunks-v2`);
@@ -10,6 +11,12 @@ if(files.length!==10)throw new Error(`Expected 10 complete actor chunks, found $
 const worlds=JSON.parse(fs.readFileSync(path.join(root,"public","data","map-markers.json"),"utf8")).worlds;
 const npcData=JSON.parse(fs.readFileSync(path.join(root,"public","data","npcs.json"),"utf8"));
 const npcAt=new Map(npcData.npcs.flatMap(npc=>npc.encounters.map(encounter=>[`${encounter.x}|${encounter.y}|${encounter.z}`,npc])));
+const dungeonSource=path.join(root,"private","extracted",`build-${build}-dungeons`);
+if(!fs.existsSync(dungeonSource))throw new Error("Private dungeon extraction is required for verified entrance relations.");
+const dungeonSpawnAreas=JSON.parse(fs.readFileSync(path.join(dungeonSource,"dungeon-spawn-areas.raw.json"),"utf8"));
+const dungeonClassDefaults=JSON.parse(fs.readFileSync(path.join(dungeonSource,"dungeon-class-defaults.raw.json"),"utf8"));
+const defaultPortalAreas=(dungeonClassDefaults["portal-grass-1"]?.SpawnAreaIds||[]).map(value=>value.Key).filter(Boolean);
+const fixedDefaultNameByType={BP_DungeonFixedEntrance_grass_1_C:dungeonClassDefaults["fixed-grass-1"]?.DungeonNameRowHandle?.RowName,BP_DungeonFixedEntrance_grass_5_C:dungeonClassDefaults["fixed-grass-5"]?.DungeonNameRowHandle?.RowName,BP_DungeonFixedEntrance_grass_6_C:dungeonClassDefaults["fixed-grass-6"]?.DungeonNameRowHandle?.RowName,BP_DungeonFixedEntrance_grass_7_C:dungeonClassDefaults["fixed-grass-7"]?.DungeonNameRowHandle?.RowName};
 const icon={
   redBerry:"/assets/items/Berries.webp",mushroom:"/assets/items/Mushroom.webp",oil:"/assets/items/CrudeOil.webp",
   egg:"/assets/items/Egg.webp",skillFruit:"/assets/items/SkillCard_AirCanon.webp",ore:"/assets/items/CopperOre.webp",
@@ -48,7 +55,7 @@ function classify(actor){
   if(/IcePegasusStatue/i.test(type))return {category:"palStatue",subtype:"frostallion"};
   if(/Anubisstatue/i.test(type))return {category:"palStatue",subtype:"anubis"};
   if(/JetDragonStatue/i.test(type))return {category:"palStatue",subtype:"jetragon"};
-  if(z>-20000&&/(?:DungeonFixedEntrance|DungeonPortalMarker|DungeonExit_grassLand)/i.test(type))return {category:"dungeon",subtype:"fixed-entrance"};
+  if(z>-20000&&/(?:DungeonFixedEntrance|DungeonPortalMarker|DungeonExit_grassLand)/i.test(type)){const rotating=/DungeonPortalMarker/i.test(type),areaIds=rotating?(actor.properties?.SpawnAreaIds?.map(value=>value.Key).filter(Boolean)||defaultPortalAreas):[],nameId=rotating?dungeonSpawnAreas[areaIds[0]]?.DungeonNameTextId:actor.properties?.DungeonNameRowHandle?.RowName||fixedDefaultNameByType[type],definition=dungeonPublicDefinitions[nameId];return {category:"dungeon",subtype:rotating?"rotation-candidate":"fixed-entrance",...(definition?{dungeonSlug:definition.slug}:{})}}
   if(z>-20000&&/MonoNPCSpawner/i.test(type)){
     if(actor.properties?.ParentComponent)return null;
     const linkedNpc=npcAt.get(`${actor.location.X}|${actor.location.Y}|${actor.location.Z}`),npcSlug=linkedNpc?.slug;

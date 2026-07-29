@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "data:npcs": "node scripts/import-npcs.mjs && node scripts/import-world-map-points.mjs",
+    "data:import:dungeons": "node scripts/import-dungeon-data.mjs && node scripts/import-world-map-points.mjs",
     "dev": "vite",
     "build": "node scripts/generate-map-tiles.mjs && vite build && node --experimental-strip-types scripts/generate-static.mjs && node --experimental-strip-types scripts/check-built.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types tests/run.mjs && node scripts/validate-map-data.mjs && node scripts/validate-npc-data.mjs",
+    "test": "node --experimental-strip-types tests/run.mjs && node scripts/validate-map-data.mjs && node scripts/validate-npc-data.mjs && node scripts/validate-dungeon-data.mjs",
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
     "check:item-images": "node scripts/check-item-images.mjs",
     "data:import:pals": "node scripts/import-pal-data.mjs",

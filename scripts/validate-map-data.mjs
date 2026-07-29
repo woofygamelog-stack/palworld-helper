@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 const data=JSON.parse(fs.readFileSync("public/data/map-markers.json","utf8"));
 const pointData=JSON.parse(fs.readFileSync("public/data/map-points.json","utf8"));
+const dungeonData=JSON.parse(fs.readFileSync("public/data/dungeons.json","utf8"));
 const worldById=new Map(data.worlds.map(world=>[world.id,world]));
 const surfaceResourceCounts={ore:1555,coal:497,sulfur:257,quartz:496};
 const surfaceResourceAnchors={
@@ -14,6 +15,10 @@ if(pointData.points.length!==Object.values(pointData.counts).reduce((sum,count)=
 const pointIds=new Set();
 for(const point of pointData.points){const world=worldById.get(point.worldId);if(!world)throw new Error(`Unknown point world ${point.id}`);if(point.x<world.minX||point.x>world.maxX||point.y<world.minY||point.y>world.maxY)throw new Error(`Out-of-bounds point ${point.id}`);if(pointIds.has(point.id))throw new Error(`Duplicate point ${point.id}`);if(!point.icon?.startsWith("/assets/")||!fs.existsSync(`public${point.icon}`))throw new Error(`Missing point icon ${point.id}`);if(/BP_|_C$|Spawner|LevelObject/i.test(point.subtype))throw new Error(`Internal actor type leaked through ${point.id}`);if(point.category in surfaceResourceCounts&&(!Number.isFinite(point.z)||point.z<=-20000))throw new Error(`Underground resource leaked through ${point.id}`);pointIds.add(point.id)}
 for(const [category,count] of Object.entries({redBerry:1939,mushroom:274,oil:185,egg:1816,skillFruit:47,...surfaceResourceCounts,npc:100,merchant:19,palMerchant:6,fishing:546,randomEvent:87,dungeon:31,bounty:33,collectibleShrine:104,palStatue:11}))if(pointData.counts[category]!==count)throw new Error(`Unexpected ${category} count ${pointData.counts[category]}`);
+const dungeonSlugs=new Set(dungeonData.dungeons.map(dungeon=>dungeon.slug)),dungeonPoints=pointData.points.filter(point=>point.category==="dungeon");
+if(dungeonPoints.some(point=>!dungeonSlugs.has(point.dungeonSlug)||!["fixed-entrance","rotation-candidate"].includes(point.subtype)))throw new Error("Dungeon map relation is missing or invalid");
+const entranceCoordinates=new Set(dungeonData.dungeons.flatMap(dungeon=>dungeon.entrances.map(entrance=>`${dungeon.slug}|${entrance.x}|${entrance.y}|${entrance.z}`)));
+if(dungeonPoints.some(point=>!entranceCoordinates.has(`${point.dungeonSlug}|${point.x}|${point.y}|${point.z}`)))throw new Error("Dungeon map point does not match a normalized entrance");
 for(const [category,count] of Object.entries(surfaceResourceCounts)){const resources=pointData.points.filter(point=>point.category===category);if(resources.length!==count)throw new Error(`Surface resource count mismatch for ${category}`);const anchor=surfaceResourceAnchors[category];if(!resources.some(point=>Math.abs(point.x-anchor.x)<0.01&&Math.abs(point.y-anchor.y)<0.01&&point.z>0))throw new Error(`Surface resource anchor missing for ${category}`)}
 const fail=message=>{throw new Error(`Map validation failed: ${message}`)};
 if(data.meta.gameBuild!=="24181527")fail("unexpected game build");
