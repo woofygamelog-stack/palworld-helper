@@ -1,20 +1,20 @@
-export type RenderMode="static"|"client"|"hybrid";
+export type RenderMode="static"|"prerendered"|"client"|"hybrid";
 export const routeFamilies = [
-  {path:"",mode:"static",indexable:true},
-  {path:"map",mode:"client",indexable:true},
-  {path:"pals",mode:"static",indexable:true},
-  {path:"skills",mode:"static",indexable:true},
-  {path:"skills/active",mode:"static",indexable:true},
-  {path:"skills/passive",mode:"static",indexable:true},
-  {path:"skills/partner",mode:"static",indexable:true},
-  {path:"calculators",mode:"client",indexable:true},
-  {path:"calculators/breeding",mode:"client",indexable:true},
-  {path:"calculators/crafting",mode:"client",indexable:true},
-  {path:"database",mode:"static",indexable:true},
-  {path:"database/npcs",mode:"static",indexable:true},
-  {path:"database/dungeons",mode:"static",indexable:true},
-  {path:"server-tools/settings-generator",mode:"client",indexable:true},
-] as const satisfies readonly {path:string;mode:RenderMode;indexable:boolean}[];
+  {path:"",mode:"prerendered",indexable:true,searchIntent:"site-overview"},
+  {path:"map",mode:"hybrid",indexable:true,searchIntent:"verified-locations"},
+  {path:"pals",mode:"hybrid",indexable:true,searchIntent:"pal-catalog"},
+  {path:"skills",mode:"hybrid",indexable:true,searchIntent:"skill-catalog"},
+  {path:"skills/active",mode:"hybrid",indexable:true,searchIntent:"active-skill-catalog"},
+  {path:"skills/passive",mode:"hybrid",indexable:true,searchIntent:"passive-skill-catalog"},
+  {path:"skills/partner",mode:"hybrid",indexable:true,searchIntent:"partner-skill-catalog"},
+  {path:"calculators",mode:"hybrid",indexable:true,searchIntent:"calculator-overview"},
+  {path:"calculators/breeding",mode:"hybrid",indexable:true,searchIntent:"breeding-calculator"},
+  {path:"calculators/crafting",mode:"hybrid",indexable:true,searchIntent:"crafting-calculator"},
+  {path:"database",mode:"hybrid",indexable:true,searchIntent:"item-catalog"},
+  {path:"database/npcs",mode:"hybrid",indexable:true,searchIntent:"npc-catalog"},
+  {path:"database/dungeons",mode:"hybrid",indexable:true,searchIntent:"dungeon-catalog"},
+  {path:"server-tools/settings-generator",mode:"hybrid",indexable:true,searchIntent:"server-settings"},
+] as const satisfies readonly {path:string;mode:RenderMode;indexable:boolean;searchIntent:string}[];
 
 export const collectionRoutes = routeFamilies.filter(route=>route.indexable).map(route=>route.path);
 
@@ -31,13 +31,13 @@ export const shellNavigation = [
 export const previewRoutes = [] as const;
 
 export const entityRouteFamilies = [
-  {prefix:"pals",dataset:"pals",mode:"client",priority:"all"},
-  {prefix:"items",dataset:"items",mode:"client",priority:"all"},
-  {prefix:"skills/active",dataset:"activeSkills",mode:"client",priority:"all"},
-  {prefix:"skills/passive",dataset:"passiveSkills",mode:"client",priority:"all"},
-  {prefix:"skills/partner",dataset:"partnerSkills",mode:"client",priority:"all"},
-  {prefix:"database/npcs",dataset:"npcs",mode:"client",priority:"all"},
-  {prefix:"database/dungeons",dataset:"dungeons",mode:"client",priority:"all"},
+  {prefix:"pals",dataset:"pals",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"pals",searchIntent:"pal-detail"},
+  {prefix:"items",dataset:"items",mode:"hybrid",prerender:"priority",priorityLimit:100,sitemap:"items",searchIntent:"item-detail"},
+  {prefix:"skills/active",dataset:"activeSkills",mode:"hybrid",prerender:"priority",priorityLimit:40,sitemap:"skills-active",searchIntent:"active-skill-detail"},
+  {prefix:"skills/passive",dataset:"passiveSkills",mode:"hybrid",prerender:"priority",priorityLimit:30,sitemap:"skills-passive",searchIntent:"passive-skill-detail"},
+  {prefix:"skills/partner",dataset:"partnerSkills",mode:"hybrid",prerender:"priority",priorityLimit:30,sitemap:"skills-partner",searchIntent:"partner-skill-detail"},
+  {prefix:"database/npcs",dataset:"npcs",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"npcs",searchIntent:"npc-detail"},
+  {prefix:"database/dungeons",dataset:"dungeons",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"dungeons",searchIntent:"dungeon-detail"},
 ] as const;
 
 export const deploymentFileBudget={hardLimit:20_000,reservedHeadroom:4_000} as const;

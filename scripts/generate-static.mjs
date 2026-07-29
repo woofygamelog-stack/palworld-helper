@@ -1,13 +1,35 @@
-import {copyFile,readFile,writeFile} from "node:fs/promises";
-import {collectionRoutes as routes,entityRouteFamilies,supportedLocales as locales} from "../src/route-manifest.ts";
+import {copyFile,mkdir,readFile,writeFile} from "node:fs/promises";
+import path from "node:path";
+import {buildIndexableGroups,buildPrerenderEntries,productionOrigin,renderHtmlDocument,renderRouteModel,routeRenderingReport} from "./seo-static.mjs";
 
-const origin=process.env.VITE_SITE_ORIGIN||"https://palworld-helper.woofy.blog";
-const [palData,itemData,skillData,npcData,dungeonData]=await Promise.all(["pals","items","skills","npcs","dungeons"].map(name=>readFile(`public/data/${name}.json`,"utf8").then(JSON.parse)));
-const url=(locale,route)=>`${origin}/${locale}${route?`/${route}`:""}`;
-const entityDatasets={pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills,npcs:npcData.npcs,dungeons:dungeonData.dungeons};
-const entityId=(entity)=>entity.slug??entity.id;
-const entityRoutes=entityRouteFamilies.flatMap(family=>entityDatasets[family.dataset].map(entity=>`${family.prefix}/${encodeURIComponent(entityId(entity))}`)),indexableRoutes=[...routes,...entityRoutes],urls=locales.flatMap(locale=>indexableRoutes.map(route=>url(locale,route)));
-await writeFile("dist/sitemap.xml",`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map(value=>`<url><loc>${value}</loc></url>`).join("")}</urlset>`);
-await writeFile("dist/prerender-report.json",JSON.stringify({schema:2,architecture:"shared-spa-document",indexableUrlCount:urls.length,physicalHtmlDocuments:1,routeFamilies:{static:routes.length*locales.length,...Object.fromEntries(entityRouteFamilies.map(family=>[family.dataset,entityDatasets[family.dataset].length*locales.length]))}},null,2));
-await writeFile("dist/robots.txt",`User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`);await writeFile("dist/_headers",`/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n`);await copyFile("public/site.webmanifest","dist/site.webmanifest");
-console.log(`Generated ${urls.length} indexable URLs backed by one shared SPA document.`);
+const origin=process.env.VITE_SITE_ORIGIN||productionOrigin;
+if(origin!==productionOrigin)throw new Error(`Production origin must be ${productionOrigin}`);
+const [palData,itemData,skillData,npcData,dungeonData,template]=await Promise.all(["pals","items","skills","npcs","dungeons"].map(name=>readFile(`public/data/${name}.json`,"utf8").then(JSON.parse)).concat(readFile("dist/index.html","utf8")));
+const data={palData,itemData,skillData,npcData,dungeonData};
+const groups=buildIndexableGroups(data,origin),{entries,selected}=buildPrerenderEntries(data);
+const xml=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+const sitemapDirectory=path.join("dist","sitemaps");
+await mkdir(sitemapDirectory,{recursive:true});
+for(const [name,urls] of Object.entries(groups)){
+  if(urls.length>50_000)throw new Error(`${name} sitemap exceeds 50,000 URLs`);
+  const content=`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map(value=>`<url><loc>${xml(value)}</loc></url>`).join("")}</urlset>`;
+  if(Buffer.byteLength(content)>50*1024*1024)throw new Error(`${name} sitemap exceeds 50 MB`);
+  await writeFile(path.join(sitemapDirectory,`${name}.xml`),content);
+}
+const sitemapIndex=`<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${Object.keys(groups).map(name=>`<sitemap><loc>${origin}/sitemaps/${name}.xml</loc></sitemap>`).join("")}</sitemapindex>`;
+await writeFile("dist/sitemap.xml",sitemapIndex);
+
+for(let start=0;start<entries.length;start+=64){
+  await Promise.all(entries.slice(start,start+64).map(async entry=>{
+    const model=renderRouteModel(entry,data,selected),target=entry.route?path.join("dist",entry.locale,...entry.route.split("/").filter(Boolean))+".html":path.join("dist",`${entry.locale}.html`);
+    await mkdir(path.dirname(target),{recursive:true});
+    await writeFile(target,renderHtmlDocument(template,entry,model,origin));
+  }));
+}
+
+const indexableUrlCount=Object.values(groups).reduce((sum,urls)=>sum+urls.length,0),physicalHtmlDocuments=entries.length+1,rendering=routeRenderingReport(data,selected);
+await writeFile("dist/prerender-report.json",JSON.stringify({schema:3,architecture:"hybrid-prerender-plus-spa",indexableUrlCount,physicalHtmlDocuments,initialHtmlSeoCoverage:entries.length,sitemapFiles:Object.fromEntries(Object.entries(groups).map(([name,urls])=>[name,urls.length])),routeFamilies:rendering},null,2));
+await writeFile("dist/robots.txt",`User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`);
+await writeFile("dist/_headers",`/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n`);
+await copyFile("public/site.webmanifest","dist/site.webmanifest");
+console.log(`Generated ${indexableUrlCount} indexable URLs, ${entries.length} prerendered routes and ${Object.keys(groups).length} child sitemaps.`);
