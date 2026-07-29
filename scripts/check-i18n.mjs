@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { messageCatalogs, translationProvenance } from "../src/i18n.ts";
+import { npcCopy } from "../src/npc-i18n.ts";
+import { uiCopy } from "../src/ui-i18n.ts";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
 const expected = ["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
@@ -27,4 +29,35 @@ if(JSON.stringify(messageCatalogs["zh-CN"])===JSON.stringify(messageCatalogs["zh
 const fallback=expected.filter(locale=>translationProvenance[locale]==="fallback");
 if(Object.keys(messageCatalogs).length!==expected.length) throw new Error(`Expected ${expected.length} complete catalogs, found ${Object.keys(messageCatalogs).length}`);
 if(fallback.length) throw new Error(`Release-blocking fallback locales: ${fallback.join(", ")}`);
-console.log(`Validated ${keys.length} message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
+const npcEnglish=npcCopy["en-US"],npcKeys=Object.keys(npcEnglish).sort();
+for(const locale of expected){
+  const catalog=npcCopy[locale];
+  if(!catalog)throw new Error(`NPC catalog missing: ${locale}`);
+  if(JSON.stringify(Object.keys(catalog).sort())!==JSON.stringify(npcKeys))throw new Error(`${locale} NPC catalog key mismatch`);
+  for(const key of npcKeys){
+    if(typeof catalog[key]!=="string"||!catalog[key].trim())throw new Error(`${locale} NPC catalog ${key} is empty`);
+    const sourceTokens=[...npcEnglish[key].matchAll(/\{[^}]+\}/g)].map(x=>x[0]).sort();
+    const targetTokens=[...catalog[key].matchAll(/\{[^}]+\}/g)].map(x=>x[0]).sort();
+    if(JSON.stringify(sourceTokens)!==JSON.stringify(targetTokens))throw new Error(`${locale} NPC catalog ${key} placeholder mismatch`);
+  }
+  if(locale!=="en-US"&&npcKeys.filter(key=>catalog[key]!==npcEnglish[key]).length<Math.floor(npcKeys.length*.8))throw new Error(`${locale} NPC catalog appears to be an accidental English fallback`);
+}
+const uiEnglish=uiCopy["en-US"],uiKeys=Object.keys(uiEnglish).sort();
+for(const locale of expected){
+  const catalog=uiCopy[locale];
+  if(!catalog)throw new Error(`UI catalog missing: ${locale}`);
+  if(JSON.stringify(Object.keys(catalog).sort())!==JSON.stringify(uiKeys))throw new Error(`${locale} UI catalog key mismatch`);
+  for(const key of uiKeys){
+    if(typeof catalog[key]!=="string"||!catalog[key].trim())throw new Error(`${locale} UI catalog ${key} is empty`);
+    const sourceTokens=[...uiEnglish[key].matchAll(/\{[^}]+\}/g)].map(x=>x[0]).sort();
+    const targetTokens=[...catalog[key].matchAll(/\{[^}]+\}/g)].map(x=>x[0]).sort();
+    if(JSON.stringify(sourceTokens)!==JSON.stringify(targetTokens))throw new Error(`${locale} UI catalog ${key} placeholder mismatch`);
+  }
+  if(locale!=="en-US"&&uiKeys.filter(key=>catalog[key]!==uiEnglish[key]).length<Math.floor(uiKeys.length*.8))throw new Error(`${locale} UI catalog appears to be an accidental English fallback`);
+}
+const main=await readFile("src/main.ts","utf8");
+if(/\$\{esc\((?:encounter|step)\.variant\)/.test(main))throw new Error("NPC internal variant is rendered directly");
+for(const text of [">Skill Fruit<",">Surgery cost<",">Breeding power<",">Size<","Server management","Import existing INI","Import and validate","INI output","Only settings documented by the official Palworld Server Guide"]){
+  if(main.includes(text))throw new Error(`Hard-coded English UI copy remains in main.ts: ${text}`);
+}
+console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, and ${uiKeys.length} supplemental UI message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
