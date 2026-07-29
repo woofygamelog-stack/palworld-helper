@@ -3,6 +3,7 @@ import {itemCategoryFieldLabels,itemCategoryLabel} from "../src/item-categories.
 import {npcCopy} from "../src/npc-i18n.ts";
 import {dungeonCopy} from "../src/dungeon-i18n.ts";
 import {technologyCopy} from "../src/technology-i18n.ts";
+import {healthCopy} from "../src/health-i18n.ts";
 import {partnerLabel,passiveUiLabels,skillLabels} from "../src/skill-i18n.ts";
 import {collectionRoutes,entityRouteFamilies,routeFamilies,shellNavigation,supportedLocales} from "../src/route-manifest.ts";
 
@@ -25,8 +26,8 @@ const absolute=(origin,locale,route="")=>`${origin}${href(locale,route)}`;
 const entityId=entity=>entity.slug??entity.id;
 const addCount=(map,key,value=1)=>map.set(key,(map.get(key)||0)+value);
 
-export function createEntityDatasets({palData,itemData,skillData,npcData,dungeonData,technologyData}){
-  return {pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills,npcs:npcData.npcs,dungeons:dungeonData.dungeons,technologies:technologyData.technologies};
+export function createEntityDatasets({palData,itemData,skillData,npcData,dungeonData,technologyData,healthData}){
+  return {pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills,npcs:npcData.npcs,dungeons:dungeonData.dungeons,technologies:technologyData.technologies,conditions:healthData.conditions};
 }
 
 function relationScores({palData,itemData,skillData,npcData,dungeonData,technologyData}){
@@ -104,7 +105,7 @@ function pageStructuredData({origin,locale,route,title,description,type,parent})
 }
 
 function collectionModel(route,locale,data,selection){
-  const {palData,itemData,skillData,npcData,dungeonData}=data,m=messages(locale),skills=skillLabels[locale],dungeons=dungeonCopy[locale],npcs=npcCopy[locale],technology=technologyCopy[locale];
+  const {palData,itemData,skillData,npcData,dungeonData,healthData}=data,m=messages(locale),skills=skillLabels[locale],dungeons=dungeonCopy[locale],npcs=npcCopy[locale],technology=technologyCopy[locale],health=healthCopy[locale];
   let title,description,links=[],type="CollectionPage";
   if(route===""){title=m.hero;description=m.tagline;type="WebSite";links=[{href:href(locale,"pals"),label:m.palDex},{href:href(locale,"calculators/breeding"),label:m.breeding},{href:href(locale,"database"),label:m.itemDatabase},{href:href(locale,"database/technology"),label:technology.title},{href:href(locale,"database/dungeons"),label:dungeons.title}]}
   else if(route==="map"){({title,body:description}=mapSeoCopy[locale]);type="WebApplication";links=[{href:href(locale,"pals"),label:m.palDex},{href:href(locale,"database/dungeons"),label:dungeons.title},{href:href(locale,"database/npcs"),label:npcs.catalogTitle}]}
@@ -114,6 +115,7 @@ function collectionModel(route,locale,data,selection){
   else if(route==="calculators/crafting"){title=m.crafting;description=m.craftingBody;type="WebApplication";links=selection.items.map(item=>({href:href(locale,`items/${encodeURIComponent(item.id)}`),label:localized(item,locale),image:`/assets/items/${encodeURIComponent(item.id)}.webp`}))}
   else if(route==="database"){title=m.itemDatabase;description=m.itemDatabaseBody;links=selection.items.map(item=>({href:href(locale,`items/${encodeURIComponent(item.id)}`),label:localized(item,locale),image:`/assets/items/${encodeURIComponent(item.id)}.webp`,detail:itemCategoryLabel(item.type,locale)}))}
   else if(route==="database/technology"){title=technology.title;description=technology.intro;links=[...selection.technologies].sort((a,b)=>a.level-b.level||a.order-b.order||a.slug.localeCompare(b.slug)).map(entry=>({href:href(locale,`database/technology/${entry.slug}`),label:localized(entry,locale),image:`/assets/technology/${encodeURIComponent(entry.slug)}.webp`,detail:`${technology.level} ${entry.level.toLocaleString(locale)} · ${entry.kind==="ancient"?technology.ancient:technology.regular}`}))}
+  else if(route==="database/health"){title=health.title;description=health.intro;links=healthData.conditions.map(entry=>({href:href(locale,`database/health/conditions/${entry.slug}`),label:localized(entry,locale),detail:health[entry.category]}))}
   else if(route==="database/npcs"){title=npcs.catalogTitle;description=npcs.catalogIntro;links=[...npcData.npcs].sort((a,b)=>new Intl.Collator(locale,{numeric:true}).compare(localized(a,locale),localized(b,locale))||a.slug.localeCompare(b.slug)).map(npc=>({href:href(locale,`database/npcs/${npc.slug}`),label:localized(npc,locale)}))}
   else if(route==="database/dungeons"){title=dungeons.title;description=dungeons.intro;links=[...dungeonData.dungeons].sort((a,b)=>(a.encounterLevel?.min??999)-(b.encounterLevel?.min??999)||new Intl.Collator(locale).compare(localized(a,locale),localized(b,locale))).map(dungeon=>({href:href(locale,`database/dungeons/${dungeon.slug}`),label:localized(dungeon,locale),image:"/assets/map-icons/dungeon.webp"}))}
   else {title=m.serverTitle;description=m.footer;type="WebApplication";links=[]}
@@ -186,6 +188,13 @@ function dungeonModel(locale,dungeon,data){
   return {title,description,body,type:"WebPage",parent:{route:"database/dungeons",label:copy.title}};
 }
 
+function healthConditionModel(locale,condition,data){
+  const copy=healthCopy[locale],title=localized(condition,locale),description=localizedDescription(condition,locale),medicine=data.healthData.medicines.find(entry=>entry.slug===condition.medicine),medicineName=localized(medicine,locale);
+  const ingredients=medicine.recipe.ingredients.map(ingredient=>`<li>${esc(localized(ingredient,locale))} × ${ingredient.count.toLocaleString(locale)}</li>`).join("");
+  const body=`${hero(messages(locale),title)}<article class="entity-detail panel"><div class="entity-detail-content">${breadcrumb(locale,"database/health",copy.title,title)}<p class="entity-description">${esc(description)}</p><section class="detail-section"><h2>${esc(copy.treatment)}</h2><p><strong>${esc(medicineName)}</strong></p><p>${esc(copy.noHp)}</p><h3>${esc(copy.recipe)}</h3><ul>${ingredients}</ul><p>${esc(copy.work)}: ${medicine.recipe.workAmount.toLocaleString(locale)}</p></section><p class="notice">${esc(copy.numericUnavailable)}</p></div></article>`;
+  return {title,description,body,type:"WebPage",parent:{route:"database/health",label:copy.title}};
+}
+
 export function renderRouteModel(entry,data,selection){
   if(entry.kind==="collection")return collectionModel(entry.route,entry.locale,data,selection);
   if(entry.dataset==="pals")return palModel(entry.locale,entry.entity,data);
@@ -193,6 +202,7 @@ export function renderRouteModel(entry,data,selection){
   if(entry.dataset==="activeSkills"||entry.dataset==="passiveSkills"||entry.dataset==="partnerSkills")return skillModel(entry.locale,entry.entity,entry.dataset,data);
   if(entry.dataset==="npcs")return npcModel(entry.locale,entry.entity,data);
   if(entry.dataset==="technologies")return technologyModel(entry.locale,entry.entity);
+  if(entry.dataset==="conditions")return healthConditionModel(entry.locale,entry.entity,data);
   return dungeonModel(entry.locale,entry.entity,data);
 }
 

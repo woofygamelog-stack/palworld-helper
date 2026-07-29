@@ -33,6 +33,7 @@ const skillData = JSON.parse(await readFile("public/data/skills.json", "utf8"));
 const npcData = JSON.parse(await readFile("public/data/npcs.json", "utf8"));
 const dungeonData = JSON.parse(await readFile("public/data/dungeons.json", "utf8"));
 const technologyData = JSON.parse(await readFile("public/data/technology.json", "utf8"));
+const healthData = JSON.parse(await readFile("public/data/health.json", "utf8"));
 const mapImage = await readFile("public/assets/world-map.webp");
 
 assert.match(data, /Math\.min\(32,\s*Math\.max\(1/, "server generator must clamp the official supported player range");
@@ -88,6 +89,11 @@ assert.ok(technologyData.technologies.every(technology=>technology.level>=1&&tec
 assert.ok(technologyData.technologies.every((technology,index,list)=>index===0||list[index-1].level<technology.level||list[index-1].level===technology.level&&list[index-1].order<=technology.order),"Technology entries must preserve level and authored table order");
 assert.ok(technologyData.technologies.every(technology=>(!technology.prerequisite||technologySlugs.has(technology.prerequisite.slug))&&technology.dependents.every(relation=>technologySlugs.has(relation.slug))),"Technology prerequisite and dependent routes must remain referentially complete");
 assert.doesNotMatch(JSON.stringify(technologyData),/EPal|NAME_RECIPE_|internalId|RequireTechnology|RequireDefeatTowerBoss|RequireResearchId/,"Technology public data must not expose raw game identifiers or source fields");
+assert.deepEqual({schema:healthData.meta.schema,gameBuild:healthData.meta.gameBuild,verification:healthData.meta.verification,localeCount:healthData.meta.localeCount,conditions:healthData.meta.conditionCount,medicines:healthData.meta.medicineCount,numericEffectsVerified:healthData.meta.numericEffectsVerified},{schema:1,gameBuild:"24181527",verification:"game-files",localeCount:17,conditions:7,medicines:3,numericEffectsVerified:false},"Health data must fail closed on verified coverage and explicitly exclude unverified numeric effects");
+assert.equal(new Set(healthData.conditions.map(condition=>condition.slug)).size,7,"Health condition slugs must be unique");
+assert.ok(healthData.conditions.every(condition=>Object.keys(condition.names).length===17&&Object.keys(condition.descriptions).length===17&&condition.effects.numericModifiers===null&&healthData.medicines.some(medicine=>medicine.slug===condition.medicine&&medicine.cures.includes(condition.slug))),"Every condition needs complete official localization and a reciprocal verified treatment relation");
+assert.ok(healthData.medicines.every(medicine=>medicine.healthRestoration===0&&medicine.recipe.workAmount>0&&medicine.recipe.ingredients.length>=2&&Object.keys(medicine.names).length===17&&Object.keys(medicine.descriptions).length===17),"Medicines must retain recipes, locale coverage, and the verified no-HP-healing boundary");
+assert.doesNotMatch(JSON.stringify(healthData),/"(?:COMMON_[^"]*|ITEM_DESC_[^"]*|Cold|Bulimia|GastricUlcer|DepressionSprain|Herbs|LuxuryMedicines)"\s*:|[A-Z]:\\|file:\/\//,"Health public data must not expose raw condition/item identifiers or local provenance");
 assert.match(technologyImporter,/extractionManifest\.extractedAt/,"Technology generation timestamp must remain deterministic for one extraction");
 assert.match(technologyImporter,/mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851"/,"Technology import must enforce the build-compatible USMAP");
 assert.match(main,/id="technology-kind".*id="technology-category".*id="technology-level".*id="technology-condition"/s,"Technology collection must expose type, unlock, level, and condition filters");
@@ -104,10 +110,10 @@ assert.equal(wranglerConfig.assets?.directory,"./dist","Wrangler must deploy onl
 assert.equal(wranglerConfig.main,undefined,"static deployment must not introduce a Worker runtime");
 assert.equal(wranglerConfig.assets?.not_found_handling,"single-page-application","collection and entity deep links must reuse the shared SPA document");
 assert.equal(wranglerConfig.assets?.html_handling,"drop-trailing-slash","Cloudflare HTML routing must match the no-trailing-slash canonical contract");
-const seoData={palData,itemData,skillData,npcData,dungeonData,technologyData},indexableGroups=buildIndexableGroups(seoData,productionOrigin),{entries:prerenderEntries,selected:prerenderSelection}=buildPrerenderEntries(seoData);
-assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),63172,"typed SEO groups must enumerate every implemented localized URL");
-assert.deepEqual(Object.fromEntries(Object.entries(prerenderSelection).map(([key,value])=>[key,value.length])),{pals:299,items:100,activeSkills:40,passiveSkills:30,partnerSkills:30,npcs:164,dungeons:28,technologies:20},"hybrid prerender selection must retain its deterministic family limits");
-assert.equal(prerenderEntries.length,12342,"collection and priority detail prerenders must remain inside the deployment budget");
+const seoData={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData},indexableGroups=buildIndexableGroups(seoData,productionOrigin),{entries:prerenderEntries,selected:prerenderSelection}=buildPrerenderEntries(seoData);
+assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),63308,"typed SEO groups must enumerate every implemented localized URL");
+assert.deepEqual(Object.fromEntries(Object.entries(prerenderSelection).map(([key,value])=>[key,value.length])),{pals:299,items:100,activeSkills:40,passiveSkills:30,partnerSkills:30,npcs:164,dungeons:28,technologies:20,conditions:7},"hybrid prerender selection must retain its deterministic family limits");
+assert.equal(prerenderEntries.length,12478,"collection and priority detail prerenders must remain inside the deployment budget");
 const koreanDungeonEntry=prerenderEntries.find(entry=>entry.locale==="ko-KR"&&entry.dataset==="dungeons"),koreanDungeonModel=renderRouteModel(koreanDungeonEntry,seoData,prerenderSelection),koreanDungeonHtml=renderHtmlDocument(indexHtml,koreanDungeonEntry,koreanDungeonModel);
 assert.match(koreanDungeonHtml,/<html lang="ko-KR"/,"Dungeon initial HTML must use the route locale");
 assert.match(koreanDungeonHtml,/rel="canonical" href="https:\/\/palworld-helper\.woofy\.blog\/ko-KR\/database\/dungeons\//,"Dungeon initial HTML must use the production canonical");
