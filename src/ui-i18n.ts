@@ -28,4 +28,24 @@ export const uiCopy:Record<Locale,UiCopy>={
   "pl-PL":{skillFruit:"Owoc umiejętności",size:"Rozmiar",breedingPower:"Siła hodowlana",loading:"Wczytywanie…",worldTree:"Drzewo Świata",serverManagement:"Zarządzanie serwerem",serverPerformance:"Wydajność",serverFeatures:"Funkcje",serverBalance:"Balans gry",importExistingIni:"Importuj istniejący plik INI",importAndValidate:"Importuj i sprawdź",iniOutput:"Dane wyjściowe INI",serverNotice:"Dostępne są tylko ustawienia opisane w oficjalnym przewodniku po serwerze Palworld. Puste pola są pomijane, a cała zawartość pozostaje w tej przeglądarce.",serverNamePlaceholder:"Mój serwer Palworld",serverDescriptionPlaceholder:"Kooperacyjny serwer Palworld",passwordRequiredPlaceholder:"Wprowadź tylko w razie potrzeby",adminPasswordPlaceholder:"Użyj długiego, unikalnego hasła",warningUnsupportedKey:"Pominięto nieobsługiwany klucz: {key}",warningBoolean:"{key} musi mieć wartość True lub False.",warningNumber:"{key} musi być liczbą.",warningRange:"{key} jest poza obsługiwanym zakresem."}
 };
 
+export const databaseItemTabLabels:Record<Locale,string>={
+  "en-US":"Item database",
+  "ko-KR":"아이템",
+  "ja-JP":"アイテムデータベース",
+  "zh-CN":"道具数据库",
+  "zh-TW":"道具資料庫",
+  "fr-FR":"Base de données des objets",
+  "it-IT":"Database degli oggetti",
+  "de-DE":"Gegenstandsdatenbank",
+  "es-ES":"Base de datos de objetos",
+  "es-419":"Base de datos de objetos",
+  "pt-BR":"Banco de dados de itens",
+  "ru-RU":"База предметов",
+  "id-ID":"Basis data item",
+  "th-TH":"ฐานข้อมูลไอเทม",
+  "tr-TR":"Eşya veritabanı",
+  "vi-VN":"Cơ sở dữ liệu vật phẩm",
+  "pl-PL":"Baza przedmiotów"
+};
+
 export function formatUiCopy(template:string,values:Record<string,string|number>){return template.replace(/\{(\w+)\}/g,(_,key)=>String(values[key]??`{${key}}`))}

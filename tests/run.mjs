@@ -7,6 +7,7 @@ import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
 import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
 import { groupItemDropSources } from "../src/drop-relations.ts";
+import { databaseItemTabLabels } from "../src/ui-i18n.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -202,6 +203,10 @@ assert.equal(resolveLocale("/database"),"en-US","English must be the final defau
 assert.equal(Object.keys(messageCatalogs["ja-JP"]).length,Object.keys(messageCatalogs["en-US"]).length,"Japanese UI catalog must be complete");
 assert.equal(translationProvenance["ja-JP"],"gpt","provisional Japanese UI translation provenance must be explicit");
 assert.notEqual(messages("ja-JP").itemDatabase,messages("en-US").itemDatabase,"Japanese item UI must not silently fall back to English");
+assert.deepEqual(Object.keys(databaseItemTabLabels).sort(),Object.keys(messageCatalogs).sort(),"Item database tab labels must cover every supported locale");
+assert.equal(databaseItemTabLabels["ko-KR"],"아이템","Korean item database tab must use the concise requested label");
+assert.equal(messages("ko-KR").itemDatabase,"아이템 데이터베이스","The concise tab label must not weaken the Korean collection title or metadata");
+for(const locale of Object.keys(messageCatalogs).filter(locale=>locale!=="ko-KR")) assert.equal(databaseItemTabLabels[locale],messages(locale).itemDatabase,`${locale} item database label must remain unchanged`);
 assert.equal(itemData.items.find(item=>item.id==="PalSphere_Mega")?.names["ja-JP"],"メガスフィア","official Japanese game terminology must remain in extracted data");
 assert.doesNotMatch(main,/const ui=/,"user-visible item and crafting copy must use the message catalog");
 assert.equal(translationProvenance["zh-CN"],"gpt","Simplified Chinese UI provenance must be explicit");
