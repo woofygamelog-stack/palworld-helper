@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "data:npcs": "node scripts/import-npcs.mjs",
+    "data:npcs": "node scripts/import-npcs.mjs && node scripts/import-world-map-points.mjs",
     "dev": "vite",
     "build": "node scripts/generate-map-tiles.mjs && vite build && node --experimental-strip-types scripts/generate-static.mjs && node --experimental-strip-types scripts/check-built.mjs",
     "typecheck": "tsc --noEmit",

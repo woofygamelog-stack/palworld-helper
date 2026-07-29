@@ -8,6 +8,8 @@ if(!fs.existsSync(chunks))throw new Error("Private cooked-world actor chunks are
 const files=fs.readdirSync(chunks).filter(file=>file.endsWith(".raw.json")).sort();
 if(files.length!==10)throw new Error(`Expected 10 complete actor chunks, found ${files.length}`);
 const worlds=JSON.parse(fs.readFileSync(path.join(root,"public","data","map-markers.json"),"utf8")).worlds;
+const npcData=JSON.parse(fs.readFileSync(path.join(root,"public","data","npcs.json"),"utf8"));
+const npcAt=new Map(npcData.npcs.flatMap(npc=>npc.encounters.map(encounter=>[`${encounter.x}|${encounter.y}|${encounter.z}`,npc])));
 const icon={
   redBerry:"/assets/items/Berries.webp",mushroom:"/assets/items/Mushroom.webp",oil:"/assets/items/CrudeOil.webp",
   egg:"/assets/items/Egg.webp",skillFruit:"/assets/items/SkillCard_AirCanon.webp",ore:"/assets/items/CopperOre.webp",
@@ -49,10 +51,10 @@ function classify(actor){
   if(z>-20000&&/(?:DungeonFixedEntrance|DungeonPortalMarker|DungeonExit_grassLand)/i.test(type))return {category:"dungeon",subtype:"fixed-entrance"};
   if(z>-20000&&/MonoNPCSpawner/i.test(type)){
     if(actor.properties?.ParentComponent)return null;
-    const npcSlug=/MedalTrader/.test(type)?"medal-merchant":/DarkTrader/.test(type)||/^DarkTrader\d*$/.test(unique)?"black-marketeer":unique==="BountyTrader"?"pidf-bounty-officer":unique==="ArenaShop"?"arena-merchant":unique==="U_Reward_Paldex"?"pal-ecological-researcher":unique==="U_Reward_PalCaptureCount"?"wise-hunter":unique==="U_Reward_BossDefeat"?"veteran-pal-hunter":unique==="U_Reward_Food"?"arrogant-gourmet":/^U_Reward_PalDisplay_[A-I]_01$/.test(unique)?"arrogant-pal-critic":undefined;
-    if(/^SalesPerson/.test(human)||/MedalTrader|Male_Trader|DarkTrader/.test(type))return {category:"merchant",subtype:/MedalTrader/.test(type)?"medal":/DarkTrader/.test(type)?"black-market":"merchant",...(npcSlug?{npcSlug}:{})};
-    if(/^PalDealer/.test(human))return {category:"palMerchant",subtype:"pal-merchant"};
-    if(/MonoNPCSpawnerBossBase_BOSS_/.test(type))return {category:"bounty",subtype:"wanted"};
+    const linkedNpc=npcAt.get(`${actor.location.X}|${actor.location.Y}|${actor.location.Z}`),npcSlug=linkedNpc?.slug;
+    if(linkedNpc?.kind==="combat"||/MonoNPCSpawnerBossBase_/.test(type))return {category:"bounty",subtype:"wanted",...(npcSlug?{npcSlug}:{})};
+    if(linkedNpc?.roles.includes("pal-shop")||/^PalDealer/.test(human))return {category:"palMerchant",subtype:"pal-merchant",...(npcSlug?{npcSlug}:{})};
+    if(linkedNpc?.kind==="merchant"||/^SalesPerson/.test(human)||/MedalTrader|Male_Trader|DarkTrader/.test(type))return {category:"merchant",subtype:/MedalTrader/.test(type)?"medal":/DarkTrader/.test(type)?"black-market":"merchant",...(npcSlug?{npcSlug}:{})};
     return {category:"npc",subtype:/Quest/.test(type)?"quest":/Unique/.test(type)?"unique":"npc",...(npcSlug?{npcSlug}:{})};
   }
   return null;
