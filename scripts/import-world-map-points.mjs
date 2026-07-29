@@ -30,7 +30,7 @@ function publicSubtype(category,type){
 }
 function pointIcon(kind){if(kind.category!=="egg")return icon[kind.category];const match=kind.subtype.match(/^(.+?) · Grade (\d+)$/),region=match?.[1].toLowerCase()||"grass",grade=String(Math.min(5,Math.max(1,Number(match?.[2])||1))).padStart(2,"0"),element=region.includes("worldtree")?"WorldTree":region.includes("volcan")?"Fire":region.includes("glacier")?"Ice":region.includes("desert")?"Earth":region.includes("sky")?"Electricity":region.includes("tenraku")?"Dark":"Leaf";return `/assets/items/PalEgg_${element}_${grade}.webp`}
 function classify(actor){
-  const type=actor.actorType,z=Number(actor.location?.Z),human=keyOf(actor.properties?.HumanName);
+  const type=actor.actorType,z=Number(actor.location?.Z),human=keyOf(actor.properties?.HumanName),unique=keyOf(actor.properties?.UniqueName);
   const simple=[
     ["redBerry",/^BP_PalMapObjectSpawner_RedBerry_C$/i],["mushroom",/^BP_PalMapObjectSpawner_Mushroom_C$/i],
     ["oil",/^BP_LevelObject_OilField_C$/i],["egg",/^bp_palmapobjectspawner_palegg_.+_C$/i],
@@ -48,10 +48,12 @@ function classify(actor){
   if(/JetDragonStatue/i.test(type))return {category:"palStatue",subtype:"jetragon"};
   if(z>-20000&&/(?:DungeonFixedEntrance|DungeonPortalMarker|DungeonExit_grassLand)/i.test(type))return {category:"dungeon",subtype:"fixed-entrance"};
   if(z>-20000&&/MonoNPCSpawner/i.test(type)){
-    if(/^SalesPerson/.test(human)||/MedalTrader|Male_Trader|DarkTrader/.test(type))return {category:"merchant",subtype:/MedalTrader/.test(type)?"medal":/DarkTrader/.test(type)?"black-market":"merchant"};
+    if(actor.properties?.ParentComponent)return null;
+    const npcSlug=/MedalTrader/.test(type)?"medal-merchant":/DarkTrader/.test(type)||/^DarkTrader\d*$/.test(unique)?"black-marketeer":unique==="BountyTrader"?"pidf-bounty-officer":unique==="ArenaShop"?"arena-merchant":unique==="U_Reward_Paldex"?"pal-ecological-researcher":unique==="U_Reward_PalCaptureCount"?"wise-hunter":unique==="U_Reward_BossDefeat"?"veteran-pal-hunter":unique==="U_Reward_Food"?"arrogant-gourmet":/^U_Reward_PalDisplay_[A-I]_01$/.test(unique)?"arrogant-pal-critic":undefined;
+    if(/^SalesPerson/.test(human)||/MedalTrader|Male_Trader|DarkTrader/.test(type))return {category:"merchant",subtype:/MedalTrader/.test(type)?"medal":/DarkTrader/.test(type)?"black-market":"merchant",...(npcSlug?{npcSlug}:{})};
     if(/^PalDealer/.test(human))return {category:"palMerchant",subtype:"pal-merchant"};
     if(/MonoNPCSpawnerBossBase_BOSS_/.test(type))return {category:"bounty",subtype:"wanted"};
-    return {category:"npc",subtype:/Quest/.test(type)?"quest":/Unique/.test(type)?"unique":"npc"};
+    return {category:"npc",subtype:/Quest/.test(type)?"quest":/Unique/.test(type)?"unique":"npc",...(npcSlug?{npcSlug}:{})};
   }
   return null;
 }

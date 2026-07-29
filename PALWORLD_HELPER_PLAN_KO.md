@@ -156,7 +156,8 @@ paldb.cc:
 /{locale}/database/structures
 /{locale}/database/skills
 /{locale}/database/passives
-/{locale}/database/merchants
+/{locale}/database/npcs
+/{locale}/database/npcs/{npcSlug}
 /{locale}/guides
 /{locale}/guides/getting-started
 /{locale}/guides/returning-player
@@ -427,6 +428,16 @@ n = ceil(log(1 - 목표확률) / log(1 - p))
 
 가이드는 데이터베이스 값을 복제하지 않고 팰/아이템/지도/계산기로 연결한다. 패치로 숫자가 바뀌면 본문 수동 수정 없이 데이터 참조로 갱신되게 한다.
 
+### 6.13 주요 NPC 안내
+
+- 데이터베이스 안에 상인과 비상인을 함께 찾는 통합 NPC 목록을 둔다. 상인은 별도 엔터티 종류가 아니라 NPC가 가진 거래 역할로 모델링한다.
+- 공개 슬러그를 URL에 사용하고 게임 내부 캐릭터·블루프린트·대화 키는 공개 데이터와 화면에 노출하지 않는다.
+- 상인은 판매 아이템 또는 팰 후보군, 가격, 묶음 수량, 전용 화폐, 1회 구매 제한처럼 게임 파일에서 검증된 거래 조건을 표시한다.
+- 비상인은 수행 역할, 달성·요청 이벤트, 단계별 조건과 보상, 만나는 방법을 표시한다. 조건이나 보상이 연결되지 않은 NPC는 추측해서 게시하지 않는다.
+- 모든 NPC 상세는 검증된 고정 위치를 지도와 연결하고, 상점·보상 항목은 아이템 상세로, 팰 요청·판매 후보는 팰 상세로 연결한다.
+- 목록은 현지화 표시명과 역할로 검색·필터링하며, 통합 검색과 사이트맵에도 포함한다.
+- 공식 현지화 명칭을 17개 지원 언어에 사용하고, 설명 문구는 동일 변경에서 전 언어를 완성한다.
+
 ## 7. 필요한 데이터 모델
 
 핵심 엔터티:
@@ -438,7 +449,7 @@ n = ceil(log(1 - 목표확률) / log(1 - p))
 - `Skill`, `Passive`, `PartnerSkill`
 - `BreedingRule`: 일반값, 특수 부모쌍, 제한, 우선순위
 - `Item`, `Recipe`, `Technology`, `Structure`
-- `DropTable`, `MerchantOffer`, `Spawn`, `MapMarker`
+- `Npc`, `NpcRole`, `NpcEncounter`, `NpcEvent`, `MerchantOffer`, `DropTable`, `Spawn`, `MapMarker`
 - `CaptureRule`, `Sphere`, `StatusModifier`
 - `ServerSetting`: 키, 타입, 기본값, 범위, 버전, 설명
 - `PatchChange`: 추가/변경/삭제와 영향 엔터티

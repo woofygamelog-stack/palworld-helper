@@ -16,15 +16,17 @@ using CUE4Parse_Conversion.Textures;
 using Newtonsoft.Json;
 using SkiaSharp;
 
-if (args.Length != 3)
+if (args.Length < 3 || args.Length > 4)
 {
-    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory>");
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [npc]");
     return 2;
 }
 
 var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
+var mode = args.Length == 4 ? args[3] : "full";
+if (mode is not ("full" or "npc")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -49,7 +51,61 @@ Dictionary<string,string> DumpTextTable(string assetPath)
     return table.RowMap.ToDictionary(row => row.Key.Text, row => row.Value.Get<FText>("TextData").Text);
 }
 
+Dictionary<string,Dictionary<string,string>> DumpLocalizedTextFamily(string commonFile, string japaneseAsset)
+{
+    var assets = provider.Files.Select(file => file.Key)
+        .Where(path => path.EndsWith($"/{commonFile}.uasset", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(path => path).ToList();
+    var result = new Dictionary<string,Dictionary<string,string>>();
+    foreach (var asset in assets)
+    {
+        var marker = "/L10N/";
+        var start = asset.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (start < 0) continue;
+        var lang = asset[(start + marker.Length)..].Split('/')[0];
+        result[lang] = DumpTextTable(asset[..^7]);
+    }
+    var japanesePath = provider.Files.Keys.FirstOrDefault(path => path.EndsWith($"/{Path.GetFileName(japaneseAsset)}.uasset", StringComparison.OrdinalIgnoreCase));
+    if (japanesePath is not null) result["ja"] = DumpTextTable(japanesePath[..^7]);
+    return result;
+}
+
 void Write(string name, object value) => File.WriteAllText(Path.Combine(output, name), JsonConvert.SerializeObject(value, Formatting.None));
+
+if (mode == "npc")
+{
+    var npcTables = new Dictionary<string, string>
+    {
+        ["unique-npcs.raw.json"] = "Pal/Content/Pal/DataTable/Character/DT_UniqueNPC",
+        ["item-shop-create.raw.json"] = "Pal/Content/Pal/DataTable/ItemShop/DT_ItemShopCreateData",
+        ["item-shop-lottery.raw.json"] = "Pal/Content/Pal/DataTable/ItemShop/DT_ItemShopLotteryData",
+        ["item-shop-settings.raw.json"] = "Pal/Content/Pal/DataTable/ItemShop/DT_ItemShopSettingData",
+        ["pal-shop-create.raw.json"] = "Pal/Content/Pal/DataTable/PalShop/DT_PalShopCreateData",
+        ["npc-talk-flow.raw.json"] = "Pal/Content/Pal/DataTable/NPCTalk/DT_NPCTalkFlow",
+        ["achievement-reward-npcs.raw.json"] = "Pal/Content/Pal/DataTable/Item/DT_AchivementRewardNPC",
+        ["item-request-npcs.raw.json"] = "Pal/Content/Pal/DataTable/Item/DT_ItemRequestNPCData",
+        ["pal-display-npcs.raw.json"] = "Pal/Content/Pal/DataTable/Item/DT_PalDisplayNPCData",
+        ["npc-emote-lottery.raw.json"] = "Pal/Content/Pal/DataTable/Item/DT_NPCEmoteLotteryDataTable"
+    };
+    foreach (var table in npcTables) Write(table.Key, DumpTable(table.Value));
+    Write("human-names.raw.json", DumpLocalizedTextFamily("DT_HumanNameText_Common", "Pal/Content/Pal/DataTable/Text/DT_HumanNameText"));
+    Write("unique-npc-text.raw.json", DumpLocalizedTextFamily("DT_UniqueNPCText_Common", "Pal/Content/Pal/DataTable/Text/DT_UniqueNPCText"));
+    Write("npc-talk-text.raw.json", DumpLocalizedTextFamily("DT_NpcTalkText_Common", "Pal/Content/Pal/DataTable/Text/DT_NpcTalkText"));
+    Write("npc-data-assets.raw.json", provider.Files.Keys
+        .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => new[] { "NPC", "Human", "Merchant", "Trader", "Shop", "Quest", "Talk", "Dialog", "Bounty" }
+            .Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(path => path).ToArray());
+    var pakFiles = Directory.EnumerateFiles(paks, "*", SearchOption.TopDirectoryOnly)
+        .Select(path => new FileInfo(path))
+        .OrderBy(file => file.Name)
+        .Select(file => new { file.Name, file.Length, file.LastWriteTimeUtc })
+        .ToArray();
+    var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
+    Write("npc-manifest.json", new { schema = 1, mode, extractedAt = DateTimeOffset.UtcNow, mappingHash, pakFiles, tables = npcTables.Keys.OrderBy(value => value).ToArray(), localeCount = 17 });
+    Console.WriteLine($"Extracted {npcTables.Count} NPC tables and official NPC text for 17 locales to {output}");
+    return 0;
+}
 
 Write("items.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable"));
 Write("recipes.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemRecipeDataTable"));
@@ -118,24 +174,6 @@ foreach (var asset in descriptionAssets)
 }
 localizedDescriptions["ja"] = DumpTextTable("Pal/Content/Pal/DataTable/Text/DT_ItemDescriptionText");
 Write("item-descriptions.raw.json", localizedDescriptions);
-Dictionary<string,Dictionary<string,string>> DumpLocalizedTextFamily(string commonFile, string japaneseAsset)
-{
-    var assets = provider.Files.Select(file => file.Key)
-        .Where(path => path.EndsWith($"/{commonFile}.uasset", StringComparison.OrdinalIgnoreCase))
-        .OrderBy(path => path).ToList();
-    var result = new Dictionary<string,Dictionary<string,string>>();
-    foreach (var asset in assets)
-    {
-        var marker = "/L10N/";
-        var start = asset.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (start < 0) continue;
-        var lang = asset[(start + marker.Length)..].Split('/')[0];
-        result[lang] = DumpTextTable(asset[..^7]);
-    }
-    var japanesePath = provider.Files.Keys.FirstOrDefault(path => path.EndsWith($"/{Path.GetFileName(japaneseAsset)}.uasset", StringComparison.OrdinalIgnoreCase));
-    if (japanesePath is not null) result["ja"] = DumpTextTable(japanesePath[..^7]);
-    return result;
-}
 Write("skill-names.raw.json", DumpLocalizedTextFamily("DT_SkillNameText_Common", "Pal/Content/Pal/DataTable/Text/DT_SkillNameText"));
 Write("skill-descriptions.raw.json", DumpLocalizedTextFamily("DT_SkillDescText_Common", "Pal/Content/Pal/DataTable/Text/DT_SkillDescText"));
 Write("pal-long-descriptions.raw.json", DumpLocalizedTextFamily("DT_PalLongDescriptionText", "Pal/Content/Pal/DataTable/Text/DT_PalLongDescriptionText"));
