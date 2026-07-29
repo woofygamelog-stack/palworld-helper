@@ -19,7 +19,7 @@ using SkiaSharp;
 
 if (args.Length < 3 || args.Length > 4)
 {
-    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [npc]");
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology]");
     return 2;
 }
 
@@ -27,7 +27,7 @@ var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
 var mode = args.Length == 4 ? args[3] : "full";
-if (mode is not ("full" or "npc" or "dungeon")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
+if (mode is not ("full" or "npc" or "dungeon" or "technology")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -179,6 +179,174 @@ object DumpDungeonLevelActors(JObject dungeonLevels)
         }
     }
     return new { levelCount = levels.Count, levels };
+}
+
+object DumpCandidateDataTables(IEnumerable<string> assetFiles)
+{
+    var tables = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var errors = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var assetFile in assetFiles.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+    {
+        var assetPath = assetFile.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase)
+            ? assetFile[..^7]
+            : assetFile;
+        try
+        {
+            tables[assetPath] = DumpTable(assetPath);
+        }
+        catch (Exception error)
+        {
+            errors[assetPath] = error.Message;
+        }
+    }
+    return new { candidateCount = tables.Count + errors.Count, extractedCount = tables.Count, failedCount = errors.Count, tables, errors };
+}
+
+if (mode == "technology")
+{
+    var technologyAssets = provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => new[] { "Technology", "TechTree", "LabResearch" }
+            .Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var candidateTableAssets = technologyAssets
+        .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+
+    Write("technology-data-assets.raw.json", technologyAssets);
+    Write("technology-tables.raw.json", DumpCandidateDataTables(candidateTableAssets));
+    var technologyRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/Technology/DT_TechnologyRecipeUnlock"));
+    var labResearchRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/Lab/DT_LabResearchDataTable"));
+    var buildObjectRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/MapObject/Building/DT_BuildObjectDataTable"));
+    var buildObjectIconRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/MapObject/Building/DT_BuildObjectIconDataTable"));
+    Write("technology.raw.json", technologyRows);
+    Write("lab-research.raw.json", labResearchRows);
+    Write("build-objects.raw.json", buildObjectRows);
+    Write("build-object-icons.raw.json", buildObjectIconRows);
+    Write("map-object-master.raw.json", DumpTable("Pal/Content/Pal/DataTable/MapObject/DT_MapObjectMasterDataTable"));
+    Write("technology-names.raw.json", DumpLocalizedTextFamily("DT_TechnologyNameText_Common", "Pal/Content/Pal/DataTable/Text/DT_TechnologyNameText"));
+    Write("technology-descriptions.raw.json", DumpLocalizedTextFamily("DT_TechnologyDescText_Common", "Pal/Content/Pal/DataTable/Text/DT_TechnologyDescText"));
+    Write("item-descriptions.raw.json", DumpLocalizedTextFamily("DT_ItemDescriptionText_Common", "Pal/Content/Pal/DataTable/Text/DT_ItemDescriptionText"));
+    Write("lab-research-text.raw.json", DumpLocalizedTextFamily("DT_LabResearchText", "Pal/Content/Pal/DataTable/Text/DT_LabResearchText"));
+    Write("build-object-names.raw.json", DumpLocalizedTextFamily("DT_MapObjectNameText_Common", "Pal/Content/Pal/DataTable/Text/DT_MapObjectNameText"));
+    Write("build-object-descriptions.raw.json", DumpLocalizedTextFamily("DT_BuildObjectDescText_Common", "Pal/Content/Pal/DataTable/Text/DT_BuildObjectDescText"));
+    Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
+    Write("technology-icon-assets.raw.json", provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("Icon", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("Texture/UI", StringComparison.OrdinalIgnoreCase))
+        .Where(path => new[] { "Technology", "TechTree", "LabResearch", "Tech_" }
+            .Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray());
+    Write("build-object-data-assets.raw.json", provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("BuildObject", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("MapObject", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray());
+    Write("tower-boss-data-assets.raw.json", provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => new[] { "BossBattle", "PalBoss", "TowerBoss", "Gym", "BossType" }
+            .Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray());
+    Write("tower-boss-assets.raw.json", provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => new[] { "BossBattle", "PalBoss", "TowerBoss", "Gym", "BossType" }
+            .Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray());
+    var towerBossClassDefaults = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    foreach (var bossKey in new[] { "Grass", "Forest", "Electric", "Desert", "Snow", "Sakurajima", "Viking", "Sorajima" })
+    {
+        var classPath = $"Pal/Content/Pal/Blueprint/BossBattle/InstanceRoot/BP_PalBossBattleInstanceRoot_{bossKey}.BP_PalBossBattleInstanceRoot_{bossKey}_C";
+        towerBossClassDefaults[bossKey] = DumpClassDefaults(classPath);
+    }
+    Write("tower-boss-class-defaults.raw.json", towerBossClassDefaults);
+    Write("tower-boss-icons.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalBossNPCIcon"));
+
+    var technologyBuildingIconDirectory = Path.Combine(output, "technology-building-icons");
+    Directory.CreateDirectory(technologyBuildingIconDirectory);
+    var technologyBuildingIconSources = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var technologyBuildingIconErrors = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var technology in technologyRows.Properties().OrderBy(property => property.Name, StringComparer.OrdinalIgnoreCase))
+    {
+        var buildObjectIds = technology.Value["UnlockBuildObjects"]?.Values<string>()
+            .Where(value => !string.IsNullOrWhiteSpace(value) && !string.Equals(value, "None", StringComparison.OrdinalIgnoreCase))
+            .ToArray() ?? [];
+        if (buildObjectIds.Length == 0) continue;
+        var iconName = technology.Value["IconName"]?.Value<string>();
+        var iconKeys = new[] { iconName }.Concat(buildObjectIds)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var iconRow = iconKeys.Select(key => buildObjectIconRows.Properties()
+                .FirstOrDefault(property => string.Equals(property.Name, key, StringComparison.OrdinalIgnoreCase)))
+            .FirstOrDefault(property => property is not null);
+        var sourceAssetPath = iconRow?.Value["SoftIcon"]?["AssetPathName"]?.Value<string>();
+        if (string.IsNullOrWhiteSpace(sourceAssetPath) || string.Equals(sourceAssetPath, "None", StringComparison.OrdinalIgnoreCase))
+        {
+            technologyBuildingIconErrors[technology.Name] = "No direct build-object icon table reference was found.";
+            continue;
+        }
+        try
+        {
+            var texture = provider.LoadPackageObject<UTexture2D>(NormalizeGameAssetPath(sourceAssetPath));
+            using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
+            if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0) throw new InvalidDataException("Texture decode returned no pixels.");
+            using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 88);
+            var safeFileName = string.Concat(technology.Name.Where(character => char.IsLetterOrDigit(character) || character is '_' or '-'));
+            using var target = File.Create(Path.Combine(technologyBuildingIconDirectory, $"{safeFileName}.webp"));
+            encoded.SaveTo(target);
+            technologyBuildingIconSources[technology.Name] = new
+            {
+                buildObjectIds,
+                iconTableKey = iconRow!.Name,
+                sourceAssetPath,
+                width = bitmap.Width,
+                height = bitmap.Height,
+                provenance = "direct"
+            };
+        }
+        catch (Exception error)
+        {
+            technologyBuildingIconErrors[technology.Name] = error.Message;
+        }
+    }
+    Write("technology-building-icon-sources.raw.json", new
+    {
+        schema = 1,
+        expectedBuildingTechnologyCount = technologyRows.Properties().Count(property => property.Value["UnlockBuildObjects"]?.Any() == true),
+        exportedCount = technologyBuildingIconSources.Count,
+        failedCount = technologyBuildingIconErrors.Count,
+        sources = technologyBuildingIconSources,
+        errors = technologyBuildingIconErrors
+    });
+
+    var pakFiles = Directory.EnumerateFiles(paks, "*", SearchOption.TopDirectoryOnly)
+        .Select(path => new FileInfo(path))
+        .OrderBy(file => file.Name)
+        .Select(file => new { file.Name, file.Length, file.LastWriteTimeUtc })
+        .ToArray();
+    var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
+    Write("technology-manifest.json", new
+    {
+        schema = 1,
+        mode,
+        extractedAt = DateTimeOffset.UtcNow,
+        mappingHash,
+        pakFiles,
+        candidateTableCount = candidateTableAssets.Length,
+        technologyRowCount = technologyRows.Count,
+        buildingIconCount = technologyBuildingIconSources.Count,
+        localeCount = 17
+    });
+    Console.WriteLine($"Extracted {candidateTableAssets.Length} technology table candidates and official text for 17 locales to {output}");
+    return 0;
 }
 
 if (mode == "dungeon")

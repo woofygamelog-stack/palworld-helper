@@ -4,6 +4,7 @@ import { npcCopy } from "../src/npc-i18n.ts";
 import { dungeonCopy, dungeonSearchCopy, dungeonTranslationProvenance } from "../src/dungeon-i18n.ts";
 import { uiCopy } from "../src/ui-i18n.ts";
 import { partnerLabel, passiveUiLabels, skillLabels, skillTranslationProvenance } from "../src/skill-i18n.ts";
+import { technologyCopy, technologyCopyProvenance } from "../src/technology-i18n.ts";
 import { mapSeoCopy, mapSeoTranslationProvenance } from "./seo-static.mjs";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
@@ -82,8 +83,16 @@ for(const locale of expected){
   if(Object.values(skillLabels[locale]).some(value=>!value.trim())||Object.values(passiveUiLabels[locale]).some(value=>!value.trim()))throw new Error(`${locale} skill catalog contains an empty value`);
   if(!mapSeoCopy[locale]?.title?.trim()||!mapSeoCopy[locale]?.body?.trim()||mapSeoTranslationProvenance[locale]!=="gpt")throw new Error(`${locale} map SEO copy or provenance is incomplete`);
 }
+const technologyEnglish=technologyCopy["en-US"],technologyKeys=Object.keys(technologyEnglish).sort();
+for(const locale of expected){
+  const catalog=technologyCopy[locale],provenance=technologyCopyProvenance[locale];
+  if(JSON.stringify(Object.keys(catalog||{}).sort())!==JSON.stringify(technologyKeys))throw new Error(`${locale} technology catalog key mismatch`);
+  if(Object.values(catalog).some(value=>typeof value!=="string"||!value.trim()))throw new Error(`${locale} technology catalog contains an empty value`);
+  if(!provenance||provenance.title!=="official"||provenance.regular!=="official"||provenance.ancient!=="official"||provenance.regularPoints!=="official"||provenance.ancientPoints!=="official"||provenance.remaining!=="gpt")throw new Error(`${locale} technology translation provenance is incomplete`);
+  if(locale!=="en-US"&&technologyKeys.filter(key=>catalog[key]!==technologyEnglish[key]).length<Math.floor(technologyKeys.length*.8))throw new Error(`${locale} technology catalog appears to be an accidental English fallback`);
+}
 if(/\$\{esc\((?:encounter|step)\.variant\)/.test(main))throw new Error("NPC internal variant is rendered directly");
 for(const text of [">Skill Fruit<",">Surgery cost<",">Breeding power<",">Size<","Server management","Import existing INI","Import and validate","INI output","Only settings documented by the official Palworld Server Guide"]){
   if(main.includes(text))throw new Error(`Hard-coded English UI copy remains in main.ts: ${text}`);
 }
-console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, and ${dungeonKeys.length} Dungeon message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
+console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, and ${technologyKeys.length} technology message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
