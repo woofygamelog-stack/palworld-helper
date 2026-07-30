@@ -4,11 +4,11 @@ import {deploymentFileBudget,supportedLocales as locales} from "../src/route-man
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo-static.mjs";
 
 const root=process.cwd(),dist=path.join(root,"dist"),readJson=file=>readFile(file,"utf8").then(JSON.parse);
-const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,index,sitemapIndex,report,wrangler]=await Promise.all([
-  readJson("public/data/pals.json"),readJson("public/data/items.json"),readJson("public/data/skills.json"),readJson("public/data/npcs.json"),readJson("public/data/dungeons.json"),readJson("public/data/technology.json"),readJson("public/data/health.json"),
+const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,index,sitemapIndex,report,wrangler]=await Promise.all([
+  readJson("public/data/pals.json"),readJson("public/data/items.json"),readJson("public/data/skills.json"),readJson("public/data/npcs.json"),readJson("public/data/dungeons.json"),readJson("public/data/technology.json"),readJson("public/data/health.json"),readJson("public/data/elements.json"),
   readFile(path.join(dist,"index.html"),"utf8"),readFile(path.join(dist,"sitemap.xml"),"utf8"),readJson(path.join(dist,"prerender-report.json")),readJson("wrangler.jsonc")
 ]);
-const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData},groups=buildIndexableGroups(data,productionOrigin),{entries,selected}=buildPrerenderEntries(data);
+const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData},groups=buildIndexableGroups(data,productionOrigin),{entries,selected}=buildPrerenderEntries(data);
 const expectedUrls=Object.values(groups).reduce((sum,urls)=>sum+urls.length,0),expectedHtmlDocuments=entries.length+1;
 
 for(const declaration of ['name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"','name="google-adsense-account" content="ca-pub-1986785092914105"'])if(!index.includes(declaration))throw new Error(`Root document is missing ${declaration}`);
@@ -40,6 +40,7 @@ if(report.routeFamilies?.entities?.find(family=>family.dataset==="technologies")
 
 const representativeEntries=[
   entries.find(entry=>entry.locale==="en-US"&&entry.kind==="collection"&&entry.route===""),
+  entries.find(entry=>entry.locale==="ko-KR"&&entry.kind==="collection"&&entry.route==="database/elements"),
   entries.find(entry=>entry.locale==="ko-KR"&&entry.kind==="collection"&&entry.route==="database/dungeons"),
   entries.find(entry=>entry.locale==="en-US"&&entry.dataset==="pals"),entries.find(entry=>entry.locale==="en-US"&&entry.dataset==="items"),
   entries.find(entry=>entry.locale==="en-US"&&entry.dataset==="activeSkills"),entries.find(entry=>entry.locale==="en-US"&&entry.dataset==="passiveSkills"),entries.find(entry=>entry.locale==="en-US"&&entry.dataset==="partnerSkills"),
@@ -61,13 +62,18 @@ for(const entry of representativeEntries){
 }
 if(representativeTitles.size!==representativeEntries.length)throw new Error("Representative prerender pages must have unique localized titles");
 
-for(const asset of ["data/pals.json","data/items.json","data/skills.json","data/npcs.json","data/dungeons.json","data/technology.json","assets/image-manifest.json","assets/world-map.webp","assets/elements/Fire.png","assets/passive-ranks/3.png","assets/map-icons/dungeon.webp","assets/technology/primitive-workbench.webp","favicon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png","og-image.png","site.webmanifest","sitemap.xml","prerender-report.json","robots.txt","ads.txt","_headers"])await access(path.join(dist,asset));
+for(const asset of ["data/pals.json","data/items.json","data/skills.json","data/npcs.json","data/dungeons.json","data/technology.json","data/elements.json","assets/image-manifest.json","assets/world-map.webp","assets/elements/Fire.png","assets/elements/matchup-chart.webp","assets/passive-ranks/3.png","assets/map-icons/dungeon.webp","assets/technology/primitive-workbench.webp","favicon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png","og-image.png","site.webmanifest","sitemap.xml","prerender-report.json","robots.txt","ads.txt","_headers"])await access(path.join(dist,asset));
 for(let y=0;y<4;y++)for(let x=0;x<4;x++)await access(path.join(dist,"assets","map-tiles",`${x}-${y}.webp`));
 const robots=await readFile(path.join(dist,"robots.txt"),"utf8");if(!robots.includes(`Sitemap: ${productionOrigin}/sitemap.xml`))throw new Error("robots.txt must reference the production sitemap index");
 if(allFiles.some(file=>normalized(file)==="_worker.js"||normalized(file).endsWith("/_worker.js")))throw new Error("Static output must not contain a Worker entrypoint");
 try{const redirects=await readFile(path.join(dist,"_redirects"),"utf8");if(/^\/\*\s+\/index\.html\s+200\s*$/m.test(redirects))throw new Error("SPA asset fallback must not be combined with a catch-all redirect")}catch(error){if(error.code!=="ENOENT")throw error}
 
-const builtItems=await readJson(path.join(dist,"data","items.json")),builtDungeons=await readJson(path.join(dist,"data","dungeons.json")),builtTechnology=await readJson(path.join(dist,"data","technology.json")),builtHealth=await readJson(path.join(dist,"data","health.json"));
+const builtItems=await readJson(path.join(dist,"data","items.json")),builtDungeons=await readJson(path.join(dist,"data","dungeons.json")),builtTechnology=await readJson(path.join(dist,"data","technology.json")),builtHealth=await readJson(path.join(dist,"data","health.json")),builtElements=await readJson(path.join(dist,"data","elements.json"));
+if(builtElements.meta.schema!==1||builtElements.meta.gameBuild!==palData.meta.gameBuild||builtElements.meta.verification!=="game-ui-chart-and-game-files"||builtElements.meta.localeCount!==locales.length||builtElements.meta.elementCount!==9||builtElements.meta.relationCount!==9||builtElements.meta.palCount!==299||builtElements.meta.numericMultipliersVerified!==false||builtElements.meta.dualElementRuleVerified!==false||builtElements.meta.iconProvenance.direct!==9||builtElements.meta.iconProvenance.missing!==0||builtElements.rules.numericMultipliers!==null||builtElements.rules.dualElement!==null)throw new Error("Built element baseline or verification metadata drifted");
+const elementSlugs=new Set(builtElements.elements.map(element=>element.slug));
+if(elementSlugs.size!==9||builtElements.elements.some(element=>Object.keys(element.names).length!==locales.length||!element.icon||element.palCount<1||element.activeSkillCount<1||element.strongAgainst.some(slug=>!elementSlugs.has(slug))||element.weakTo.some(slug=>!elementSlugs.has(slug)))||builtElements.relations.some(relation=>!elementSlugs.has(relation.attacker)||!elementSlugs.has(relation.defender)||relation.effect!=="strong"||relation.multiplier!==null||relation.verification!=="game-ui-chart"))throw new Error("Built element localization or qualitative relationships drifted");
+if(/EPalElementType|Electricity|COMMON_ELEMENT|[A-Z]:\\|file:\/\//.test(JSON.stringify(builtElements)))throw new Error("Built element data exposes raw source identifiers or private provenance");
+for(const element of builtElements.elements)await access(path.join(dist,element.icon.replace(/^\//,"")));
 if(builtHealth.meta.schema!==1||builtHealth.meta.gameBuild!==palData.meta.gameBuild||builtHealth.meta.verification!=="game-files"||builtHealth.meta.localeCount!==locales.length||builtHealth.meta.conditionCount!==7||builtHealth.meta.medicineCount!==3||builtHealth.meta.numericEffectsVerified!==false||builtHealth.conditions.length!==7||builtHealth.medicines.length!==3)throw new Error("Built health baseline or verification metadata drifted");
 const conditionSlugs=new Set(builtHealth.conditions.map(condition=>condition.slug)),medicineSlugs=new Set(builtHealth.medicines.map(medicine=>medicine.slug));
 if(conditionSlugs.size!==7||medicineSlugs.size!==3||builtHealth.conditions.some(condition=>Object.keys(condition.names).length!==locales.length||Object.keys(condition.descriptions).length!==locales.length||condition.effects.numericModifiers!==null||!medicineSlugs.has(condition.medicine))||builtHealth.medicines.some(medicine=>medicine.healthRestoration!==0||!medicine.recipe.workAmount||!medicine.recipe.ingredients.length||medicine.cures.some(slug=>!conditionSlugs.has(slug))))throw new Error("Built health localization, treatment relations, or verification boundaries drifted");
@@ -90,7 +96,7 @@ if(builtImageManifest.gameBuild!==builtItems.meta.gameBuild||builtImageManifest.
 const builtItemImages=(await readdir(path.join(dist,"assets","items"))).filter(name=>name.endsWith(".webp"));if(builtItemImages.length!==imagedItems.length)throw new Error(`Built item image file mismatch: files=${builtItemImages.length}, flags=${imagedItems.length}`);
 for(const item of imagedItems)await access(path.join(dist,"assets","items",`${item.id}.webp`));
 for(const work of palData.workSuitabilities)await access(path.join(dist,work.icon.replace(/^\//,"")));
-if(palData.meta.palPortraitCount!==palData.pals.length||palData.pals.some(pal=>pal.image!==true))throw new Error("Every published Pal must retain its portrait manifest state");
+if(palData.meta.palPortraitCount!==palData.pals.length||palData.pals.some(pal=>pal.image!==true||!Array.isArray(pal.elementSlugs)||pal.elementSlugs.length<1||pal.elementSlugs.length>2||pal.elementSlugs.some(slug=>!elementSlugs.has(slug))))throw new Error("Every published Pal must retain its portrait and verified element state");
 for(const pal of palData.pals)await access(path.join(dist,"assets","pals",`${pal.id}.png`));
 for(const pal of palData.pals)for(const description of Object.values(pal.descriptions))if(/<[^>]+>|Error_Code:|\||（か）|？（を）|後（と）/.test(description))throw new Error(`${pal.id} exposes unresolved game-runtime description markup`);
 const adsTxt=await readFile(path.join(dist,"ads.txt"),"utf8");if(adsTxt.trim()!=="google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0")throw new Error("ads.txt must contain the exact authorized account entry");

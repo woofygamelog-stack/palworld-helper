@@ -11,6 +11,7 @@ export const routeFamilies = [
   {path:"calculators/breeding",mode:"hybrid",indexable:true,searchIntent:"breeding-calculator"},
   {path:"calculators/crafting",mode:"hybrid",indexable:true,searchIntent:"crafting-calculator"},
   {path:"database",mode:"hybrid",indexable:true,searchIntent:"item-catalog"},
+  {path:"database/elements",mode:"prerendered",indexable:true,searchIntent:"element-matchup-guide"},
   {path:"database/technology",mode:"hybrid",indexable:true,searchIntent:"technology-catalog"},
   {path:"database/health",mode:"prerendered",indexable:true,searchIntent:"pal-health-guide"},
   {path:"database/npcs",mode:"hybrid",indexable:true,searchIntent:"npc-catalog"},

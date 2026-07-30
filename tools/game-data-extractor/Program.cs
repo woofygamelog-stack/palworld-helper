@@ -19,7 +19,7 @@ using SkiaSharp;
 
 if (args.Length < 3 || args.Length > 4)
 {
-    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology]");
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|element]");
     return 2;
 }
 
@@ -27,7 +27,7 @@ var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
 var mode = args.Length == 4 ? args[3] : "full";
-if (mode is not ("full" or "npc" or "dungeon" or "technology")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
+if (mode is not ("full" or "npc" or "dungeon" or "technology" or "element")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -200,6 +200,91 @@ object DumpCandidateDataTables(IEnumerable<string> assetFiles)
         }
     }
     return new { candidateCount = tables.Count + errors.Count, extractedCount = tables.Count, failedCount = errors.Count, tables, errors };
+}
+
+if (mode == "element")
+{
+    var keywords = new[]
+    {
+        "Element", "Attribute", "Weak", "Resist", "Damage", "StatusCalculator", "CharacterParameter", "Affinity"
+    };
+    var elementAssets = provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => keywords.Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var candidateTableAssets = elementAssets
+        .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+
+    Write("element-data-assets.raw.json", elementAssets);
+    Write("element-tables.raw.json", DumpCandidateDataTables(candidateTableAssets));
+    Write("pal-parameters.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalMonsterParameter"));
+    Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
+    Write("element-icon-assets.raw.json", provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("Element", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("Icon", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("Texture/UI", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("/UI/", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray());
+
+    var elementIconDirectory = Path.Combine(output, "element-icons");
+    Directory.CreateDirectory(elementIconDirectory);
+    var elementIconSources = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    for (var index = 0; index < 9; index++)
+    {
+        var fileName = $"{index:00}.webp";
+        var sourceAssetPath = $"Pal/Content/Pal/Texture/UI/InGame/T_Icon_element_s_{index:00}";
+        var texture = provider.LoadPackageObject<UTexture2D>(sourceAssetPath);
+        using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
+        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0) throw new InvalidDataException($"Element icon {index:00} did not decode.");
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 90);
+        using var target = File.Create(Path.Combine(elementIconDirectory, fileName));
+        encoded.SaveTo(target);
+        elementIconSources[index.ToString("00")] = new { sourceAssetPath, width = bitmap.Width, height = bitmap.Height, provenance = "direct" };
+    }
+    var chartSourceAssetPath = "Pal/Content/Pal/Texture/UI/Main_Menu/T_UI_ElementMutchup";
+    var chartTexture = provider.LoadPackageObject<UTexture2D>(chartSourceAssetPath);
+    using (var bitmap = chartTexture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap())
+    {
+        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0) throw new InvalidDataException("Element matchup chart did not decode.");
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 90);
+        using var target = File.Create(Path.Combine(output, "element-matchup-chart.webp"));
+        encoded.SaveTo(target);
+        elementIconSources["matchup-chart"] = new { sourceAssetPath = chartSourceAssetPath, width = bitmap.Width, height = bitmap.Height, provenance = "direct" };
+    }
+    Write("element-icon-sources.raw.json", elementIconSources);
+    try
+    {
+        Write("element-matchup-widget-defaults.raw.json", DumpClassDefaults("Pal/Content/Pal/Blueprint/UI/UserInterface/MainMenu/Pal/WBP_MainMenu_Pal_ElementMatchup.WBP_MainMenu_Pal_ElementMatchup_C"));
+    }
+    catch (Exception error)
+    {
+        Write("element-matchup-widget-defaults.raw.json", new { error = error.Message });
+    }
+
+    var pakFiles = Directory.EnumerateFiles(paks, "*", SearchOption.TopDirectoryOnly)
+        .Select(path => new FileInfo(path))
+        .OrderBy(file => file.Name)
+        .Select(file => new { file.Name, file.Length, file.LastWriteTimeUtc })
+        .ToArray();
+    var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
+    Write("element-manifest.json", new
+    {
+        schema = 1,
+        mode,
+        extractedAt = DateTimeOffset.UtcNow,
+        mappingHash,
+        pakFiles,
+        candidateAssetCount = elementAssets.Length,
+        candidateTableCount = candidateTableAssets.Length,
+        elementIconCount = elementIconSources.Count - 1,
+        localeCount = 17
+    });
+    Console.WriteLine($"Extracted {candidateTableAssets.Length} element table candidates, Pal element fields, and official text for 17 locales to {output}");
+    return 0;
 }
 
 if (mode == "technology")

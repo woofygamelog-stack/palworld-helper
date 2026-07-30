@@ -4,9 +4,9 @@ import {buildIndexableGroups,buildPrerenderEntries,productionOrigin,renderHtmlDo
 
 const origin=process.env.VITE_SITE_ORIGIN||productionOrigin;
 if(origin!==productionOrigin)throw new Error(`Production origin must be ${productionOrigin}`);
-const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,template]=await Promise.all(["pals","items","skills","npcs","dungeons","technology","health"].map(name=>readFile(`public/data/${name}.json`,"utf8").then(JSON.parse)).concat(readFile("dist/index.html","utf8")));
+const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,template]=await Promise.all(["pals","items","skills","npcs","dungeons","technology","health","elements"].map(name=>readFile(`public/data/${name}.json`,"utf8").then(JSON.parse)).concat(readFile("dist/index.html","utf8")));
 if(technologyData.meta.schema!==1||technologyData.meta.gameBuild!=="24181527"||technologyData.meta.verification!=="game-files"||technologyData.meta.technologyCount!==588||technologyData.technologies.length!==588)throw new Error("Technology dataset baseline mismatch");
-const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData};
+const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData};
 const groups=buildIndexableGroups(data,origin),{entries,selected}=buildPrerenderEntries(data);
 const xml=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
 const sitemapDirectory=path.join("dist","sitemaps");
