@@ -22,23 +22,23 @@ export const elementCopy:Record<Locale,ElementCopy>={
 };
 
 const elementOverviewCopy:Record<Locale,Pick<ElementCopy,"chartTitle"|"chartDescription">>={
-  "en-US":{chartTitle:"Element relationship overview",chartDescription:"Each card shows what an element is strong against and what it is weak to."},
-  "ko-KR":{chartTitle:"속성 관계 요약",chartDescription:"각 속성 카드에서 유리한 속성과 불리한 속성을 함께 확인할 수 있습니다."},
-  "ja-JP":{chartTitle:"属性関係一覧",chartDescription:"各属性カードで、有利な属性と不利な属性を確認できます。"},
-  "zh-CN":{chartTitle:"属性关系一览",chartDescription:"每张属性卡片会同时显示克制和被克制的属性。"},
-  "zh-TW":{chartTitle:"屬性關係總覽",chartDescription:"每張屬性卡片會同時顯示有利與不利的屬性。"},
-  "de-DE":{chartTitle:"Übersicht der Elementbeziehungen",chartDescription:"Jede Karte zeigt, gegen welche Elemente ein Element stark oder schwach ist."},
-  "fr-FR":{chartTitle:"Vue d’ensemble des affinités",chartDescription:"Chaque carte indique les éléments contre lesquels un élément est fort ou faible."},
-  "it-IT":{chartTitle:"Panoramica delle affinità",chartDescription:"Ogni scheda mostra contro quali elementi un elemento è forte o debole."},
-  "es-ES":{chartTitle:"Resumen de relaciones elementales",chartDescription:"Cada tarjeta muestra contra qué elementos es fuerte o débil un elemento."},
-  "es-419":{chartTitle:"Resumen de relaciones elementales",chartDescription:"Cada tarjeta muestra contra qué elementos es fuerte o débil un elemento."},
-  "pt-BR":{chartTitle:"Visão geral das relações elementais",chartDescription:"Cada cartão mostra contra quais elementos um elemento é forte ou fraco."},
-  "ru-RU":{chartTitle:"Обзор связей стихий",chartDescription:"Каждая карточка показывает, против каких стихий элемент силён или слаб."},
-  "id-ID":{chartTitle:"Ringkasan hubungan elemen",chartDescription:"Setiap kartu menunjukkan elemen yang kuat dan lemah terhadap elemen tersebut."},
-  "th-TH":{chartTitle:"ภาพรวมความสัมพันธ์ธาตุ",chartDescription:"การ์ดแต่ละใบแสดงว่าธาตุนั้นได้เปรียบและเสียเปรียบธาตุใด"},
-  "tr-TR":{chartTitle:"Element ilişkilerine genel bakış",chartDescription:"Her kart, bir elementin hangi elementlere karşı güçlü veya zayıf olduğunu gösterir."},
-  "vi-VN":{chartTitle:"Tổng quan quan hệ hệ",chartDescription:"Mỗi thẻ cho biết một hệ mạnh hoặc yếu trước những hệ nào."},
-  "pl-PL":{chartTitle:"Przegląd relacji żywiołów",chartDescription:"Każda karta pokazuje, przeciw którym żywiołom dany żywioł jest silny lub słaby."}
+  "en-US":{chartTitle:"Element matchup flow",chartDescription:"Each arrow runs from an attacking element to an element it has a verified advantage against."},
+  "ko-KR":{chartTitle:"속성 상성 흐름도",chartDescription:"화살표는 공격 속성에서 그 공격이 유리한 방어 속성으로 이어집니다."},
+  "ja-JP":{chartTitle:"属性相性フロー",chartDescription:"矢印は攻撃属性から、その攻撃が有利な防御属性へ向かいます。"},
+  "zh-CN":{chartTitle:"属性克制流程图",chartDescription:"箭头从攻击属性指向已确认对其有利的防御属性。"},
+  "zh-TW":{chartTitle:"屬性相剋流程圖",chartDescription:"箭頭由攻擊屬性指向已確認對其有利的防禦屬性。"},
+  "de-DE":{chartTitle:"Fluss der Elementvorteile",chartDescription:"Jeder Pfeil führt vom Angriffselement zu einem Element, gegen das sein Vorteil bestätigt ist."},
+  "fr-FR":{chartTitle:"Flux des affinités élémentaires",chartDescription:"Chaque flèche relie un élément attaquant à un élément contre lequel son avantage est confirmé."},
+  "it-IT":{chartTitle:"Flusso delle affinità elementali",chartDescription:"Ogni freccia va dall’elemento d’attacco a un elemento contro cui ha un vantaggio verificato."},
+  "es-ES":{chartTitle:"Flujo de afinidades elementales",chartDescription:"Cada flecha va del elemento atacante a un elemento contra el que tiene una ventaja verificada."},
+  "es-419":{chartTitle:"Flujo de afinidades elementales",chartDescription:"Cada flecha va del elemento atacante a un elemento contra el que tiene una ventaja verificada."},
+  "pt-BR":{chartTitle:"Fluxo de vantagens elementais",chartDescription:"Cada seta vai do elemento atacante a um elemento contra o qual ele tem vantagem verificada."},
+  "ru-RU":{chartTitle:"Схема преимуществ стихий",chartDescription:"Каждая стрелка ведёт от стихии атаки к стихии, против которой подтверждено преимущество."},
+  "id-ID":{chartTitle:"Alur keunggulan elemen",chartDescription:"Setiap panah mengarah dari elemen penyerang ke elemen yang memiliki keunggulan terverifikasi terhadapnya."},
+  "th-TH":{chartTitle:"ผังลำดับการได้เปรียบของธาตุ",chartDescription:"ลูกศรชี้จากธาตุโจมตีไปยังธาตุป้องกันที่ยืนยันแล้วว่าได้เปรียบ"},
+  "tr-TR":{chartTitle:"Element avantaj akışı",chartDescription:"Her ok, saldırı elementinden doğrulanmış avantaja sahip olduğu savunma elementine gider."},
+  "vi-VN":{chartTitle:"Sơ đồ tương khắc hệ",chartDescription:"Mỗi mũi tên đi từ hệ tấn công đến hệ phòng thủ mà nó có lợi thế đã được xác minh."},
+  "pl-PL":{chartTitle:"Przepływ przewag żywiołów",chartDescription:"Każda strzałka prowadzi od żywiołu ataku do żywiołu, przeciw któremu potwierdzono przewagę."}
 };
 for(const locale of Object.keys(elementOverviewCopy) as Locale[])Object.assign(elementCopy[locale],elementOverviewCopy[locale]);
 

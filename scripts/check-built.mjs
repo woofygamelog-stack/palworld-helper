@@ -65,6 +65,8 @@ for(const entry of representativeEntries){
   representativeTitles.add(`${entry.locale}:${title}`);
 }
 if(representativeTitles.size!==representativeEntries.length)throw new Error("Representative prerender pages must have unique localized titles");
+const builtElementHtml=await readFile(path.join(dist,"ko-KR","database","elements.html"),"utf8");
+if(!builtElementHtml.includes('class="panel element-matchup-graph"')||(builtElementHtml.match(/data-element-relation=/g)||[]).length!==9||(builtElementHtml.match(/class="element-graph-node"/g)||[]).length!==18||builtElementHtml.includes("matchup-chart.webp"))throw new Error("Built element page must contain the original responsive graph without the extracted reference image");
 
 const rawPublicIdSet=new Set(rawPublicIds),titlesByLocale=new Map(locales.map(locale=>[locale,new Map()])),descriptionsByLocale=new Map(locales.map(locale=>[locale,new Map()]));
 const publicUrlExposesRawId=value=>{
