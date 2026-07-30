@@ -164,10 +164,14 @@ assert.match(expeditionImporter,/probabilitiesVerified:false.*durationFormulaVer
 assert.match(expeditionValidator,/verdant-hollow.*world-tree-forbidden-area/s,"Pal Expedition validation must include low- and high-progression golden cases");
 assert.match(main,/id="expedition-variant".*id="expedition-difficulty".*id="expedition-element"/s,"Pal Expedition collection must expose variant, difficulty, and element filters");
 assert.match(main,/function expeditionDetail.*visibilityCondition.*challengeCondition.*rewardSlots/s,"Pal Expedition details must expose verified requirements and slot-grouped rewards");
+assert.match(main,/expedition-station-actions.*structureCopy\[locale\]\.title.*technologyCopy\[locale\]\.title/s,"Pal Expedition station actions must distinguish building and unlock-technology details");
+assert.match(main,/<details class="expedition-filter-panel" open>.*id="expedition-filter-count".*id="expedition-search"/s,"Pal Expedition mobile filters must use one compact disclosure with a visible result count");
+assert.match(main,/matchMedia\("\(max-width:700px\)"\).*filterPanel\.open=!mobileFilters\.matches/s,"Pal Expedition filters must start collapsed on mobile and open on desktop");
 assert.match(main,/renderItemExpeditionSection\(item\)/,"Item details must expose Pal Expedition reward backlinks");
 assert.match(main,/fetch\("\/data\/expeditions\.json"\)/,"Pal Expedition collection, details, backlinks, and search must load same-origin normalized data");
 assert.match(main,/renderExpeditionGlobalSearch/,"Global search must include localized Pal Expedition names and reward items");
 assert.match(expeditionStyles,/\.expedition-grid.*\.expedition-detail-grid.*\.expedition-reward-slots.*@media\(max-width:700px\)/s,"Pal Expedition catalog, details, and rewards must retain a responsive layout contract");
+assert.match(expeditionStyles,/\.expedition-filter-panel>summary.*@media\(max-width:700px\).*\.expedition-filter-panel>\.expedition-filters\{position:static;grid-template-columns:1fr 1fr/s,"Pal Expedition mobile filters must remain compact and avoid a full-height stacked panel");
 for(const image of new Set(expeditionData.expeditions.map(expedition=>expedition.image)))await access(`public${image}`);
 assert.match(indexHtml, /name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"/, "Search Console verification must exist in static HTML");
 assert.match(indexHtml, /name="google-adsense-account" content="ca-pub-1986785092914105"/, "AdSense publisher metadata must exist in static HTML");
