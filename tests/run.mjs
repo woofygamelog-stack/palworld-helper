@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import { findBreedingResult, findParentPairs } from "../src/breeding.ts";
 import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts";
@@ -8,7 +9,8 @@ import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
 import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
 import { groupItemDropSources } from "../src/drop-relations.ts";
 import { databaseItemTabLabels, itemFilterAllLabels, itemFilterAllLabelsProvenance } from "../src/ui-i18n.ts";
-import { entityRouteFamilies, routeFamilies, supportedLocales } from "../src/route-manifest.ts";
+import { entityRouteFamilies, routeFamilies, seoHreflang, supportedLocales } from "../src/route-manifest.ts";
+import {assertPublicSlugRegistry} from "../src/public-slugs.ts";
 import { buildIndexableGroups, buildPrerenderEntries, productionOrigin, renderHtmlDocument, renderRouteModel } from "../scripts/seo-static.mjs";
 
 const data = await readFile("src/data.ts", "utf8");
@@ -29,6 +31,7 @@ const expeditionImporter = await readFile("scripts/import-expedition-data.mjs", 
 const expeditionValidator = await readFile("scripts/validate-expedition-data.mjs", "utf8");
 const expeditionStyles = await readFile("src/expeditions.css", "utf8");
 const indexHtml = await readFile("index.html", "utf8");
+const redirects = await readFile("public/_redirects", "utf8");
 const adsTxt = await readFile("public/ads.txt", "utf8");
 const wranglerConfig = JSON.parse((await readFile("wrangler.jsonc", "utf8")).replace(/^\s*\/\/.*$/gm,""));
 const palData = JSON.parse(await readFile("public/data/pals.json", "utf8"));
@@ -174,7 +177,15 @@ assert.equal(wranglerConfig.assets?.directory,"./dist","Wrangler must deploy onl
 assert.equal(wranglerConfig.main,undefined,"static deployment must not introduce a Worker runtime");
 assert.equal(wranglerConfig.assets?.not_found_handling,"single-page-application","collection and entity deep links must reuse the shared SPA document");
 assert.equal(wranglerConfig.assets?.html_handling,"drop-trailing-slash","Cloudflare HTML routing must match the no-trailing-slash canonical contract");
-const seoData={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData},indexableGroups=buildIndexableGroups(seoData,productionOrigin),{entries:prerenderEntries,selected:prerenderSelection}=buildPrerenderEntries(seoData);
+assert.equal(redirects.trim(),"/ /en-US 308","the root redirect must be a narrow permanent redirect and must not duplicate SPA fallback");
+const seoData={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData},indexableGroups=buildIndexableGroups(seoData,productionOrigin),{entries:prerenderEntries,selected:prerenderSelection,registry:publicSlugs}=buildPrerenderEntries(seoData);
+assertPublicSlugRegistry({pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills},publicSlugs);
+const publicSlugContract=[...Object.keys(publicSlugs.byId)].sort().flatMap(family=>[...publicSlugs.byId[family]].map(([id,slug])=>`${family}:${id}:${slug}`).sort());
+assert.equal(createHash("sha256").update(publicSlugContract.join("\n")).digest("hex"),"a0605f1593459e79b16b4943e5f266196126fb48d3e936a410db4b4b392f90a3","Public URL slugs changed; preserve old slugs or add an explicit migration before updating this contract");
+assert.equal(seoHreflang("es-419"),"es","Latin American Spanish must keep its route locale while using Google's supported generic-Spanish hreflang");
+assert.ok(indexableGroups.pals.every(url=>/^https:\/\/palworld-helper\.woofy\.blog\/[a-z]{2}(?:-[A-Z0-9]+)?\/pals\/\d{3,}b?-[a-z0-9-]+$/.test(url)),"Pal sitemap URLs must use Paldeck-based public slugs");
+const rawSeoIds=new Set([...palData.pals,...itemData.items,...skillData.activeSkills,...skillData.passiveSkills,...skillData.partnerSkills].map(entity=>entity.id));
+assert.ok(!Object.values(indexableGroups).flat().some(url=>rawSeoIds.has(decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).at(-1)||""))),"Sitemaps must not expose raw game-object IDs");
 assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),71689,"typed SEO groups must enumerate every implemented localized URL");
 assert.deepEqual(Object.fromEntries(Object.entries(prerenderSelection).map(([key,value])=>[key,value.length])),{pals:299,items:100,activeSkills:40,passiveSkills:30,partnerSkills:30,npcs:164,dungeons:28,technologies:20,structures:5,conditions:7,expeditions:18},"hybrid prerender selection must retain its deterministic family limits");
 assert.equal(prerenderEntries.length,12920,"collection and priority detail prerenders must remain inside the deployment budget");
@@ -201,15 +212,19 @@ assert.match(koreanExpeditionHtml,/획득 가능 보상.*보상 슬롯.*선택 �
 assert.match(koreanExpeditionHtml,/"@type":"WebPage".*"@type":"BreadcrumbList"/s,"Pal Expedition slug details must publish safe structured data and breadcrumbs");
 assert.equal((koreanExpeditionHtml.match(/<h1(?:\s[^>]*)?>/g)||[]).length,1,"Pal Expedition initial HTML must contain exactly one h1");
 const englishPalEntry=prerenderEntries.find(entry=>entry.locale==="en-US"&&entry.dataset==="pals"),englishPalHtml=renderHtmlDocument(indexHtml,englishPalEntry,renderRouteModel(englishPalEntry,seoData,prerenderSelection));
-assert.doesNotMatch(englishPalHtml,/data-route-structured-data/,"raw-ID entity routes must not publish unsupported structured data");
+assert.match(englishPalHtml,/"@type":"WebPage".*"@type":"BreadcrumbList"/s,"public Pal detail routes must publish safe structured data and breadcrumbs");
 assert.match(englishPalHtml,/data-prerender-route=/,"prerendered detail HTML must expose a hydration marker");
 assert.match(staticGenerator,/sitemapindex.*sitemaps\/\$\{name\}\.xml/s,"the build must publish a sitemap index with route-family child files");
 assert.match(builtChecker,/hybrid-prerender-plus-spa/,"built-output verification must enforce the hybrid rendering architecture");
 assert.match(seoStatic,/descriptionScore.*scoreMap.*localeCompare/s,"priority prerender selection must use stable content and relationship scoring with an ID tie-breaker");
 assert.match(main,/preservingPrerender&&!routeDataReady\(\)/,"the app must preserve initial HTML until route data is ready");
+assert.match(main,/resolveEntitySegment.*resolved\.legacy.*history\.replaceState/s,"legacy raw-ID detail URLs must normalize to their public slug without becoming canonical URLs");
+assert.match(main,/function publicAssetUrl.*const publicAssetHtml/s,"runtime HTML must translate internal asset filenames to public image slugs");
+assert.match(staticGenerator,/assetMoves.*registry\.byId\.pals.*registry\.byId\.items.*rename\(from,to\)/s,"production assets must be renamed to public Pal and item slugs without increasing the file count");
 assert.match(main,/app\.removeAttribute\("data-prerender-route"\)/,"hydration must explicitly retire the prerender marker");
 assert.match(main,/property:"og:image".*name:"twitter:card".*name:"twitter:image"/s,"runtime navigation must refresh Open Graph and Twitter metadata");
-assert.match(main,/BreadcrumbList.*position:1,name:m\.home.*position:2,name:parentLabel.*position:3,name:title/s,"runtime safe-detail breadcrumbs must preserve home, collection, and entity hierarchy");
+assert.match(main,/el\.hreflang=seoHreflang\(loc\)/,"runtime locale alternates must use the search-supported hreflang mapping");
+assert.match(main,/routeStructuredData.*BreadcrumbList.*position:1,name:m\.home.*position:2,name:detail\[2\].*position:3,name:title/s,"runtime safe-detail breadcrumbs must preserve home, collection, and entity hierarchy");
 assert.match(main,/history\.replaceState\(\{\},"",localizePath\(locale,location\.pathname\)\)/,"unprefixed entry routes must normalize to the selected locale without another HTML document");
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
 assert.match(main, /send_page_view:false/, "SPA analytics must disable automatic page views to prevent duplicates");
@@ -440,7 +455,7 @@ assert.match(featureStyles,/\.pair-card \.pal-visual small,\.pair-card \.pal-vis
 assert.match(main,/data-dynamic-link/,"dynamically rendered breeding results must support client-side detail navigation");
 assert.match(main,/palVisual\(pal,"result"\)/,"forward breeding results must render a Pal image card");
 assert.match(main,/\["\/map","\/database","\/calculators\/crafting"\]\.includes\(current\).*ensureItemData/,"item data must load only on routes that use it");
-assert.match(main,/\["\/map","\/pals","\/calculators","\/calculators\/breeding"\]\.includes\(current\).*current\.startsWith\("\/skills\/partner"\).*ensurePalData/,"Pal data must load on partner-skill routes");
+assert.match(main,/isSkills=current==="\/skills"\|\|current\.startsWith\("\/skills\/"\).*isSkills.*ensurePalData/s,"Pal data must load on every public-skill route so public slugs stay deterministic");
 assert.match(main,/current==="\/map"\)ensureMapData/,"map marker data must load only on the map route");
 assert.doesNotMatch(main,/href\(\"\/privacy\"\)/,"privacy policy must not be exposed in the public UI");
 

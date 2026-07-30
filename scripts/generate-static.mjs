@@ -1,4 +1,4 @@
-import {copyFile,mkdir,readFile,writeFile} from "node:fs/promises";
+import {copyFile,mkdir,readFile,rename,writeFile} from "node:fs/promises";
 import path from "node:path";
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin,renderHtmlDocument,renderRouteModel,routeRenderingReport} from "./seo-static.mjs";
 
@@ -9,7 +9,12 @@ if(technologyData.meta.schema!==1||technologyData.meta.gameBuild!=="24181527"||t
 if(structureData.meta.schema!==1||structureData.meta.gameBuild!=="24181527"||structureData.meta.verification!=="game-files"||structureData.meta.structureCount!==472||structureData.structures.length!==472)throw new Error("Structure dataset baseline mismatch");
 if(expeditionData.meta.schema!==1||expeditionData.meta.gameBuild!=="24181527"||expeditionData.meta.verification!=="game-files"||expeditionData.meta.expeditionCount!==18||expeditionData.expeditions.length!==18||expeditionData.meta.rewardSlotCount!==169||expeditionData.meta.rewardRowCount!==279||expeditionData.meta.probabilitiesVerified!==false||expeditionData.meta.durationFormulaVerified!==false)throw new Error("Expedition dataset baseline mismatch");
 const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData};
-const groups=buildIndexableGroups(data,origin),{entries,selected}=buildPrerenderEntries(data);
+const groups=buildIndexableGroups(data,origin),{entries,selected,registry}=buildPrerenderEntries(data);
+const assetMoves=[...palData.pals.map(entity=>({from:path.join("dist","assets","pals",`${entity.id}.png`),to:path.join("dist","assets","pals",`${registry.byId.pals.get(entity.id)}.png`)})),...itemData.items.map(entity=>({from:path.join("dist","assets","items",`${entity.id}.webp`),to:path.join("dist","assets","items",`${registry.byId.items.get(entity.id)}.webp`)}))];
+for(let start=0;start<assetMoves.length;start+=64)await Promise.all(assetMoves.slice(start,start+64).map(({from,to})=>rename(from,to)));
+const builtHealthPath=path.join("dist","data","health.json"),builtHealth=JSON.parse(await readFile(builtHealthPath,"utf8"));
+for(const medicine of builtHealth.medicines){const match=medicine.image.match(/^\/assets\/items\/(.+)\.webp$/),slug=match&&registry.byId.items.get(decodeURIComponent(match[1]));if(!slug)throw new Error(`Health medicine image is missing a public slug: ${medicine.slug}`);medicine.image=`/assets/items/${slug}.webp`}
+await writeFile(builtHealthPath,JSON.stringify(builtHealth));
 const xml=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
 const sitemapDirectory=path.join("dist","sitemaps");
 await mkdir(sitemapDirectory,{recursive:true});
@@ -24,7 +29,7 @@ await writeFile("dist/sitemap.xml",sitemapIndex);
 
 for(let start=0;start<entries.length;start+=64){
   await Promise.all(entries.slice(start,start+64).map(async entry=>{
-    const model=renderRouteModel(entry,data,selected),target=entry.route?path.join("dist",entry.locale,...entry.route.split("/").filter(Boolean))+".html":path.join("dist",`${entry.locale}.html`);
+    const model=renderRouteModel(entry,data,selected,registry),target=entry.route?path.join("dist",entry.locale,...entry.route.split("/").filter(Boolean))+".html":path.join("dist",`${entry.locale}.html`);
     await mkdir(path.dirname(target),{recursive:true});
     await writeFile(target,renderHtmlDocument(template,entry,model,origin));
   }));

@@ -8,7 +8,8 @@ import {elementCopy} from "../src/element-i18n.ts";
 import {structureCopy} from "../src/structure-i18n.ts";
 import {expeditionCopy} from "../src/expedition-i18n.ts";
 import {partnerLabel,passiveUiLabels,skillLabels} from "../src/skill-i18n.ts";
-import {collectionRoutes,entityRouteFamilies,routeFamilies,shellNavigation,supportedLocales} from "../src/route-manifest.ts";
+import {collectionRoutes,entityRouteFamilies,routeFamilies,seoHreflang,shellNavigation,supportedLocales} from "../src/route-manifest.ts";
+import {activeSkillOwner,assertPublicSlugRegistry,createPublicSlugRegistry,publicSlug} from "../src/public-slugs.ts";
 
 export const productionOrigin="https://palworld-helper.woofy.blog";
 export const defaultLocale="en-US";
@@ -22,12 +23,30 @@ export const mapSeoTranslationProvenance=Object.fromEntries(supportedLocales.map
 const esc=value=>String(value??"").replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
 const clean=value=>String(value??"").replace(/\s+/g," ").trim();
 const useful=value=>{const text=clean(value);return text&&!/Error_Code:|\||\(\s*\)/.test(text)?text:""};
+const seoDescription=(lead,facts=[])=>clean([clean(lead).slice(0,180),...facts.filter(Boolean)].join(" · ")).slice(0,300);
 const localized=(entity,locale,field="names")=>clean(entity?.[field]?.[locale]||entity?.[field]?.[defaultLocale]||"");
 const localizedDescription=(entity,locale,field="descriptions")=>useful(entity?.[field]?.[locale]||entity?.[field]?.[defaultLocale]||"");
-const href=(locale,route="")=>`/${locale}${route?`/${route.replace(/^\//,"")}`:""}`;
+let activeSlugRegistry=null;
+const publicRoute=(route="")=>{
+  if(!activeSlugRegistry)return route;
+  const [pathname,query=""]=route.replace(/^\//,"").split("?"),patterns=[["pals/","pals"],["items/","items"],["skills/active/","activeSkills"],["skills/passive/","passiveSkills"],["skills/partner/","partnerSkills"]];
+  let normalized=pathname;
+  for(const [prefix,family] of patterns)if(pathname.startsWith(prefix)){const segment=decodeURIComponent(pathname.slice(prefix.length)),slug=activeSlugRegistry.byId[family].get(segment);if(slug)normalized=`${prefix}${slug}`;break}
+  if(!query)return normalized;
+  const params=new URLSearchParams(query),pal=params.get("pal"),palSlug=pal&&activeSlugRegistry.byId.pals.get(pal);if(palSlug)params.set("pal",palSlug);
+  return `${normalized}?${params}`;
+};
+const publicAssetHtml=markup=>activeSlugRegistry?markup.replace(/\/assets\/(pals|items)\/([^"'?/]+)\.(png|webp)/g,(match,kind,encodedId,extension)=>{const family=kind==="pals"?"pals":"items",slug=activeSlugRegistry.byId[family].get(decodeURIComponent(encodedId));return slug?`/assets/${kind}/${slug}.${extension}`:match}):markup;
+const href=(locale,route="")=>{const normalized=publicRoute(route);return `/${locale}${normalized?`/${normalized}`:""}`};
 const absolute=(origin,locale,route="")=>`${origin}${href(locale,route)}`;
-const entityId=entity=>entity.slug??entity.id;
+const internalEntityId=entity=>entity.slug??entity.id;
 const addCount=(map,key,value=1)=>map.set(key,(map.get(key)||0)+value);
+
+export function createSeoSlugRegistry({palData,itemData,skillData}){
+  return assertPublicSlugRegistry({pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills});
+}
+
+const publicEntitySlug=(dataset,entity,registry)=>registry.byId[dataset]?publicSlug(registry,dataset,entity.id):entity.slug;
 
 export function createEntityDatasets({palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,structureData,expeditionData}){
   return {pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills,npcs:npcData.npcs,dungeons:dungeonData.dungeons,technologies:technologyData.technologies,structures:structureData.structures,conditions:healthData.conditions,expeditions:expeditionData.expeditions};
@@ -64,28 +83,28 @@ export function selectPrerenderEntities(data){
     const scoreMap=scores[family.dataset]||new Map();
     selection[family.dataset]=[...entities].sort((a,b)=>{
       const descriptionScore=entity=>Object.values(entity.descriptions||entity.palDescriptions||{}).filter(useful).length*2;
-      const score=entity=>descriptionScore(entity)+(scoreMap.get(entityId(entity))||0);
-      return score(b)-score(a)||String(entityId(a)).localeCompare(String(entityId(b)));
+      const score=entity=>descriptionScore(entity)+(scoreMap.get(internalEntityId(entity))||0);
+      return score(b)-score(a)||String(internalEntityId(a)).localeCompare(String(internalEntityId(b)));
     }).slice(0,family.priorityLimit);
   }
   return selection;
 }
 
 export function buildIndexableGroups(data,origin=productionOrigin){
-  const datasets=createEntityDatasets(data);
+  const datasets=createEntityDatasets(data),registry=createSeoSlugRegistry(data);
   const collections=supportedLocales.flatMap(locale=>collectionRoutes.map(route=>absolute(origin,locale,route)));
   const groups={collections};
-  for(const family of entityRouteFamilies)groups[family.sitemap]=supportedLocales.flatMap(locale=>datasets[family.dataset].map(entity=>absolute(origin,locale,`${family.prefix}/${encodeURIComponent(entityId(entity))}`)));
+  for(const family of entityRouteFamilies)groups[family.sitemap]=supportedLocales.flatMap(locale=>datasets[family.dataset].map(entity=>absolute(origin,locale,`${family.prefix}/${publicEntitySlug(family.dataset,entity,registry)}`)));
   return groups;
 }
 
 export function buildPrerenderEntries(data){
-  const selected=selectPrerenderEntities(data),entries=[];
+  const selected=selectPrerenderEntities(data),registry=createSeoSlugRegistry(data),entries=[];
   for(const locale of supportedLocales){
     for(const route of collectionRoutes)entries.push({locale,route,kind:"collection"});
-    for(const family of entityRouteFamilies)for(const entity of selected[family.dataset])entries.push({locale,route:`${family.prefix}/${encodeURIComponent(entityId(entity))}`,kind:"entity",dataset:family.dataset,entity});
+    for(const family of entityRouteFamilies)for(const entity of selected[family.dataset])entries.push({locale,route:`${family.prefix}/${publicEntitySlug(family.dataset,entity,registry)}`,kind:"entity",dataset:family.dataset,entity});
   }
-  return {entries,selected};
+  return {entries,selected,registry};
 }
 
 function shellLabel(item,locale,m){return item.id==="home"?m.home:item.id==="map"?m.map:item.id==="pals"?m.pals:item.id==="skills"?skillLabels[locale].title:item.id==="calculators"?m.calculators:item.id==="database"?m.database:m.server}
@@ -109,7 +128,7 @@ function pageStructuredData({origin,locale,route,title,description,type,parent})
   return {"@context":"https://schema.org","@graph":graph};
 }
 
-function collectionModel(route,locale,data,selection){
+function collectionModel(route,locale,data,selection,registry){
   const {palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData}=data,m=messages(locale),skills=skillLabels[locale],dungeons=dungeonCopy[locale],npcs=npcCopy[locale],technology=technologyCopy[locale],structures=structureCopy[locale],health=healthCopy[locale],elementsCopy=elementCopy[locale],expeditions=expeditionCopy[locale];
   let title,description,links=[],type="CollectionPage";
   if(route===""){title=m.hero;description=m.tagline;type="WebSite";links=[{href:href(locale,"pals"),label:m.palDex},{href:href(locale,"calculators/breeding"),label:m.breeding},{href:href(locale,"database"),label:m.itemDatabase},{href:href(locale,"database/structures"),label:structures.title},{href:href(locale,"database/expeditions"),label:expeditions.title},{href:href(locale,"database/elements"),label:elementsCopy.title},{href:href(locale,"database/technology"),label:technology.title},{href:href(locale,"database/dungeons"),label:dungeons.title}]}
@@ -135,18 +154,18 @@ function collectionModel(route,locale,data,selection){
 }
 
 function palModel(locale,pal,data){
-  const {palData,itemData,skillData,dungeonData}=data,m=messages(locale),title=localized(pal,locale),description=localizedDescription(pal,locale)||m.tagline,itemsById=new Map(itemData.items.map(item=>[item.id,item])),passives=new Map(skillData.passiveSkills.map(skill=>[skill.id,skill]));
+  const {palData,itemData,skillData,dungeonData}=data,m=messages(locale),title=localized(pal,locale),description=localizedDescription(pal,locale)||m.tagline,documentTitle=`#${pal.dex}${pal.variant?"B":""} ${title}`,metaDescription=seoDescription(description,[`${m.hp} ${pal.hp}`,`${m.attack} ${pal.attack}`,`${m.defense} ${pal.defense}`,`${m.rarity} ${pal.rarity}`]),itemsById=new Map(itemData.items.map(item=>[item.id,item])),passives=new Map(skillData.passiveSkills.map(skill=>[skill.id,skill]));
   const workById=new Map(palData.workSuitabilities.map(work=>[work.id,work])),work=Object.entries(pal.work).filter(([,level])=>level>0).sort((a,b)=>b[1]-a[1]).map(([id,level])=>`${localized(workById.get(id),locale)} ${level}`).join(" · ");
   const itemLinks=itemData.drops.filter(drop=>drop.palId===pal.id).map(drop=>{const item=itemsById.get(drop.itemId);return item?{href:href(locale,`items/${encodeURIComponent(item.id)}`),label:localized(item,locale),image:`/assets/items/${encodeURIComponent(item.id)}.webp`}:null});
   const dungeonLinks=dungeonData.dungeons.filter(dungeon=>dungeon.encounterGroups.some(group=>group.members.some(member=>member.palId===pal.id))).map(dungeon=>({href:href(locale,`database/dungeons/${dungeon.slug}`),label:localized(dungeon,locale),image:"/assets/map-icons/dungeon.webp"}));
   const passiveLinks=(pal.guaranteedPassiveIds||[]).map(id=>passives.get(id)).filter(Boolean).map(skill=>({href:href(locale,`skills/passive/${encodeURIComponent(skill.id)}`),label:localized(skill,locale)}));
   const facts=details([[m.hp,pal.hp],[m.attack,pal.attack],[m.defense,pal.defense],[m.rarity,pal.rarity],[m.work,work],[m.nocturnal,pal.nocturnal?m.yes:m.no]]);
   const body=`${hero(m,title)}<article class="entity-detail pal-detail panel"><img class="detail-image" src="/assets/pals/${encodeURIComponent(pal.id)}.png" alt="${esc(title)}" width="240" height="240"><div class="entity-detail-content">${breadcrumb(locale,"pals",m.palDex,title)}<p class="pal-number">#${pal.dex}${pal.variant?"B":""}</p><p class="entity-description">${esc(description)}</p>${facts}${passiveLinks.length?`<section class="detail-section"><h2>${esc(skillLabels[locale].passive)}</h2>${relationLinks(passiveLinks)}</section>`:""}${itemLinks.length?`<section class="detail-section"><h2>${esc(m.itemDatabase)}</h2>${relationLinks(uniqueLinks(itemLinks))}</section>`:""}${dungeonLinks.length?`<section class="detail-section"><h2>${esc(dungeonCopy[locale].title)}</h2>${relationLinks(dungeonLinks)}</section>`:""}<div class="detail-actions"><a class="button primary" href="${href(locale,"calculators/breeding")}">${esc(m.openBreed)}</a><a class="button" href="${href(locale,"map")}?pal=${encodeURIComponent(pal.id)}">${esc(m.map)}</a></div></div></article>`;
-  return {title,description,body,type:null};
+  return {title,documentTitle,description:metaDescription,body,type:"WebPage",parent:{route:"pals",label:m.palDex}};
 }
 
 function itemModel(locale,item,data){
-  const {palData,itemData,dungeonData,expeditionData}=data,m=messages(locale),title=localized(item,locale),description=localizedDescription(item,locale)||m.itemDatabaseBody,itemsById=new Map(itemData.items.map(entry=>[entry.id,entry])),palsById=new Map(palData.pals.map(pal=>[pal.id,pal]));
+  const {palData,itemData,dungeonData,expeditionData}=data,m=messages(locale),title=localized(item,locale),category=itemCategoryLabel(item.type,locale),documentTitle=`${title} · ${category} · ${m.rank} ${item.rank} · ${m.rarity} ${item.rarity}`,description=localizedDescription(item,locale)||m.itemDatabaseBody,metaDescription=seoDescription(description,[category,`${m.rank} ${item.rank}`,`${m.rarity} ${item.rarity}`,`${m.stack} ${item.maxStack.toLocaleString(locale)}`]),itemsById=new Map(itemData.items.map(entry=>[entry.id,entry])),palsById=new Map(palData.pals.map(pal=>[pal.id,pal]));
   const recipes=itemData.recipes.filter(recipe=>recipe.productId===item.id),usedIn=itemData.recipes.filter(recipe=>recipe.ingredients.some(ingredient=>ingredient.itemId===item.id));
   const ingredients=recipes.flatMap(recipe=>recipe.ingredients).map(ingredient=>{const related=itemsById.get(ingredient.itemId);return related?{href:href(locale,`items/${encodeURIComponent(related.id)}`),label:localized(related,locale),image:`/assets/items/${encodeURIComponent(related.id)}.webp`,detail:`× ${ingredient.count.toLocaleString(locale)}`}:null});
   const products=usedIn.map(recipe=>itemsById.get(recipe.productId)).filter(Boolean).map(product=>({href:href(locale,`items/${encodeURIComponent(product.id)}`),label:localized(product,locale),image:`/assets/items/${encodeURIComponent(product.id)}.webp`}));
@@ -155,18 +174,19 @@ function itemModel(locale,item,data){
   const expeditionRewards=expeditionData.expeditions.flatMap(expedition=>expedition.rewardSlots.flatMap(slot=>slot.candidates.filter(candidate=>candidate.itemId===item.id).map(candidate=>({href:href(locale,`database/expeditions/${expedition.slug}`),label:localized(expedition,locale),image:expedition.image,detail:`${expeditionCopy[locale].rewardSlot} ${slot.slot.toLocaleString(locale)} · ${candidate.minCount.toLocaleString(locale)}${candidate.minCount===candidate.maxCount?"":`–${candidate.maxCount.toLocaleString(locale)}`}`}))));
   const facts=details([[itemCategoryFieldLabels[locale],itemCategoryLabel(item.type,locale)],[m.rank,item.rank],[m.rarity,item.rarity],[m.stack,item.maxStack.toLocaleString(locale)],[m.weight,item.weight.toLocaleString(locale)],[m.price,item.price.toLocaleString(locale)]]);
   const body=`${hero(m,title)}<article class="entity-detail item-detail panel"><img class="detail-image" src="/assets/items/${encodeURIComponent(item.id)}.webp" alt="${esc(title)}" width="192" height="192"><div class="entity-detail-content">${breadcrumb(locale,"database",m.itemDatabase,title)}<p class="entity-description">${esc(description)}</p>${facts}${ingredients.length?`<section class="detail-section"><h2>${esc(m.crafting)}</h2>${relationLinks(uniqueLinks(ingredients))}</section>`:""}${products.length?`<section class="detail-section"><h2>${esc(m.results)}</h2>${relationLinks(uniqueLinks(products))}</section>`:""}${drops.length?`<section class="detail-section"><h2>${esc(m.pals)}</h2>${relationLinks(uniqueLinks(drops))}</section>`:""}${dungeons.length?`<section class="detail-section"><h2>${esc(dungeonCopy[locale].title)}</h2>${relationLinks(dungeons)}</section>`:""}${expeditionRewards.length?`<section class="detail-section"><h2>${esc(expeditionCopy[locale].obtainedFrom)}</h2>${relationLinks(expeditionRewards)}<p class="notice">${esc(expeditionCopy[locale].rewardNotice)}</p></section>`:""}</div></article>`;
-  return {title,description,body,type:null};
+  return {title,documentTitle,description:metaDescription,body,type:"WebPage",parent:{route:"database",label:m.itemDatabase}};
 }
 
 function skillModel(locale,skill,dataset,data){
-  const {palData,skillData}=data,m=messages(locale),labels=skillLabels[locale],palById=new Map(palData.pals.map(pal=>[pal.id,pal])),title=localized(skill,locale)||localized(palById.get(skill.palId),locale),description=localizedDescription(skill,locale,dataset==="partnerSkills"?"palDescriptions":"descriptions")||(dataset==="activeSkills"?labels.active:dataset==="passiveSkills"?labels.passive:partnerLabel[locale]);
+  const {palData,skillData}=data,m=messages(locale),labels=skillLabels[locale],palById=new Map(palData.pals.map(pal=>[pal.id,pal])),title=localized(skill,locale)||localized(palById.get(skill.palId),locale),kindLabel=dataset==="activeSkills"?labels.active:dataset==="passiveSkills"?labels.passive:partnerLabel[locale],description=localizedDescription(skill,locale,dataset==="partnerSkills"?"palDescriptions":"descriptions")||kindLabel;
   let facts=[],links=[],image="";
   if(dataset==="activeSkills"){const element=skillData.elements.find(entry=>entry.id===skill.elementId);facts=[[labels.elements,localized(element,locale)],[labels.power,skill.power],[labels.cooldown,skill.cooldown],[labels.inherit,skill.canInherit?m.yes:m.no]];image=element?.icon||""}
   else if(dataset==="passiveSkills")facts=[[passiveUiLabels[locale].rank,`${skill.rank>=0?"+":""}${skill.rank}`],[labels.inherit,skill.randomInheritanceAllowed?m.yes:m.no],[passiveUiLabels[locale].surgery,skill.surgeryCost.toLocaleString(locale)]];
   else {const pal=palById.get(skill.palId);if(pal){links=[{href:href(locale,`pals/${encodeURIComponent(pal.id)}`),label:`#${pal.dex}${pal.variant?"B":""} ${localized(pal,locale)}`,image:`/assets/pals/${encodeURIComponent(pal.id)}.png`}];image=`/assets/pals/${encodeURIComponent(pal.id)}.png`}}
   const parent=dataset==="activeSkills"?"skills/active":dataset==="passiveSkills"?"skills/passive":"skills/partner",parentLabel=dataset==="activeSkills"?labels.active:dataset==="passiveSkills"?labels.passive:partnerLabel[locale];
+  const owner=dataset==="activeSkills"?activeSkillOwner(skill,palData.pals):dataset==="partnerSkills"?palById.get(skill.palId):null,ownerLabel=owner?`#${owner.dex}${owner.variant?"B":""} ${localized(owner,locale)}`:"",detailLabel=dataset==="passiveSkills"?`${passiveUiLabels[locale].rank} ${skill.rank>=0?"+":""}${skill.rank}`:ownerLabel,documentTitle=[title,kindLabel,detailLabel].filter(Boolean).join(" · "),metaDescription=seoDescription(description,[kindLabel,detailLabel,...facts.map(([label,value])=>`${label} ${value}`)]);
   const body=`${hero(m,title)}<article class="entity-detail panel">${image?`<img class="detail-image" src="${esc(image)}" alt="${esc(title)}" width="192" height="192">`:""}<div class="entity-detail-content">${breadcrumb(locale,parent,parentLabel,title)}<p class="entity-description">${esc(description)}</p>${details(facts)}${relationLinks(links)}</div></article>`;
-  return {title,description,body,type:null};
+  return {title,documentTitle,description:metaDescription,body,type:"WebPage",parent:{route:parent,label:parentLabel}};
 }
 
 function technologyModel(locale,technology){
@@ -194,12 +214,12 @@ function structureModel(locale,structure,data){
 
 function npcDescription(npc,locale){const copy=npcCopy[locale];return npc.merchant?.type==="items"||npc.merchant?.type==="item-profiles"?copy.itemMerchantDescription:npc.merchant?.type==="pals"?copy.palMerchantDescription:npc.events?.type==="achievement"?copy.achievementDescription:npc.events?.type==="item-request"?copy.foodDescription:npc.events?.type==="pal-request"?copy.palCriticDescription:npc.kind==="merchant"?copy.stockUnavailable:npc.kind==="quest"?copy.questDescription:npc.kind==="guide"?copy.guideDescription:npc.kind==="combat"?copy.combatDescription:npc.kind==="reward"?copy.rewardDescription:copy.characterDescription}
 function npcModel(locale,npc,data){
-  const {palData,itemData}=data,m=messages(locale),copy=npcCopy[locale],title=localized(npc,locale),description=npcDescription(npc,locale),items=new Map(itemData.items.map(item=>[item.id,item])),pals=new Map(palData.pals.map(pal=>[pal.id,pal]));
+  const {palData,itemData,npcData}=data,m=messages(locale),copy=npcCopy[locale],title=localized(npc,locale),sameName=npcData.npcs.filter(entry=>localized(entry,locale)===title).sort((a,b)=>a.slug.localeCompare(b.slug)),variantIndex=sameName.findIndex(entry=>entry.slug===npc.slug),documentTitle=sameName.length>1?`${title} (${variantIndex+1}/${sameName.length})`:title,baseDescription=npcDescription(npc,locale),description=seoDescription(baseDescription,[documentTitle,`${copy.roles} ${npc.roles.length.toLocaleString(locale)}`,`${copy.fixedLocations} ${npc.encounters.length.toLocaleString(locale)}`]),items=new Map(itemData.items.map(item=>[item.id,item])),pals=new Map(palData.pals.map(pal=>[pal.id,pal]));
   const offers=npc.merchant?.type==="items"?(npc.merchant.offers||[]):npc.merchant?.type==="item-profiles"?npc.merchant.profiles.flatMap(profile=>profile.offers||[]):[];
   const itemLinks=[...offers.map(offer=>items.get(offer.itemId)),...(npc.events?.steps||[]).flatMap(step=>(step.rewards||[]).map(reward=>items.get(reward.itemId)))].filter(Boolean).map(item=>({href:href(locale,`items/${encodeURIComponent(item.id)}`),label:localized(item,locale),image:`/assets/items/${encodeURIComponent(item.id)}.webp`}));
   const palLinks=npc.merchant?.type==="pals"?npc.merchant.profiles.flatMap(profile=>profile.palIds.map(id=>pals.get(id))).filter(Boolean).map(pal=>({href:href(locale,`pals/${encodeURIComponent(pal.id)}`),label:`#${pal.dex}${pal.variant?"B":""} ${localized(pal,locale)}`,image:`/assets/pals/${encodeURIComponent(pal.id)}.png`})):[];
-  const body=`${hero(m,title)}<article class="entity-detail panel"><img class="detail-image" src="/assets/map-icons/${npc.kind==="merchant"?"merchant":npc.kind==="combat"?"wanted":"npc"}.webp" alt="" width="128" height="128"><div class="entity-detail-content">${breadcrumb(locale,"database/npcs",copy.catalogTitle,title)}<p class="entity-description">${esc(description)}</p>${details([[copy.roles,npc.roles.length.toLocaleString(locale)],[copy.fixedLocations,npc.encounters.length.toLocaleString(locale)],[copy.level,npc.level?`${npc.level.min.toLocaleString(locale)}${npc.level.min===npc.level.max?"":`–${npc.level.max.toLocaleString(locale)}`}`:copy.noFixedLocation]])}${itemLinks.length?`<section class="detail-section"><h2>${esc(copy.soldItems)}</h2>${relationLinks(uniqueLinks(itemLinks).slice(0,40))}</section>`:""}${palLinks.length?`<section class="detail-section"><h2>${esc(m.pals)}</h2>${relationLinks(uniqueLinks(palLinks).slice(0,40))}</section>`:""}</div></article>`;
-  return {title,description,body,type:"WebPage",parent:{route:"database/npcs",label:copy.catalogTitle}};
+  const body=`${hero(m,title)}<article class="entity-detail panel"><img class="detail-image" src="/assets/map-icons/${npc.kind==="merchant"?"merchant":npc.kind==="combat"?"wanted":"npc"}.webp" alt="" width="128" height="128"><div class="entity-detail-content">${breadcrumb(locale,"database/npcs",copy.catalogTitle,title)}<p class="entity-description">${esc(baseDescription)}</p>${details([[copy.roles,npc.roles.length.toLocaleString(locale)],[copy.fixedLocations,npc.encounters.length.toLocaleString(locale)],[copy.level,npc.level?`${npc.level.min.toLocaleString(locale)}${npc.level.min===npc.level.max?"":`–${npc.level.max.toLocaleString(locale)}`}`:copy.noFixedLocation]])}${itemLinks.length?`<section class="detail-section"><h2>${esc(copy.soldItems)}</h2>${relationLinks(uniqueLinks(itemLinks).slice(0,40))}</section>`:""}${palLinks.length?`<section class="detail-section"><h2>${esc(m.pals)}</h2>${relationLinks(uniqueLinks(palLinks).slice(0,40))}</section>`:""}</div></article>`;
+  return {title,documentTitle,description,body,type:"WebPage",parent:{route:"database/npcs",label:copy.catalogTitle}};
 }
 
 function dungeonModel(locale,dungeon,data){
@@ -229,8 +249,9 @@ function healthConditionModel(locale,condition,data){
   return {title,description,body,type:"WebPage",parent:{route:"database/health",label:copy.title}};
 }
 
-export function renderRouteModel(entry,data,selection){
-  if(entry.kind==="collection")return collectionModel(entry.route,entry.locale,data,selection);
+export function renderRouteModel(entry,data,selection,registry=createSeoSlugRegistry(data)){
+  activeSlugRegistry=registry;
+  if(entry.kind==="collection")return collectionModel(entry.route,entry.locale,data,selection,registry);
   if(entry.dataset==="pals")return palModel(entry.locale,entry.entity,data);
   if(entry.dataset==="items")return itemModel(entry.locale,entry.entity,data);
   if(entry.dataset==="activeSkills"||entry.dataset==="passiveSkills"||entry.dataset==="partnerSkills")return skillModel(entry.locale,entry.entity,entry.dataset,data);
@@ -243,9 +264,9 @@ export function renderRouteModel(entry,data,selection){
 }
 
 export function renderHtmlDocument(template,entry,model,origin=productionOrigin){
-  const canonical=absolute(origin,entry.locale,entry.route),title=`${model.title} · ${siteName}`,alternates=supportedLocales.map(locale=>`<link rel="alternate" hreflang="${locale}" href="${absolute(origin,locale,entry.route)}" data-dynamic-meta="true">`).join(""),structured=pageStructuredData({origin,locale:entry.locale,route:entry.route,title:model.title,description:model.description,type:model.type,parent:model.parent});
-  const metadata=`<meta name="description" content="${esc(model.description)}" data-dynamic-meta="true"><link rel="canonical" href="${canonical}" data-dynamic-meta="true">${alternates}<link rel="alternate" hreflang="x-default" href="${absolute(origin,defaultLocale,entry.route)}" data-dynamic-meta="true"><meta property="og:type" content="website" data-dynamic-meta="true"><meta property="og:title" content="${esc(title)}" data-dynamic-meta="true"><meta property="og:description" content="${esc(model.description)}" data-dynamic-meta="true"><meta property="og:url" content="${canonical}" data-dynamic-meta="true"><meta property="og:image" content="${origin}/og-image.png" data-dynamic-meta="true"><meta name="twitter:card" content="summary_large_image" data-dynamic-meta="true"><meta name="twitter:title" content="${esc(title)}" data-dynamic-meta="true"><meta name="twitter:description" content="${esc(model.description)}" data-dynamic-meta="true"><meta name="twitter:image" content="${origin}/og-image.png" data-dynamic-meta="true">${structured?`<script type="application/ld+json" data-route-structured-data>${JSON.stringify(structured).replace(/</g,"\\u003c")}</script>`:""}`;
-  return template.replace('<html lang="en-US"',`<html lang="${entry.locale}"`).replace(/<title>[^<]*<\/title>/,`<title>${esc(title)}</title>${metadata}`).replace('<div id="app"></div>',`<div id="app" data-prerender-route="/${entry.locale}/${esc(entry.route)}">${shell(entry.locale,entry.route,model.title,model.body)}</div>`);
+  const canonical=absolute(origin,entry.locale,entry.route),documentTitle=model.documentTitle||model.title,title=`${documentTitle} · ${siteName}`,description=seoDescription(model.description,[documentTitle]),alternates=supportedLocales.map(locale=>`<link rel="alternate" hreflang="${seoHreflang(locale)}" href="${absolute(origin,locale,entry.route)}" data-dynamic-meta="true">`).join(""),structured=pageStructuredData({origin,locale:entry.locale,route:entry.route,title:model.title,description,type:model.type,parent:model.parent});
+  const metadata=`<meta name="description" content="${esc(description)}" data-dynamic-meta="true"><link rel="canonical" href="${canonical}" data-dynamic-meta="true">${alternates}<link rel="alternate" hreflang="x-default" href="${absolute(origin,defaultLocale,entry.route)}" data-dynamic-meta="true"><meta property="og:type" content="website" data-dynamic-meta="true"><meta property="og:title" content="${esc(title)}" data-dynamic-meta="true"><meta property="og:description" content="${esc(description)}" data-dynamic-meta="true"><meta property="og:url" content="${canonical}" data-dynamic-meta="true"><meta property="og:image" content="${origin}/og-image.png" data-dynamic-meta="true"><meta name="twitter:card" content="summary_large_image" data-dynamic-meta="true"><meta name="twitter:title" content="${esc(title)}" data-dynamic-meta="true"><meta name="twitter:description" content="${esc(description)}" data-dynamic-meta="true"><meta name="twitter:image" content="${origin}/og-image.png" data-dynamic-meta="true">${structured?`<script type="application/ld+json" data-route-structured-data>${JSON.stringify(structured).replace(/</g,"\\u003c")}</script>`:""}`;
+  return publicAssetHtml(template.replace('<html lang="en-US"',`<html lang="${entry.locale}"`).replace(/<title>[^<]*<\/title>/,`<title>${esc(title)}</title>${metadata}`).replace('<div id="app"></div>',`<div id="app" data-prerender-route="/${entry.locale}/${esc(entry.route)}">${shell(entry.locale,entry.route,model.title,model.body)}</div>`));
 }
 
 export function routeRenderingReport(data,selection){

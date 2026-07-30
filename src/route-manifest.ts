@@ -52,3 +52,9 @@ export const entityRouteFamilies = [
 export const deploymentFileBudget={hardLimit:20_000,reservedHeadroom:4_000} as const;
 
 export const supportedLocales = ["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"] as const;
+export type SupportedLocale=(typeof supportedLocales)[number];
+
+// Google Search recognizes language-region pairs but does not accept the UN M49
+// region code used by the game's Latin American Spanish locale. Keep the public
+// route as es-419 and advertise it as the generic Spanish alternate instead.
+export const seoHreflang=(locale:SupportedLocale)=>locale==="es-419"?"es":locale;

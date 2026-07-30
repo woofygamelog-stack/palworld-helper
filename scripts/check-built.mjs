@@ -1,6 +1,6 @@
 import {access,readFile,readdir,stat} from "node:fs/promises";
 import path from "node:path";
-import {deploymentFileBudget,supportedLocales as locales} from "../src/route-manifest.ts";
+import {deploymentFileBudget,seoHreflang,supportedLocales as locales} from "../src/route-manifest.ts";
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo-static.mjs";
 
 const root=process.cwd(),dist=path.join(root,"dist"),readJson=file=>readFile(file,"utf8").then(JSON.parse);
@@ -8,7 +8,7 @@ const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,
   readJson("public/data/pals.json"),readJson("public/data/items.json"),readJson("public/data/skills.json"),readJson("public/data/npcs.json"),readJson("public/data/dungeons.json"),readJson("public/data/technology.json"),readJson("public/data/health.json"),readJson("public/data/elements.json"),readJson("public/data/structures.json"),readJson("public/data/expeditions.json"),
   readFile(path.join(dist,"index.html"),"utf8"),readFile(path.join(dist,"sitemap.xml"),"utf8"),readJson(path.join(dist,"prerender-report.json")),readJson("wrangler.jsonc")
 ]);
-const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData},groups=buildIndexableGroups(data,productionOrigin),{entries,selected}=buildPrerenderEntries(data);
+const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData},groups=buildIndexableGroups(data,productionOrigin),{entries,selected,registry}=buildPrerenderEntries(data);
 const expectedUrls=Object.values(groups).reduce((sum,urls)=>sum+urls.length,0),expectedHtmlDocuments=entries.length+1;
 
 for(const declaration of ['name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"','name="google-adsense-account" content="ca-pub-1986785092914105"'])if(!index.includes(declaration))throw new Error(`Root document is missing ${declaration}`);
@@ -33,6 +33,9 @@ for(const [name,expected] of Object.entries(groups)){
   const actualSet=new Set(actual);if(actualSet.size!==expected.length||expected.some(url=>!actualSet.has(url)))throw new Error(`${name} sitemap URLs drifted from the typed route manifest`);
   if(/\/guides|\/privacy|\/calculators\/(capture|iv)|palworld-helper\.example/.test(xml))throw new Error(`${name} sitemap contains an unimplemented route or placeholder origin`);
 }
+const publicRouteSegments=new Set(Object.values(groups).flat().map(value=>decodeURIComponent(new URL(value).pathname.split("/").filter(Boolean).at(-1)||""))),rawPublicIds=[...palData.pals,...itemData.items,...skillData.activeSkills,...skillData.passiveSkills,...skillData.partnerSkills].map(entity=>entity.id);
+if(rawPublicIds.some(id=>publicRouteSegments.has(id)))throw new Error("Sitemaps expose a raw game-object ID instead of a public slug");
+for(const family of Object.keys(registry.byId))if(registry.byId[family].size!==registry.bySlug[family].size)throw new Error(`${family} public slug registry is not bijective`);
 if(report.schema!==3||report.architecture!=="hybrid-prerender-plus-spa"||report.indexableUrlCount!==expectedUrls||report.physicalHtmlDocuments!==expectedHtmlDocuments||report.initialHtmlSeoCoverage!==entries.length)throw new Error("Hybrid rendering report does not match the typed route manifest");
 for(const [name,urls] of Object.entries(groups))if(report.sitemapFiles?.[name]!==urls.length)throw new Error(`${name} report count does not match its sitemap`);
 if(report.routeFamilies?.entities?.find(family=>family.dataset==="items")?.prerenderedUrls!==selected.items.length*locales.length)throw new Error("Priority item prerender count is not deterministic");
@@ -54,21 +57,40 @@ const representativeTitles=new Set();
 for(const entry of representativeEntries){
   const file=entry.route?path.join(dist,entry.locale,...entry.route.split("/").filter(Boolean))+".html":path.join(dist,`${entry.locale}.html`),html=await readFile(file,"utf8"),canonical=`${productionOrigin}/${entry.locale}${entry.route?`/${entry.route}`:""}`,title=html.match(/<title>([^<]+)<\/title>/)?.[1];
   if(!title||!html.includes(`<html lang="${entry.locale}"`)||!html.includes(`rel="canonical" href="${canonical}"`)||!html.includes(`hreflang="x-default" href="${productionOrigin}/en-US${entry.route?`/${entry.route}`:""}`))throw new Error(`${normalized(file)} has incomplete localized canonical metadata`);
-  for(const locale of locales)if(!html.includes(`hreflang="${locale}" href="${productionOrigin}/${locale}${entry.route?`/${entry.route}`:""}`))throw new Error(`${normalized(file)} is missing the ${locale} alternate`);
+  for(const locale of locales)if(!html.includes(`hreflang="${seoHreflang(locale)}" href="${productionOrigin}/${locale}${entry.route?`/${entry.route}`:""}`))throw new Error(`${normalized(file)} is missing the ${locale} alternate`);
   for(const required of ['name="description"','property="og:title"','property="og:description"','property="og:url"','property="og:image"','name="twitter:card"','name="twitter:title"','name="twitter:description"','name="twitter:image"','data-prerender-content'])if(!html.includes(required))throw new Error(`${normalized(file)} is missing ${required}`);
   if((html.match(/<h1(?:\s[^>]*)?>/g)||[]).length!==1||html.length<2_000)throw new Error(`${normalized(file)} does not contain substantial initial HTML with exactly one h1`);
   if(/palworld-helper\.example|24181527|Data version|Game build|[A-Z]:\\|file:\/\//.test(html))throw new Error(`${normalized(file)} exposes private, placeholder, or build-version text`);
-  if(entry.dataset&&["npcs","dungeons","technologies","structures","conditions","expeditions"].includes(entry.dataset)){if(!html.includes('"@type":"BreadcrumbList"')||!html.includes('"@type":"WebPage"'))throw new Error(`${normalized(file)} needs safe detail structured data`)}
-  else if(entry.dataset&&html.includes("data-route-structured-data"))throw new Error(`${normalized(file)} must not add unsupported structured data to raw-ID detail routes`);
+  if(entry.dataset&&(!html.includes('"@type":"BreadcrumbList"')||!html.includes('"@type":"WebPage"')))throw new Error(`${normalized(file)} needs safe detail structured data`);
   representativeTitles.add(`${entry.locale}:${title}`);
 }
 if(representativeTitles.size!==representativeEntries.length)throw new Error("Representative prerender pages must have unique localized titles");
 
-for(const asset of ["data/pals.json","data/items.json","data/skills.json","data/npcs.json","data/dungeons.json","data/technology.json","data/structures.json","data/elements.json","data/expeditions.json","assets/image-manifest.json","assets/world-map.webp","assets/elements/Fire.png","assets/elements/matchup-chart.webp","assets/passive-ranks/3.png","assets/map-icons/dungeon.webp","assets/technology/primitive-workbench.webp","assets/structures/structures-atlas.webp","assets/expeditions/world-tree.webp","favicon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png","og-image.png","site.webmanifest","sitemap.xml","prerender-report.json","robots.txt","ads.txt","_headers"])await access(path.join(dist,asset));
+const rawPublicIdSet=new Set(rawPublicIds),titlesByLocale=new Map(locales.map(locale=>[locale,new Map()])),descriptionsByLocale=new Map(locales.map(locale=>[locale,new Map()]));
+const publicUrlExposesRawId=value=>{
+  let url;try{url=new URL(value.replaceAll("&amp;","&"),productionOrigin)}catch{return false}
+  if(url.origin!==productionOrigin)return false;
+  const segments=url.pathname.split("/").filter(Boolean).map(segment=>{try{return decodeURIComponent(segment)}catch{return segment}}),last=segments.at(-1)||"",withoutExtension=last.replace(/\.(?:png|webp)$/i,"");
+  return rawPublicIdSet.has(last)||rawPublicIdSet.has(withoutExtension);
+};
+for(const entry of entries){
+  const file=entry.route?path.join(dist,entry.locale,...entry.route.split("/").filter(Boolean))+".html":path.join(dist,`${entry.locale}.html`),html=await readFile(file,"utf8"),relative=normalized(file),canonical=`${productionOrigin}/${entry.locale}${entry.route?`/${entry.route}`:""}`;
+  const title=html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim(),description=html.match(/<meta name="description" content="([^"]+)"/i)?.[1]?.trim();
+  if(!title||!description)throw new Error(`${relative} is missing a non-empty title or meta description`);
+  if(!html.includes(`rel="canonical" href="${canonical}"`))throw new Error(`${relative} canonical URL drifted from its typed route`);
+  if((html.match(/<h1(?:\s[^>]*)?>/g)||[]).length!==1||html.length<2_000)throw new Error(`${relative} does not contain substantial initial HTML with exactly one h1`);
+  for(const [kind,value,bucket] of [["title",title,titlesByLocale.get(entry.locale)],["description",description,descriptionsByLocale.get(entry.locale)]]){
+    const prior=bucket.get(value);if(prior)throw new Error(`${entry.locale} ${kind} is duplicated by ${prior} and ${relative}`);bucket.set(value,relative);
+  }
+  for(const match of html.matchAll(/(?:href|src)="([^"]+)"/g))if(publicUrlExposesRawId(match[1]))throw new Error(`${relative} exposes a raw game-object ID in a public URL: ${match[1]}`);
+}
+for(const locale of locales)if(titlesByLocale.get(locale).size!==entries.filter(entry=>entry.locale===locale).length||descriptionsByLocale.get(locale).size!==entries.filter(entry=>entry.locale===locale).length)throw new Error(`${locale} SEO uniqueness audit did not cover every prerendered route`);
+
+for(const asset of ["data/pals.json","data/items.json","data/skills.json","data/npcs.json","data/dungeons.json","data/technology.json","data/structures.json","data/elements.json","data/expeditions.json","assets/image-manifest.json","assets/world-map.webp","assets/elements/Fire.png","assets/elements/matchup-chart.webp","assets/passive-ranks/3.png","assets/map-icons/dungeon.webp","assets/technology/primitive-workbench.webp","assets/structures/structures-atlas.webp","assets/expeditions/world-tree.webp","favicon.svg","favicon-32.png","apple-touch-icon.png","icon-192.png","icon-512.png","og-image.png","site.webmanifest","sitemap.xml","prerender-report.json","robots.txt","ads.txt","_headers","_redirects"])await access(path.join(dist,asset));
 for(let y=0;y<4;y++)for(let x=0;x<4;x++)await access(path.join(dist,"assets","map-tiles",`${x}-${y}.webp`));
 const robots=await readFile(path.join(dist,"robots.txt"),"utf8");if(!robots.includes(`Sitemap: ${productionOrigin}/sitemap.xml`))throw new Error("robots.txt must reference the production sitemap index");
 if(allFiles.some(file=>normalized(file)==="_worker.js"||normalized(file).endsWith("/_worker.js")))throw new Error("Static output must not contain a Worker entrypoint");
-try{const redirects=await readFile(path.join(dist,"_redirects"),"utf8");if(/^\/\*\s+\/index\.html\s+200\s*$/m.test(redirects))throw new Error("SPA asset fallback must not be combined with a catch-all redirect")}catch(error){if(error.code!=="ENOENT")throw error}
+try{const redirects=await readFile(path.join(dist,"_redirects"),"utf8"),rules=redirects.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);if(/^\/\*\s+\/index\.html\s+200\s*$/m.test(redirects))throw new Error("SPA asset fallback must not be combined with a catch-all redirect");if(rules.length!==1||rules[0]!=="/ /en-US 308")throw new Error("Only the narrow root-to-en-US redirect is allowed")}catch(error){if(error.code!=="ENOENT")throw error}
 
 const builtItems=await readJson(path.join(dist,"data","items.json")),builtDungeons=await readJson(path.join(dist,"data","dungeons.json")),builtTechnology=await readJson(path.join(dist,"data","technology.json")),builtStructures=await readJson(path.join(dist,"data","structures.json")),builtExpeditions=await readJson(path.join(dist,"data","expeditions.json")),builtHealth=await readJson(path.join(dist,"data","health.json")),builtElements=await readJson(path.join(dist,"data","elements.json"));
 if(builtElements.meta.schema!==1||builtElements.meta.gameBuild!==palData.meta.gameBuild||builtElements.meta.verification!=="game-ui-chart-and-game-files"||builtElements.meta.localeCount!==locales.length||builtElements.meta.elementCount!==9||builtElements.meta.relationCount!==9||builtElements.meta.palCount!==299||builtElements.meta.numericMultipliersVerified!==false||builtElements.meta.dualElementRuleVerified!==false||builtElements.meta.iconProvenance.direct!==9||builtElements.meta.iconProvenance.missing!==0||builtElements.rules.numericMultipliers!==null||builtElements.rules.dualElement!==null)throw new Error("Built element baseline or verification metadata drifted");
@@ -79,6 +101,7 @@ for(const element of builtElements.elements)await access(path.join(dist,element.
 if(builtHealth.meta.schema!==1||builtHealth.meta.gameBuild!==palData.meta.gameBuild||builtHealth.meta.verification!=="game-files"||builtHealth.meta.localeCount!==locales.length||builtHealth.meta.conditionCount!==7||builtHealth.meta.medicineCount!==3||builtHealth.meta.numericEffectsVerified!==false||builtHealth.conditions.length!==7||builtHealth.medicines.length!==3)throw new Error("Built health baseline or verification metadata drifted");
 const conditionSlugs=new Set(builtHealth.conditions.map(condition=>condition.slug)),medicineSlugs=new Set(builtHealth.medicines.map(medicine=>medicine.slug));
 if(conditionSlugs.size!==7||medicineSlugs.size!==3||builtHealth.conditions.some(condition=>Object.keys(condition.names).length!==locales.length||Object.keys(condition.descriptions).length!==locales.length||condition.effects.numericModifiers!==null||!medicineSlugs.has(condition.medicine))||builtHealth.medicines.some(medicine=>medicine.healthRestoration!==0||!medicine.recipe.workAmount||!medicine.recipe.ingredients.length||medicine.cures.some(slug=>!conditionSlugs.has(slug))))throw new Error("Built health localization, treatment relations, or verification boundaries drifted");
+for(const medicine of builtHealth.medicines){if(!/^\/assets\/items\/[a-z0-9]+(?:-[a-z0-9]+)*\.webp$/.test(medicine.image))throw new Error(`${medicine.slug} exposes a raw item image URL`);await access(path.join(dist,medicine.image.replace(/^\//,"")))}
 if(builtTechnology.meta.schema!==1||builtTechnology.meta.gameBuild!==palData.meta.gameBuild||builtTechnology.meta.verification!=="game-files"||builtTechnology.meta.localeCount!==locales.length||builtTechnology.meta.technologyCount!==588||builtTechnology.meta.regularCount!==537||builtTechnology.meta.ancientCount!==51||builtTechnology.meta.prerequisiteCount!==17||builtTechnology.meta.towerBossCount!==17||builtTechnology.meta.researchCount!==10||builtTechnology.meta.levelMin!==1||builtTechnology.meta.levelMax!==80||builtTechnology.meta.imageProvenance.missing!==0)throw new Error("Built technology baseline or verification metadata drifted");
 const technologySlugs=new Set(builtTechnology.technologies.map(technology=>technology.slug)),builtTechnologyText=JSON.stringify(builtTechnology);
 if(technologySlugs.size!==588||builtTechnology.technologies.some(technology=>technology.image!==true||Object.keys(technology.names).length!==locales.length||Object.keys(technology.descriptions).length!==locales.length||Object.values(technology.descriptions).some(value=>!String(value).trim()||/<[^>]+>|\|/.test(value))||technology.prerequisite&&!technologySlugs.has(technology.prerequisite.slug)||technology.dependents.some(relation=>!technologySlugs.has(relation.slug))))throw new Error("Built technology entities failed localization, relation, description, or image validation");
@@ -107,10 +130,12 @@ for(const dungeon of builtDungeons.dungeons)for(const source of dungeon.rewardSo
 const builtImageManifest=await readJson(path.join(dist,"assets","image-manifest.json")),imagedItems=builtItems.items.filter(item=>item.image===true),missingItemImages=builtItems.items.length-imagedItems.length;
 if(builtImageManifest.gameBuild!==builtItems.meta.gameBuild||builtImageManifest.itemCount!==imagedItems.length||builtImageManifest.expectedItemCount!==builtItems.items.length||builtImageManifest.missingItemCount!==0||builtImageManifest.directItemCount+builtImageManifest.derivedOfficialItemCount!==builtItems.items.length||missingItemImages)throw new Error(`Built item image coverage is incomplete: ${imagedItems.length}/${builtItems.items.length}`);
 const builtItemImages=(await readdir(path.join(dist,"assets","items"))).filter(name=>name.endsWith(".webp"));if(builtItemImages.length!==imagedItems.length)throw new Error(`Built item image file mismatch: files=${builtItemImages.length}, flags=${imagedItems.length}`);
-for(const item of imagedItems)await access(path.join(dist,"assets","items",`${item.id}.webp`));
+if(builtItemImages.some(name=>itemIds.has(name.slice(0,-5))))throw new Error("Built item assets expose raw game-object IDs in public URLs");
+for(const item of imagedItems)await access(path.join(dist,"assets","items",`${registry.byId.items.get(item.id)}.webp`));
 for(const work of palData.workSuitabilities)await access(path.join(dist,work.icon.replace(/^\//,"")));
 if(palData.meta.palPortraitCount!==palData.pals.length||palData.pals.some(pal=>pal.image!==true||!Array.isArray(pal.elementSlugs)||pal.elementSlugs.length<1||pal.elementSlugs.length>2||pal.elementSlugs.some(slug=>!elementSlugs.has(slug))))throw new Error("Every published Pal must retain its portrait and verified element state");
-for(const pal of palData.pals)await access(path.join(dist,"assets","pals",`${pal.id}.png`));
+const builtPalImages=(await readdir(path.join(dist,"assets","pals"))).filter(name=>name.endsWith(".png")),palIds=new Set(palData.pals.map(pal=>pal.id));if(builtPalImages.length!==palData.pals.length||builtPalImages.some(name=>palIds.has(name.slice(0,-4))))throw new Error("Built Pal assets must use public slugs without raw game-object IDs");
+for(const pal of palData.pals)await access(path.join(dist,"assets","pals",`${registry.byId.pals.get(pal.id)}.png`));
 for(const pal of palData.pals)for(const description of Object.values(pal.descriptions))if(/<[^>]+>|Error_Code:|\||（か）|？（を）|後（と）/.test(description))throw new Error(`${pal.id} exposes unresolved game-runtime description markup`);
 const adsTxt=await readFile(path.join(dist,"ads.txt"),"utf8");if(adsTxt.trim()!=="google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0")throw new Error("ads.txt must contain the exact authorized account entry");
 console.log(`Validated ${expectedUrls} indexable URLs, ${expectedHtmlDocuments} HTML documents, ${entries.length} initial-HTML routes, ${sitemapNames.length} child sitemaps, and ${allFiles.length} deployed files.`);
