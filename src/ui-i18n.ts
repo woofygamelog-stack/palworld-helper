@@ -48,4 +48,25 @@ export const databaseItemTabLabels:Record<Locale,string>={
   "pl-PL":"Baza przedmiotów"
 };
 
+export const itemFilterAllLabelsProvenance="gpt" as const;
+export const itemFilterAllLabels:Record<Locale,string>={
+  "en-US":"All",
+  "ko-KR":"전체",
+  "ja-JP":"すべて",
+  "zh-CN":"全部",
+  "zh-TW":"全部",
+  "fr-FR":"Tous",
+  "it-IT":"Tutti",
+  "de-DE":"Alle",
+  "es-ES":"Todos",
+  "es-419":"Todos",
+  "pt-BR":"Todos",
+  "ru-RU":"Все",
+  "id-ID":"Semua",
+  "th-TH":"ทั้งหมด",
+  "tr-TR":"Tümü",
+  "vi-VN":"Tất cả",
+  "pl-PL":"Wszystkie"
+};
+
 export function formatUiCopy(template:string,values:Record<string,string|number>){return template.replace(/\{(\w+)\}/g,(_,key)=>String(values[key]??`{${key}}`))}

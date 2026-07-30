@@ -7,7 +7,7 @@ import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
 import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
 import { groupItemDropSources } from "../src/drop-relations.ts";
-import { databaseItemTabLabels } from "../src/ui-i18n.ts";
+import { databaseItemTabLabels, itemFilterAllLabels, itemFilterAllLabelsProvenance } from "../src/ui-i18n.ts";
 import { entityRouteFamilies, routeFamilies, supportedLocales } from "../src/route-manifest.ts";
 import { buildIndexableGroups, buildPrerenderEntries, productionOrigin, renderHtmlDocument, renderRouteModel } from "../scripts/seo-static.mjs";
 
@@ -290,8 +290,13 @@ assert.equal(translationProvenance["ja-JP"],"gpt","provisional Japanese UI trans
 assert.notEqual(messages("ja-JP").itemDatabase,messages("en-US").itemDatabase,"Japanese item UI must not silently fall back to English");
 assert.deepEqual(Object.keys(databaseItemTabLabels).sort(),Object.keys(messageCatalogs).sort(),"Item database tab labels must cover every supported locale");
 assert.equal(databaseItemTabLabels["ko-KR"],"아이템","Korean item database tab must use the concise requested label");
-assert.equal(messages("ko-KR").itemDatabase,"아이템 데이터베이스","The concise tab label must not weaken the Korean collection title or metadata");
+assert.equal(messages("ko-KR").itemDatabase,"아이템","The Korean item collection title and metadata must use the requested concise label");
 for(const locale of Object.keys(messageCatalogs).filter(locale=>locale!=="ko-KR")) assert.equal(databaseItemTabLabels[locale],messages(locale).itemDatabase,`${locale} item database label must remain unchanged`);
+assert.deepEqual(Object.keys(itemFilterAllLabels).sort(),Object.keys(messageCatalogs).sort(),"Item filter all labels must cover every supported locale");
+assert.equal(itemFilterAllLabelsProvenance,"gpt","Item filter all labels must record translation provenance");
+assert.equal(itemFilterAllLabels["ko-KR"],"전체","Korean item filters must use an item-neutral all option");
+assert.match(main,/id="item-type"><option value="">\$\{itemFilterAllLabels\[locale\]\}/,"Item category filter must not reuse the Pal selection prompt");
+assert.match(main,/id="item-rarity"><option value="">\$\{itemFilterAllLabels\[locale\]\}/,"Item rarity filter must not reuse the Pal selection prompt");
 assert.equal(itemData.items.find(item=>item.id==="PalSphere_Mega")?.names["ja-JP"],"メガスフィア","official Japanese game terminology must remain in extracted data");
 assert.doesNotMatch(main,/const ui=/,"user-visible item and crafting copy must use the message catalog");
 assert.equal(translationProvenance["zh-CN"],"gpt","Simplified Chinese UI provenance must be explicit");

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { messageCatalogs, translationProvenance } from "../src/i18n.ts";
 import { npcCopy } from "../src/npc-i18n.ts";
 import { dungeonCopy, dungeonSearchCopy, dungeonTranslationProvenance } from "../src/dungeon-i18n.ts";
-import { uiCopy } from "../src/ui-i18n.ts";
+import { itemFilterAllLabels, itemFilterAllLabelsProvenance, uiCopy } from "../src/ui-i18n.ts";
 import { partnerLabel, passiveUiLabels, skillLabels, skillTranslationProvenance } from "../src/skill-i18n.ts";
 import { technologyCopy, technologyCopyProvenance } from "../src/technology-i18n.ts";
 import { healthCopy, healthCopyProvenance } from "../src/health-i18n.ts";
@@ -60,7 +60,9 @@ for(const locale of expected){
     if(JSON.stringify(sourceTokens)!==JSON.stringify(targetTokens))throw new Error(`${locale} UI catalog ${key} placeholder mismatch`);
   }
   if(locale!=="en-US"&&uiKeys.filter(key=>catalog[key]!==uiEnglish[key]).length<Math.floor(uiKeys.length*.8))throw new Error(`${locale} UI catalog appears to be an accidental English fallback`);
+  if(typeof itemFilterAllLabels[locale]!=="string"||!itemFilterAllLabels[locale].trim())throw new Error(`${locale} item filter all label is missing`);
 }
+if(itemFilterAllLabelsProvenance!=="gpt")throw new Error("Item filter all-label provenance is incomplete");
 const dungeonEnglish=dungeonCopy["en-US"],dungeonKeys=Object.keys(dungeonEnglish).sort();
 for(const locale of expected){
   const catalog=dungeonCopy[locale];
