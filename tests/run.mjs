@@ -48,6 +48,8 @@ const expeditionData = JSON.parse(await readFile("public/data/expeditions.json",
 const healthImporter = await readFile("scripts/import-health-data.mjs", "utf8");
 const elementImporter = await readFile("scripts/import-element-data.mjs", "utf8");
 const elementStyles = await readFile("src/elements.css", "utf8");
+const healthStyles = await readFile("src/health.css", "utf8");
+const healthI18n = await readFile("src/health-i18n.ts", "utf8");
 const mapImage = await readFile("public/assets/world-map.webp");
 
 assert.match(data, /Math\.min\(32,\s*Math\.max\(1/, "server generator must clamp the official supported player range");
@@ -117,6 +119,10 @@ assert.deepEqual(healthData.conditions.find(condition=>condition.sourceId==="Col
 assert.ok(healthData.medicines.every(medicine=>medicine.itemId&&medicine.healthRestoration===0&&medicine.recipe.workAmount>0&&medicine.recipe.ingredients.every(ingredient=>ingredient.itemId&&ingredient.count>0)&&Object.keys(medicine.names).length===17&&Object.keys(medicine.descriptions).length===17&&Object.values(medicine.descriptions).every(value=>value.trim()&&!/<[^>]+>|\|/.test(value))),"Medicines must retain resolved official descriptions, recipes, item relations, and the no-HP-healing boundary");
 assert.match(healthImporter,/health-worker-events\.raw\.json.*health-sickness\.raw\.json.*activeSourceEvents\.length!==7/s,"Health import must derive SAN behaviors and sickness effects from the dedicated extracted tables");
 assert.doesNotMatch(JSON.stringify(healthData),/"(?:COMMON_[^"]*|ITEM_DESC_[^"]*|Cold|Bulimia|GastricUlcer|DepressionSprain|Herbs|LuxuryMedicines)"\s*:|[A-Z]:\\|file:\/\//,"Health public data must not expose raw condition/item identifiers or local provenance");
+assert.match(healthI18n,/"ko-KR":\{[^\n]*reset:"필터 초기화"/,"Health filters must use a dedicated Korean reset label instead of the generic delete action");
+assert.match(main,/id="health-reset"[^>]*disabled[^>]*>\$\{icon\("reset"\)\}<span>\$\{esc\(copy\.reset\)\}<\/span>/,"Health filters must render a localized, initially disabled reset action");
+assert.match(main,/healthReset\.disabled=!query&&!scope.*healthReset\?\.addEventListener\("click".*filterHealth\(\);healthSearch\?\.focus\(\)/s,"Health reset must reflect active filters and restore keyboard focus after clearing");
+assert.match(healthStyles,/@media\(max-width:700px\).*\.health-filters\{grid-template-columns:minmax\(0,1fr\) auto\}.*\.health-search\{grid-column:1\/-1\}/s,"Health mobile filters must keep search full-width and place scope beside a compact reset action");
 assert.deepEqual({schema:elementData.meta.schema,gameBuild:elementData.meta.gameBuild,verification:elementData.meta.verification,locales:elementData.meta.localeCount,elements:elementData.meta.elementCount,relations:elementData.meta.relationCount,pals:elementData.meta.palCount,numeric:elementData.meta.numericMultipliersVerified,dual:elementData.meta.dualElementRuleVerified,icons:elementData.meta.iconProvenance},{schema:2,gameBuild:"24181527",verification:"game-ui-chart-and-game-files",locales:17,elements:9,relations:9,pals:299,numeric:false,dual:false,icons:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},"Element data must fail closed on the verified game UI and extraction baseline");
 assert.equal(elementData.chartImage,undefined,"The reference chart must remain private extraction evidence and must not be published");
 const elementSlugs=new Set(elementData.elements.map(element=>element.slug));
