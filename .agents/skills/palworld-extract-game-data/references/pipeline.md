@@ -1,5 +1,18 @@
 # Palworld Helper extraction pipeline
 
+## Contents
+
+- Repository boundaries
+- Extractor invocation and modes
+- Current raw outputs
+- Normalization routing
+- Reference-chain extraction patterns
+- Item-image resolution and coverage
+- Entity-family publication boundaries
+- Map-specific checks
+- Known refresh blockers
+- Patch refresh gates
+
 ## Repository boundaries
 
 - Extractor source: `tools/game-data-extractor/`
@@ -7,21 +20,24 @@
 - Private provenance: `private/provenance/`
 - Public normalized data: `public/data/`
 - Public optimized assets: `public/assets/`
-- Normalizers: `scripts/import-pal-data.mjs`, `scripts/import-item-data.mjs`, `scripts/import-skill-data.mjs`, `scripts/import-map-data.mjs`, `scripts/import-images.mjs`
-- Validators: `tests/run.mjs`, `scripts/validate-map-data.mjs`, `scripts/check-i18n.mjs`, `scripts/check-built.mjs`
+- Normalizers: `scripts/import-pal-data.mjs`, `scripts/import-item-data.mjs`, `scripts/import-skill-data.mjs`, `scripts/import-map-data.mjs`, `scripts/import-world-map-points.mjs`, `scripts/import-npcs.mjs`, `scripts/import-dungeon-data.mjs`, `scripts/import-technology-data.mjs`, `scripts/import-structure-data.mjs`, `scripts/import-element-data.mjs`, `scripts/import-expedition-data.mjs`, `scripts/import-health-data.mjs`, `scripts/import-images.mjs`
+- Validators: `tests/run.mjs`, `scripts/validate-map-data.mjs`, `scripts/validate-npc-data.mjs`, `scripts/validate-dungeon-data.mjs`, `scripts/validate-expedition-data.mjs`, `scripts/check-item-images.mjs`, `scripts/check-i18n.mjs`, `scripts/check-built.mjs`
 
 The ignore rules must continue to exclude `private/`, raw game exports, `.env`, `node_modules/`, `dist/`, logs, and extractor `bin/` and `obj/` directories.
 
 ## Extractor invocation
 
-Build and run the repository extractor with three explicit arguments:
+Build and run the repository extractor with three explicit arguments and, for scoped refreshes, an explicit fourth mode:
 
 ```powershell
 dotnet build tools/game-data-extractor/GameDataExtractor.csproj
 dotnet run --project tools/game-data-extractor/GameDataExtractor.csproj -- "<Palworld Paks directory>" "<build-matched Mappings.usmap>" "<private output directory>"
+dotnet run --project tools/game-data-extractor/GameDataExtractor.csproj -- "<Palworld Paks directory>" "<build-matched Mappings.usmap>" "<private output directory>" "<mode>"
 ```
 
-The current extractor uses CUE4Parse with Unreal Engine 5.1 compatibility and requires a build-compatible `.usmap`. A missing or incompatible mapping is a hard stop; do not reuse an older mapping merely because some assets decode.
+Supported modes are `full`, `npc`, `dungeon`, `technology`, `structure`, `element`, and `expedition`. Use the narrowest mode that owns the requested source facts. `health` is a normalization family built from the accepted technology extraction, official condition and item text, legal items, and recipes; it is not an extractor mode.
+
+The current extractor uses CUE4Parse with Unreal Engine 5.1 compatibility and requires a build-compatible `.usmap`. A missing or incompatible mapping is a hard stop; do not reuse an older mapping merely because some assets decode. For build `24181527`, current mode importers accept mapping SHA-256 `C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851`; a patch must establish and record a new accepted hash instead of weakening that gate.
 
 The extractor initializes Oodle from its application output. Do not copy or commit game/runtime binaries merely to make a local run reproducible.
 
@@ -41,6 +57,12 @@ The extractor initializes Oodle from its application output. Do not copy or comm
 | Map images | `world-map.webp`, `tree-map.webp` | Extracted 8192-pixel source maps for web derivatives |
 | Item images | `item-icons/*.webp` | Decoded item icon textures |
 | Map UI images | `map-icons/*.webp` | Decoded in-game fast-travel, tower, dungeon, bounty, treasure, and oil-rig marker textures |
+| NPCs | `unique-npcs.raw.json`, item/Pal shop tables, talk/event tables, `human-names.raw.json`, `unique-npc-text.raw.json`, `npc-talk-text.raw.json`, `npc-manifest.json` | Official NPC definitions, roles, trade inputs, event relations, and 17-locale text; world placements come from separate actor chunks |
+| Dungeons | `dungeon-*.raw.json`, `field-lottery-names.raw.json`, `item-lottery.raw.json`, `dungeon-reward-class-defaults.raw.json`, `dungeon-level-actors.raw.json`, `dungeon-manifest.json` | Dungeon rows, encounters, item pools, referenced reward CDOs, entrance defaults, and candidate level actors while preserving source stages |
+| Technology | `technology.raw.json`, `lab-research.raw.json`, build-object tables, localized technology/research/build text, `technology-building-icon-sources.raw.json`, `technology-manifest.json` | Regular/ancient unlock rows, prerequisites, lab research, tower requirements, and directly referenced building icons |
+| Structures | `build-objects.raw.json`, map-object/product/farm/assign tables, localized build/category text, `structure-icon-sources.raw.json`, `structure-manifest.json` | Technology-linked build objects, materials, categories, restrictions, verified production candidates, and direct icon references |
+| Elements | `pal-parameters.raw.json`, `ui-common.raw.json`, `element-icons/*.webp`, `element-matchup-chart.webp`, widget defaults, `element-manifest.json` | Official localized element names, Pal/skill coverage inputs, direct icons, and the installed game's qualitative matchup chart |
+| Expeditions | `expeditions.raw.json`, `expedition-challenges.raw.json`, field/item lottery tables, `expedition-text.raw.json`, `expedition-images/*.webp`, `expedition-manifest.json` | Mission conditions, base duration/strength, reward slots and quantities, official text, and directly extracted stage images |
 | Discovery inventories | `text-assets.raw.json`, `skill-text-assets.raw.json`, `map-point-assets.raw.json`, `world-placement-assets.raw.json`, `map-ui-icon-assets.raw.json` | Candidate asset discovery only; paths are not publishable facts |
 | Private manifest | `manifest.json` | Extraction time and raw counts; never publish directly |
 
@@ -49,11 +71,29 @@ The extractor initializes Oodle from its application output. Do not copy or comm
 - Run `npm run data:import:items` after item, recipe, item-text, map metadata, or world-map changes. Set `PAL_EXTRACTED_DATA` and `PAL_GAME_BUILD` when not using the default private path.
 - Run `npm run data:import:skills` after skill text, Pal descriptions, Pal parameters, or element/skill source changes. Set `PAL_EXTRACTED_SOURCE`, `PAL_DATA_SOURCE`, and `PAL_GAME_BUILD` explicitly for refresh workspaces.
 - Run `npm run data:import:map` after boss, spawner, world-bound, or map-texture changes. Verify that the importer selects the intended refresh directory instead of silently falling back.
+- Run `npm run data:import:map-points` after verified world-actor chunks or public map-point relations change. Re-run it after NPC or dungeon imports when their verified placements are merged into the shared map-point dataset.
 - Run `npm run data:import:pals` only with the expected local Pal export and the separately tracked community-normalized breeding source. Keep its community provenance explicit; local ID agreement does not independently verify breeding outcomes.
 - Run `npm run data:import:images` after normalized Pal/item lists exist. Image coverage flags in public JSON must match files actually copied to `public/assets/`.
 - Run `npm run data:complete:item-images` only after direct extraction/import has been audited. It creates the reviewed official-derived presentation layer; it does not convert those images into direct extraction results.
+- Run `npm run data:npcs` after the `npc` mode output, build-matched world-actor chunks, and public Pal/item/map catalogs exist. The current NPC importer fixes the accepted build and private directory names in source; for another workspace or build, add explicit source/build inputs to the importer instead of copying data into those defaults.
+- Run `npm run data:import:dungeons` after the `dungeon` mode output, map refresh, world-actor chunks, and public Pal/item/map catalogs exist. Set `PAL_DUNGEON_SOURCE`, `PAL_MAP_SOURCE`, `PAL_ACTOR_SOURCE`, and `PAL_GAME_BUILD` explicitly for refresh workspaces.
+- Run `npm run data:import:technology` after the `technology` mode output and build-matched public item and Pal catalogs exist. Set `PAL_TECHNOLOGY_SOURCE` and `PAL_GAME_BUILD` explicitly.
+- Run `npm run data:import:structures` after the `structure` mode output and the matching item, Pal, and technology catalogs exist. Set `PAL_STRUCTURE_SOURCE` and `PAL_GAME_BUILD` explicitly.
+- Run `npm run data:import:elements` after the `element` mode output and matching normalized skill data exist. Set `PAL_ELEMENT_EXTRACTED_SOURCE` and `PAL_GAME_BUILD` explicitly. The qualitative relation pairs are transcribed from the hashed official chart; a chart change requires visual review and a mapping update.
+- Run `npm run data:import:health` only after accepted technology extraction, item descriptions, legal item data, and recipes exist. To use a non-default private source, invoke `node scripts/import-health-data.mjs "<technology extraction directory>"`; do not describe this normalization as a separate health extraction.
+- Run `npm run data:import:expeditions` after the `expedition` mode output and matching item, element, structure, and technology catalogs exist. Set `PAL_EXPEDITION_SOURCE` and `PAL_GAME_BUILD` explicitly.
 
 Importers may accept environment variables so refreshes do not require changing checked-in absolute paths. Never commit a local installation or staging path.
+
+## Reference-chain extraction patterns
+
+- Treat candidate asset and candidate DataTable inventories as discovery output only. A table is authoritative only for the fields it directly owns.
+- Follow typed references instead of names: DataTable row → `FSoftObjectPath` or soft class → normalized game asset path → Blueprint/CDO or object row → legal item/Pal/build catalog. Record every hop privately and fail or downgrade the field when a required hop is absent.
+- For referenced class defaults, record requested, extracted, and failed counts. A family that publishes values from those defaults requires zero failed references for the claimed set.
+- Resolve localized inline tags such as item, map-object, character, and UI-common references through matching build catalogs. Remove decorative image tags only after referenced text resolves; reject unresolved tags, placeholder localization keys, and raw enums.
+- Preserve lottery tables as stages, pools, slots, candidates, weights, and quantity ranges. A source weight is not a final probability until selection order, independent rolls, caps, and runtime modifiers are verified.
+- Decode images from exact serialized table/CDO references or exact reviewed UI asset paths. Keep shared assignments and generated atlases separate from unique direct sources.
+- Reject mixed-build joins. Every imported family must match the raw manifest build and mapping gate plus every normalized catalog it joins.
 
 ## Item-image resolution and coverage
 
@@ -87,6 +127,36 @@ Direct extraction and presentation completion are separate gates:
 
 If unique icons cannot be resolved, report the blocked count and reason. Only use `derived-official` assets when complete visual coverage is an explicit product requirement. Keep the mapping deterministic in `scripts/complete-item-images.mjs`, use semantically close official assets, visually inspect representative families, and fail when the reviewed 76-item plan drifts.
 
+## Entity-family publication boundaries
+
+### NPCs
+
+- Build NPC definitions from official NPC, shop, talk, request, reward, and display tables; build encounters separately from verified cooked-world actor chunks. Do not merge a definition with a placement merely because their filenames are similar.
+- Require complete official 17-locale names for public definitions. Keep excluded dummy, test, legacy, and unresolved rows in private counts and fail when accepted/excluded baselines drift.
+- Treat merchant offers, currencies, bundle quantities, Pal pools, and event rewards as independent relations. Every item and Pal must resolve to the matching normalized catalog.
+- Keep actor classes and inferred join keys private. Apply the verified surface and parent-component gates before public placement, and keep no-fixed-location NPCs publishable as definitions without inventing coordinates.
+
+### Dungeons
+
+- Preserve dungeon level, spawn-area, enemy group, floor-item lottery, reward-spawner lottery, field lottery, item lottery, pickup, map-object, class-default, and entrance sources as separate stages.
+- Publish reward object kinds only after the reward row's soft class resolves to an extracted CDO. Preserve item pools and slot boundaries, and keep final multi-stage probabilities unverified until runtime selection is independently validated.
+- Keep rotating entrance candidates `partial` unless active-state semantics and full coverage are verified. Keep fixed entrances, rotating candidates, and interior exits distinct.
+- Do not publish dungeon resources from candidate `ULevel` actors until a reviewed level-to-layout mapping succeeds. An empty unparsed actor dump is `unverified`, not `verified-empty`.
+
+### Technology and structures
+
+- Technology rows own level, point cost, regular/ancient kind, prerequisite, unlock target, and research references. Resolve inline official text through item, Pal, map-object, and UI-common catalogs; never expose the template tags or internal keys.
+- Resolve building technology icons through `DT_BuildObjectIconDataTable.SoftIcon` or another direct serialized reference. Shared official item icons and reviewed derived item images must retain their existing provenance classes.
+- Publish structures only when a current technology row directly unlocks the build object and the build object is not marked in development. Join construction materials, restrictions, energy fields, stats, and directly keyed production rows without inferring missing relationships.
+- Keep farm-crop and assignment rows omitted when they lack a direct build-object foreign key. Do not reinterpret all-zero capacity fields or similarly ambiguous values as verified storage semantics.
+
+### Elements, health, and expeditions
+
+- Treat the installed official element matchup chart as a qualitative, hashed UI source. Its transcribed directed relationships do not verify numeric multipliers, inverse resistance values, or dual-element rules.
+- Build health conditions from official UI localization and medicine cures from official item descriptions plus verified item/recipe joins. Keep SAN thresholds, numeric condition modifiers, and cure mechanics unverified unless a direct source and golden cases are added.
+- Preserve expedition standard/hard rows, visibility/challenge conditions, base duration, required element/count, strength, Pal cap, reward slots, candidate weights, and quantity ranges. Publish final probabilities only after the complete runtime roll process is verified.
+- Treat the nine exact expedition stage textures as direct assets and their use across eighteen missions as shared assignments, not eighteen unique source images. Keep effective-duration curves and research/team modifiers unavailable until verified.
+
 ## Map-specific checks
 
 - Current overworld World Partition placements are cooked as `/_Generated_/` `.umap` cell packages, not `ExternalActors` packages. Enumerate every generated cell deterministically, load its exported `ULevel`, walk `ULevel.Actors`, load each actor's `RootComponent` as a `USceneComponent`, and read the authoritative world position from `GetComponentTransform().Translation`.
@@ -106,6 +176,13 @@ If unique icons cannot be resolved, report the blocked count and reason. Only us
 - Export marker textures through CUE4Parse `UTexture2D.Decode` from exact game paths after discovery. Asset-name inventories establish candidates only; successful texture decode plus an explicit semantic mapping is required before publishing an icon.
 - Do not infer dungeon, merchant, collectible, resource, fast-travel, or other placements from asset names alone. World-placement actors or another independently verified source are required.
 - Generate web tiles with `scripts/generate-map-tiles.mjs`, then validate tile counts, dimensions, seams, world selection, zoom/pan alignment, and marker alignment in a browser.
+
+## Known refresh blockers
+
+- `scripts/import-npcs.mjs` currently hardcodes build `24181527` and its private NPC/actor directory names and does not consume `npc-manifest.json`. Before accepting another NPC refresh, add explicit `PAL_NPC_SOURCE`, `PAL_ACTOR_SOURCE`, and `PAL_GAME_BUILD` inputs and require manifest schema, mode, locale count, mapping hash, and PAK fingerprint checks.
+- `scripts/import-health-data.mjs` accepts a positional technology extraction directory but currently records the technology mapping hash without independently approving it. Before a health refresh, require the accepted technology manifest mode, locale count, mapping hash, and build-matched item/recipe inputs.
+- Dungeon resource publication remains blocked until dungeon level packages have a reviewed level-to-layout mapping. Do not weaken the importer guard that rejects parsed resource actors merely to fill the UI.
+- Element relations remain a reviewed transcription of a hashed official UI chart. If the chart hash changes, stop the importer, compare the new chart visually, update directed relations deliberately, and keep numeric rules unavailable unless separately verified.
 
 ## Patch refresh gates
 

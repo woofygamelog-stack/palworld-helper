@@ -1,4 +1,4 @@
 interface:
-  display_name: "Palworld °ÔÀÓ µ¥ÀÌÅÍ ÃßÃâ"
-  short_description: "¼³Ä¡µÈ Palworld ÆÄÀÏ¿¡¼­ °ËÁõµÈ µ¥ÀÌÅÍ¿Í ÀÌ¹ÌÁö¸¦ ÃßÃâÇÕ´Ï´Ù"
-  default_prompt: "Use $palworld-extract-game-data to extract and validate the requested Palworld data from installed game files."
+  display_name: "Palworld ê²Œì„ ë°ì´í„° ì¶”ì¶œ"
+  short_description: "Palworld ì°¸ì¡° ì‚¬ìŠ¬ ê¸°ë°˜ ë°ì´í„°Â·ì´ë¯¸ì§€ ì¶”ì¶œ ë° ê²€ì¦"
+  default_prompt: "Use $palworld-extract-game-data to extract and validate the requested Palworld family with the narrowest build-matched mode and complete source-chain evidence."
