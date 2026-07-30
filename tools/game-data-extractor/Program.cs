@@ -19,7 +19,7 @@ using SkiaSharp;
 
 if (args.Length < 3 || args.Length > 4)
 {
-    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|element]");
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element]");
     return 2;
 }
 
@@ -27,7 +27,7 @@ var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
 var mode = args.Length == 4 ? args[3] : "full";
-if (mode is not ("full" or "npc" or "dungeon" or "technology" or "element")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
+if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -431,6 +431,108 @@ if (mode == "technology")
         localeCount = 17
     });
     Console.WriteLine($"Extracted {candidateTableAssets.Length} technology table candidates and official text for 17 locales to {output}");
+    return 0;
+}
+
+if (mode == "structure")
+{
+    var technologyRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/Technology/DT_TechnologyRecipeUnlock"));
+    var buildObjectRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/MapObject/Building/DT_BuildObjectDataTable"));
+    var buildObjectIconRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/MapObject/Building/DT_BuildObjectIconDataTable"));
+    var mapObjectMasterRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/MapObject/DT_MapObjectMasterDataTable"));
+    var productRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/MapObject/DT_MapObjectItemProductDataTable"));
+    var farmCropRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/MapObject/DT_MapObjectFarmCrop"));
+    var assignRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/MapObject/DT_MapObjectAssignData"));
+
+    Write("technology.raw.json", technologyRows);
+    Write("build-objects.raw.json", buildObjectRows);
+    Write("build-object-icons.raw.json", buildObjectIconRows);
+    Write("map-object-master.raw.json", mapObjectMasterRows);
+    Write("map-object-products.raw.json", productRows);
+    Write("map-object-farm-crops.raw.json", farmCropRows);
+    Write("map-object-assign.raw.json", assignRows);
+    Write("build-object-names.raw.json", DumpLocalizedTextFamily("DT_MapObjectNameText_Common", "Pal/Content/Pal/DataTable/Text/DT_MapObjectNameText"));
+    Write("build-object-descriptions.raw.json", DumpLocalizedTextFamily("DT_BuildObjectDescText_Common", "Pal/Content/Pal/DataTable/Text/DT_BuildObjectDescText"));
+    Write("build-object-categories.raw.json", DumpLocalizedTextFamily("DT_BuildObjectCategoryText", "Pal/Content/Pal/DataTable/Text/DT_BuildObjectCategoryText"));
+    Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
+
+    var linkedBuildObjectIds = technologyRows.Properties()
+        .SelectMany(technology => technology.Value["UnlockBuildObjects"]?.Values<string>() ?? [])
+        .Where(value => !string.IsNullOrWhiteSpace(value) && !string.Equals(value, "None", StringComparison.OrdinalIgnoreCase))
+        .Select(value => value!)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var structureIconDirectory = Path.Combine(output, "structure-icons");
+    Directory.CreateDirectory(structureIconDirectory);
+    var structureIconSources = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var structureIconErrors = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var buildObjectId in linkedBuildObjectIds)
+    {
+        var iconRow = buildObjectIconRows.Properties()
+            .FirstOrDefault(property => string.Equals(property.Name, buildObjectId, StringComparison.OrdinalIgnoreCase));
+        var sourceAssetPath = iconRow?.Value["SoftIcon"]?["AssetPathName"]?.Value<string>();
+        if (string.IsNullOrWhiteSpace(sourceAssetPath) || string.Equals(sourceAssetPath, "None", StringComparison.OrdinalIgnoreCase))
+        {
+            structureIconErrors[buildObjectId] = "No direct build-object icon table reference was found.";
+            continue;
+        }
+        try
+        {
+            var texture = provider.LoadPackageObject<UTexture2D>(NormalizeGameAssetPath(sourceAssetPath));
+            using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
+            if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0) throw new InvalidDataException("Texture decode returned no pixels.");
+            using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 88);
+            var safeFileName = string.Concat(buildObjectId.Where(character => char.IsLetterOrDigit(character) || character is '_' or '-'));
+            using var target = File.Create(Path.Combine(structureIconDirectory, $"{safeFileName}.webp"));
+            encoded.SaveTo(target);
+            structureIconSources[buildObjectId] = new
+            {
+                iconTableKey = iconRow!.Name,
+                sourceAssetPath,
+                width = bitmap.Width,
+                height = bitmap.Height,
+                provenance = "direct"
+            };
+        }
+        catch (Exception error)
+        {
+            structureIconErrors[buildObjectId] = error.Message;
+        }
+    }
+    Write("structure-icon-sources.raw.json", new
+    {
+        schema = 1,
+        expectedStructureCount = linkedBuildObjectIds.Length,
+        exportedCount = structureIconSources.Count,
+        failedCount = structureIconErrors.Count,
+        sources = structureIconSources,
+        errors = structureIconErrors
+    });
+
+    var pakFiles = Directory.EnumerateFiles(paks, "*", SearchOption.TopDirectoryOnly)
+        .Select(path => new FileInfo(path))
+        .OrderBy(file => file.Name)
+        .Select(file => new { file.Name, file.Length, file.LastWriteTimeUtc })
+        .ToArray();
+    var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
+    Write("structure-manifest.json", new
+    {
+        schema = 1,
+        mode,
+        extractedAt = DateTimeOffset.UtcNow,
+        mappingHash,
+        pakFiles,
+        technologyRowCount = technologyRows.Count,
+        buildObjectRowCount = buildObjectRows.Count,
+        linkedBuildObjectCount = linkedBuildObjectIds.Length,
+        structureIconCount = structureIconSources.Count,
+        productRowCount = productRows.Count,
+        farmCropRowCount = farmCropRows.Count,
+        assignRowCount = assignRows.Count,
+        localeCount = 17
+    });
+    Console.WriteLine($"Extracted {linkedBuildObjectIds.Length} technology-linked structures, {structureIconSources.Count} icons, production candidates, and official text for 17 locales to {output}");
     return 0;
 }
 

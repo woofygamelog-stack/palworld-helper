@@ -20,6 +20,7 @@
     "data:complete:item-images": "node scripts/complete-item-images.mjs",
     "data:import:skills": "node scripts/import-skill-data.mjs",
     "data:import:technology": "node scripts/import-technology-data.mjs",
+    "data:import:structures": "node scripts/import-structure-data.mjs",
     "data:import:health": "node scripts/import-health-data.mjs",
     "data:import:elements": "node scripts/import-element-data.mjs",
     "check": "npm run typecheck && npm run check:i18n && npm run check:item-images && npm test && npm run build"

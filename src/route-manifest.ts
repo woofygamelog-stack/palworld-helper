@@ -11,6 +11,7 @@ export const routeFamilies = [
   {path:"calculators/breeding",mode:"hybrid",indexable:true,searchIntent:"breeding-calculator"},
   {path:"calculators/crafting",mode:"hybrid",indexable:true,searchIntent:"crafting-calculator"},
   {path:"database",mode:"hybrid",indexable:true,searchIntent:"item-catalog"},
+  {path:"database/structures",mode:"hybrid",indexable:true,searchIntent:"structure-catalog"},
   {path:"database/elements",mode:"prerendered",indexable:true,searchIntent:"element-matchup-guide"},
   {path:"database/technology",mode:"hybrid",indexable:true,searchIntent:"technology-catalog"},
   {path:"database/health",mode:"prerendered",indexable:true,searchIntent:"pal-health-guide"},
@@ -42,6 +43,7 @@ export const entityRouteFamilies = [
   {prefix:"database/npcs",dataset:"npcs",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"npcs",searchIntent:"npc-detail"},
   {prefix:"database/dungeons",dataset:"dungeons",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"dungeons",searchIntent:"dungeon-detail"},
   {prefix:"database/technology",dataset:"technologies",mode:"hybrid",prerender:"priority",priorityLimit:20,sitemap:"technology",searchIntent:"technology-detail"},
+  {prefix:"database/structures",dataset:"structures",mode:"hybrid",prerender:"priority",priorityLimit:5,sitemap:"structures",searchIntent:"structure-detail"},
   {prefix:"database/health/conditions",dataset:"conditions",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"health-conditions",searchIntent:"condition-treatment-detail"},
 ] as const;
 
