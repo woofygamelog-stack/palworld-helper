@@ -9,7 +9,7 @@
     "dev": "vite",
     "build": "node scripts/generate-map-tiles.mjs && vite build && node --experimental-strip-types scripts/generate-static.mjs && node --experimental-strip-types scripts/check-built.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types tests/run.mjs && node scripts/validate-map-data.mjs && node scripts/validate-npc-data.mjs && node scripts/validate-dungeon-data.mjs",
+    "test": "node --experimental-strip-types tests/run.mjs && node scripts/validate-map-data.mjs && node scripts/validate-npc-data.mjs && node scripts/validate-dungeon-data.mjs && node scripts/validate-expedition-data.mjs",
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
     "check:item-images": "node scripts/check-item-images.mjs",
     "data:import:pals": "node scripts/import-pal-data.mjs",
@@ -21,6 +21,7 @@
     "data:import:skills": "node scripts/import-skill-data.mjs",
     "data:import:technology": "node scripts/import-technology-data.mjs",
     "data:import:structures": "node scripts/import-structure-data.mjs",
+    "data:import:expeditions": "node scripts/import-expedition-data.mjs",
     "data:import:health": "node scripts/import-health-data.mjs",
     "data:import:elements": "node scripts/import-element-data.mjs",
     "check": "npm run typecheck && npm run check:i18n && npm run check:item-images && npm test && npm run build"

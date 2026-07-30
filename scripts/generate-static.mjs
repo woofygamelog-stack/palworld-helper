@@ -4,10 +4,11 @@ import {buildIndexableGroups,buildPrerenderEntries,productionOrigin,renderHtmlDo
 
 const origin=process.env.VITE_SITE_ORIGIN||productionOrigin;
 if(origin!==productionOrigin)throw new Error(`Production origin must be ${productionOrigin}`);
-const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,template]=await Promise.all(["pals","items","skills","npcs","dungeons","technology","health","elements","structures"].map(name=>readFile(`public/data/${name}.json`,"utf8").then(JSON.parse)).concat(readFile("dist/index.html","utf8")));
+const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,template]=await Promise.all(["pals","items","skills","npcs","dungeons","technology","health","elements","structures","expeditions"].map(name=>readFile(`public/data/${name}.json`,"utf8").then(JSON.parse)).concat(readFile("dist/index.html","utf8")));
 if(technologyData.meta.schema!==1||technologyData.meta.gameBuild!=="24181527"||technologyData.meta.verification!=="game-files"||technologyData.meta.technologyCount!==588||technologyData.technologies.length!==588)throw new Error("Technology dataset baseline mismatch");
 if(structureData.meta.schema!==1||structureData.meta.gameBuild!=="24181527"||structureData.meta.verification!=="game-files"||structureData.meta.structureCount!==472||structureData.structures.length!==472)throw new Error("Structure dataset baseline mismatch");
-const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData};
+if(expeditionData.meta.schema!==1||expeditionData.meta.gameBuild!=="24181527"||expeditionData.meta.verification!=="game-files"||expeditionData.meta.expeditionCount!==18||expeditionData.expeditions.length!==18||expeditionData.meta.rewardSlotCount!==169||expeditionData.meta.rewardRowCount!==279||expeditionData.meta.probabilitiesVerified!==false||expeditionData.meta.durationFormulaVerified!==false)throw new Error("Expedition dataset baseline mismatch");
+const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData};
 const groups=buildIndexableGroups(data,origin),{entries,selected}=buildPrerenderEntries(data);
 const xml=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
 const sitemapDirectory=path.join("dist","sitemaps");

@@ -12,6 +12,7 @@ export const routeFamilies = [
   {path:"calculators/crafting",mode:"hybrid",indexable:true,searchIntent:"crafting-calculator"},
   {path:"database",mode:"hybrid",indexable:true,searchIntent:"item-catalog"},
   {path:"database/structures",mode:"hybrid",indexable:true,searchIntent:"structure-catalog"},
+  {path:"database/expeditions",mode:"prerendered",indexable:true,searchIntent:"pal-expedition-catalog"},
   {path:"database/elements",mode:"prerendered",indexable:true,searchIntent:"element-matchup-guide"},
   {path:"database/technology",mode:"hybrid",indexable:true,searchIntent:"technology-catalog"},
   {path:"database/health",mode:"prerendered",indexable:true,searchIntent:"pal-health-guide"},
@@ -44,6 +45,7 @@ export const entityRouteFamilies = [
   {prefix:"database/dungeons",dataset:"dungeons",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"dungeons",searchIntent:"dungeon-detail"},
   {prefix:"database/technology",dataset:"technologies",mode:"hybrid",prerender:"priority",priorityLimit:20,sitemap:"technology",searchIntent:"technology-detail"},
   {prefix:"database/structures",dataset:"structures",mode:"hybrid",prerender:"priority",priorityLimit:5,sitemap:"structures",searchIntent:"structure-detail"},
+  {prefix:"database/expeditions",dataset:"expeditions",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"expeditions",searchIntent:"pal-expedition-detail"},
   {prefix:"database/health/conditions",dataset:"conditions",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"health-conditions",searchIntent:"condition-treatment-detail"},
 ] as const;
 

@@ -8,6 +8,7 @@ import { technologyCopy, technologyCopyProvenance } from "../src/technology-i18n
 import { healthCopy, healthCopyProvenance } from "../src/health-i18n.ts";
 import { elementCopy, elementCopyProvenance } from "../src/element-i18n.ts";
 import { structureCopy, structureCopyProvenance } from "../src/structure-i18n.ts";
+import { expeditionCopy, expeditionCopyProvenance } from "../src/expedition-i18n.ts";
 import { mapSeoCopy, mapSeoTranslationProvenance } from "./seo-static.mjs";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
@@ -119,8 +120,16 @@ for(const locale of expected){
   if(!provenance||provenance.remaining!=="gpt")throw new Error(`${locale} structure translation provenance is incomplete`);
   if(locale!=="en-US"&&structureKeys.filter(key=>catalog[key]!==structureEnglish[key]).length<Math.floor(structureKeys.length*.8))throw new Error(`${locale} structure catalog appears to be an accidental English fallback`);
 }
+const expeditionEnglish=expeditionCopy["en-US"],expeditionKeys=Object.keys(expeditionEnglish).sort();
+for(const locale of expected){
+  const catalog=expeditionCopy[locale],provenance=expeditionCopyProvenance[locale];
+  if(JSON.stringify(Object.keys(catalog||{}).sort())!==JSON.stringify(expeditionKeys))throw new Error(`${locale} expedition catalog key mismatch`);
+  if(Object.values(catalog).some(value=>typeof value!=="string"||!value.trim()))throw new Error(`${locale} expedition catalog contains an empty value`);
+  if(!provenance||provenance.remaining!=="gpt")throw new Error(`${locale} expedition translation provenance is incomplete`);
+  if(locale!=="en-US"&&expeditionKeys.filter(key=>catalog[key]!==expeditionEnglish[key]).length<Math.floor(expeditionKeys.length*.8))throw new Error(`${locale} expedition catalog appears to be an accidental English fallback`);
+}
 if(/\$\{esc\((?:encounter|step)\.variant\)/.test(main))throw new Error("NPC internal variant is rendered directly");
 for(const text of [">Skill Fruit<",">Surgery cost<",">Breeding power<",">Size<","Server management","Import existing INI","Import and validate","INI output","Only settings documented by the official Palworld Server Guide"]){
   if(main.includes(text))throw new Error(`Hard-coded English UI copy remains in main.ts: ${text}`);
 }
-console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, and ${structureKeys.length} structure message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
+console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${structureKeys.length} structure, and ${expeditionKeys.length} expedition message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);

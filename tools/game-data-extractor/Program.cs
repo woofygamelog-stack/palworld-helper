@@ -19,7 +19,7 @@ using SkiaSharp;
 
 if (args.Length < 3 || args.Length > 4)
 {
-    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element]");
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element|expedition]");
     return 2;
 }
 
@@ -27,7 +27,7 @@ var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
 var mode = args.Length == 4 ? args[3] : "full";
-if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
+if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element" or "expedition")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -200,6 +200,66 @@ object DumpCandidateDataTables(IEnumerable<string> assetFiles)
         }
     }
     return new { candidateCount = tables.Count + errors.Count, extractedCount = tables.Count, failedCount = errors.Count, tables, errors };
+}
+
+if (mode == "expedition")
+{
+    var missionRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/CharacterTeamMission/DT_CharacterTeamMissionDataTable"));
+    var challengeRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/CharacterTeamMission/DT_CharacterTeamMissionChallengeConditionDataTable"));
+    var fieldLotteryRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/Common/DT_FieldLotteryNameDataTable"));
+    var itemLotteryRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemLotteryDataTable"));
+    Write("expeditions.raw.json", missionRows);
+    Write("expedition-challenges.raw.json", challengeRows);
+    Write("field-lottery-names.raw.json", fieldLotteryRows);
+    Write("item-lottery.raw.json", itemLotteryRows);
+    Write("expedition-text.raw.json", DumpLocalizedTextFamily("DT_CharacterTeamMissionText", "Pal/Content/Pal/DataTable/Text/DT_CharacterTeamMissionText"));
+    Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
+    Write("expedition-data-assets.raw.json", provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("CharacterTeamMission", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("Expedition", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray());
+
+    var imageDirectory = Path.Combine(output, "expedition-images");
+    Directory.CreateDirectory(imageDirectory);
+    var imageSources = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    for (var index = 0; index < 9; index++)
+    {
+        var sourceAssetPath = $"Pal/Content/Pal/Texture/UI/IngameMenu/T_image_expedition_Stage_{index:00}";
+        var texture = provider.LoadPackageObject<UTexture2D>(sourceAssetPath);
+        using var bitmap = texture.Decode(ETexturePlatform.DesktopMobile)?.ToSkBitmap();
+        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0) throw new InvalidDataException($"Expedition stage image {index:00} did not decode.");
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Webp, 86);
+        var fileName = $"stage-{index:00}.webp";
+        using var target = File.Create(Path.Combine(imageDirectory, fileName));
+        encoded.SaveTo(target);
+        imageSources[index.ToString("00")] = new { sourceAssetPath, width = bitmap.Width, height = bitmap.Height, provenance = "direct" };
+    }
+    Write("expedition-image-sources.raw.json", imageSources);
+
+    var pakFiles = Directory.EnumerateFiles(paks, "*", SearchOption.TopDirectoryOnly)
+        .Select(path => new FileInfo(path))
+        .OrderBy(file => file.Name)
+        .Select(file => new { file.Name, file.Length, file.LastWriteTimeUtc })
+        .ToArray();
+    var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
+    Write("expedition-manifest.json", new
+    {
+        schema = 1,
+        mode,
+        extractedAt = DateTimeOffset.UtcNow,
+        mappingHash,
+        pakFiles,
+        missionRowCount = missionRows.Count,
+        challengeRowCount = challengeRows.Count,
+        fieldLotteryRowCount = fieldLotteryRows.Count,
+        itemLotteryRowCount = itemLotteryRows.Count,
+        stageImageCount = imageSources.Count,
+        localeCount = 17
+    });
+    Console.WriteLine($"Extracted {missionRows.Count} expeditions, {challengeRows.Count} challenge conditions, {imageSources.Count} stage images, and official text for 17 locales to {output}");
+    return 0;
 }
 
 if (mode == "element")
