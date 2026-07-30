@@ -21,7 +21,7 @@ Use the global `extract-game-data`, `build-game-helper-sites`, and project `palw
 3. Treat the installed game as read-only. Write only under `private/` or another explicitly approved staging directory outside the game installation.
 4. Stop on missing mappings, encryption, DRM, authentication, anti-cheat, protected-memory access, or any access-control workaround. Never guess decoded fields.
 5. Record the `.usmap` hash and prove compatibility by decoding representative table, texture, and map packages before a broad run. A mapping that decodes only some packages is not accepted as build-compatible.
-6. Run the repository-owned CUE4Parse extractor with explicit absolute inputs and the narrowest available mode: `full`, `npc`, `dungeon`, `technology`, `structure`, `element`, or `expedition`. Do not use `full` merely to avoid choosing a scoped mode. Preserve raw JSON, source images, manifests, logs, local paths, and fingerprints as private artifacts.
+6. Run the repository-owned CUE4Parse extractor with explicit absolute inputs and the narrowest available mode: `full`, `npc`, `dungeon`, `technology`, `structure`, `element`, `health`, or `expedition`. Do not use `full` merely to avoid choosing a scoped mode. Preserve raw JSON, source images, manifests, logs, local paths, and fingerprints as private artifacts.
 7. Treat `FName` values such as item `IconName` as lookup keys, not asset paths. Follow authoritative DataTable, Blueprint/CDO, class-default, soft-object, redirector, material, sprite, atlas, and exact UI-texture references before using filename heuristics.
 8. For multi-hop facts, validate every link in the source chain, such as DataTable row → soft class/path → referenced CDO or object row → item/Pal catalog. Preserve lottery stages and slot boundaries. A missing hop makes the result partial or unavailable; it does not authorize flattening weights into a probability.
 9. Keep discovery candidates separate from verified sources. A filename match, candidate-table dump, successful package load, or successful texture decode alone does not prove semantic ownership.
@@ -38,7 +38,7 @@ Use the global `extract-game-data`, `build-game-helper-sites`, and project `palw
 7. Classify every published image as `direct`, `shared-official`, `atlas-official`, or `derived-official`. Never label copied or composed images as directly extracted. Keep `missing` distinct from every publishable class.
 8. Use an official-derived image only when no authoritative unique icon resolves and the product explicitly requires complete visual coverage. Use only extracted official assets, record the deterministic source mapping in repository code, and do not substitute a semantically unrelated category image silently.
 9. Resolve shipped localization markup only through verified build-matched joins to item, Pal, map-object, and UI-common tables. Reject unresolved tags, placeholder keys, raw enums, and internal asset paths instead of publishing them.
-10. Keep source values separate from runtime formulas. Base duration, selection weights, quantity ranges, and an official matchup chart may be publishable while final probabilities, effective duration curves, numeric multipliers, dual-element rules, SAN thresholds, or numeric illness effects remain unverified.
+10. Keep direct source values separate from runtime formulas and selection semantics. SAN worker-event values and sickness-table modifiers may be published as source values when their rows and localization are verified, while event-selection rules, final modifier application, probabilities, effective-duration curves, numeric matchup multipliers, and dual-element rules remain unavailable without independent runtime validation. Keep a hashed matchup chart private when it is needed only as relationship evidence; publish an original code-native presentation instead of copying the chart.
 
 ## Validate changes
 
@@ -48,7 +48,7 @@ Use the global `extract-game-data`, `build-game-helper-sites`, and project `palw
 4. Compare the new output with the last accepted build. Fail closed on unexplained removals, large count changes, locale loss, schema drift, broken references, or unexpected image-coverage loss.
 5. Run the relevant import command, `npm run typecheck`, `npm test`, `npm run check:i18n`, and `npm run build`.
 6. Inspect the built artifact and staged file list for local paths, private data, logs, source URLs, raw object identifiers, secrets, and accidental build output.
-7. Fail mixed-build joins across raw extracts and normalized Pal, item, skill, map, technology, structure, and element catalogs. Do not copy a private directory into an expected default path to bypass an importer that lacks source overrides.
+7. Fail mixed-build joins across raw extracts and normalized Pal, item, skill, map, technology, structure, element, and health catalogs. Do not copy a private directory into an expected default path to bypass an importer that lacks source overrides.
 
 ## Report
 

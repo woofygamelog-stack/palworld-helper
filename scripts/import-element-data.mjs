@@ -86,8 +86,7 @@ if(elements.some(element=>Object.keys(element.names).length!==17||element.palCou
 const relations=relationPairs.map(([attacker,defender])=>({attacker,defender,effect:"strong",multiplier:null,verification:"game-ui-chart"}));
 const generatedAt=manifest.extractedAt;
 const output={
-  meta:{schema:1,gameBuild,generatedAt,verification:"game-ui-chart-and-game-files",localeCount:17,elementCount:9,relationCount:9,palCount:299,numericMultipliersVerified:false,dualElementRuleVerified:false,iconProvenance:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},
-  chartImage:"/assets/elements/matchup-chart.webp",
+  meta:{schema:2,gameBuild,generatedAt,verification:"game-ui-chart-and-game-files",localeCount:17,elementCount:9,relationCount:9,palCount:299,numericMultipliersVerified:false,dualElementRuleVerified:false,iconProvenance:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},
   elements,
   relations,
   rules:{numericMultipliers:null,dualElement:null},
@@ -97,7 +96,6 @@ await mkdir(path.dirname(dataTarget),{recursive:true});
 await mkdir(assetTarget,{recursive:true});
 await writeFile(dataTarget,JSON.stringify(output));
 for(const definition of definitions)await copyFile(path.join(sourceRoot,"element-icons",`${String(definition.icon).padStart(2,"0")}.webp`),path.join(assetTarget,`${definition.slug}.webp`));
-await copyFile(path.join(sourceRoot,"element-matchup-chart.webp"),path.join(assetTarget,"matchup-chart.webp"));
 await mkdir(path.join(root,"private","provenance"),{recursive:true});
 await writeFile(path.join(root,"private","provenance","elements.json"),JSON.stringify({schema:1,gameBuild,generatedAt,sourceType:"installed-game files and official in-game UI chart",sourcePaths:{uiCommon:path.relative(root,path.join(sourceRoot,"ui-common.raw.json")),palParameters:path.relative(root,path.join(sourceRoot,"pal-parameters.raw.json")),chart:path.relative(root,path.join(sourceRoot,"element-matchup-chart.webp")),icons:path.relative(root,path.join(sourceRoot,"element-icons")),manifest:path.relative(root,path.join(sourceRoot,"element-manifest.json"))},hashes:{uiCommon:sha256(uiBytes),palParameters:sha256(palBytes),chart:sha256(chartBytes),manifest:sha256(manifestBytes)},mappingHash:manifest.mappingHash,verification:{officialNames:9,officialIcons:9,qualitativeRelations:9,publicPals:299,numericMultipliers:false,dualElementRule:false}},null,2));
 console.log(`Imported ${elements.length} elements, ${relations.length} qualitative relationships and element assignments for ${publicPals.length} Pals.`);

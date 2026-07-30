@@ -21,4 +21,25 @@ export const elementCopy:Record<Locale,ElementCopy>={
   "pl-PL":{title:"Relacje żywiołów",intro:"Porównaj mocne i słabe strony dziewięciu żywiołów oraz znajdź powiązane Pale i umiejętności aktywne.",chartTitle:"Oficjalny schemat żywiołów",chartDescription:"Strzałka prowadzi od żywiołu ataku do żywiołu, przeciw któremu jest silny.",compareTitle:"Porównaj żywioły",attacker:"Żywioł ataku",defender:"Żywioł obrony",strong:"Silny",weak:"Słaby",neutral:"Brak potwierdzonej przewagi",strongAgainst:"Silny przeciw",weakTo:"Słaby przeciw",matrixTitle:"Pełna tabela żywiołów",matrixDescription:"Wiersze to żywioły ataku, a kolumny — żywioły obrony.",relatedPals:"Powiązane Pale",relatedSkills:"Powiązane umiejętności aktywne",palsCount:"Pale",skillsCount:"umiejętności aktywne",numericUnavailable:"Dokładne mnożniki obrażeń nie są wyświetlane, ponieważ w danych nie potwierdzono wartości liczbowych.",dualUnavailable:"Dokładna reguła łączenia relacji u Pali z dwoma żywiołami nie została potwierdzona."}
 };
 
+const elementOverviewCopy:Record<Locale,Pick<ElementCopy,"chartTitle"|"chartDescription">>={
+  "en-US":{chartTitle:"Element relationship overview",chartDescription:"Each card shows what an element is strong against and what it is weak to."},
+  "ko-KR":{chartTitle:"속성 관계 요약",chartDescription:"각 속성 카드에서 유리한 속성과 불리한 속성을 함께 확인할 수 있습니다."},
+  "ja-JP":{chartTitle:"属性関係一覧",chartDescription:"各属性カードで、有利な属性と不利な属性を確認できます。"},
+  "zh-CN":{chartTitle:"属性关系一览",chartDescription:"每张属性卡片会同时显示克制和被克制的属性。"},
+  "zh-TW":{chartTitle:"屬性關係總覽",chartDescription:"每張屬性卡片會同時顯示有利與不利的屬性。"},
+  "de-DE":{chartTitle:"Übersicht der Elementbeziehungen",chartDescription:"Jede Karte zeigt, gegen welche Elemente ein Element stark oder schwach ist."},
+  "fr-FR":{chartTitle:"Vue d’ensemble des affinités",chartDescription:"Chaque carte indique les éléments contre lesquels un élément est fort ou faible."},
+  "it-IT":{chartTitle:"Panoramica delle affinità",chartDescription:"Ogni scheda mostra contro quali elementi un elemento è forte o debole."},
+  "es-ES":{chartTitle:"Resumen de relaciones elementales",chartDescription:"Cada tarjeta muestra contra qué elementos es fuerte o débil un elemento."},
+  "es-419":{chartTitle:"Resumen de relaciones elementales",chartDescription:"Cada tarjeta muestra contra qué elementos es fuerte o débil un elemento."},
+  "pt-BR":{chartTitle:"Visão geral das relações elementais",chartDescription:"Cada cartão mostra contra quais elementos um elemento é forte ou fraco."},
+  "ru-RU":{chartTitle:"Обзор связей стихий",chartDescription:"Каждая карточка показывает, против каких стихий элемент силён или слаб."},
+  "id-ID":{chartTitle:"Ringkasan hubungan elemen",chartDescription:"Setiap kartu menunjukkan elemen yang kuat dan lemah terhadap elemen tersebut."},
+  "th-TH":{chartTitle:"ภาพรวมความสัมพันธ์ธาตุ",chartDescription:"การ์ดแต่ละใบแสดงว่าธาตุนั้นได้เปรียบและเสียเปรียบธาตุใด"},
+  "tr-TR":{chartTitle:"Element ilişkilerine genel bakış",chartDescription:"Her kart, bir elementin hangi elementlere karşı güçlü veya zayıf olduğunu gösterir."},
+  "vi-VN":{chartTitle:"Tổng quan quan hệ hệ",chartDescription:"Mỗi thẻ cho biết một hệ mạnh hoặc yếu trước những hệ nào."},
+  "pl-PL":{chartTitle:"Przegląd relacji żywiołów",chartDescription:"Każda karta pokazuje, przeciw którym żywiołom dany żywioł jest silny lub słaby."}
+};
+for(const locale of Object.keys(elementOverviewCopy) as Locale[])Object.assign(elementCopy[locale],elementOverviewCopy[locale]);
+
 export const elementCopyProvenance=Object.fromEntries(Object.keys(elementCopy).map(locale=>[locale,{title:"gpt",remaining:"gpt"}])) as unknown as Record<Locale,Record<string,"gpt">>;

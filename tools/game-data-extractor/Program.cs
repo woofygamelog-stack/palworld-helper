@@ -19,7 +19,7 @@ using SkiaSharp;
 
 if (args.Length < 3 || args.Length > 4)
 {
-    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element|expedition]");
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element|expedition|health]");
     return 2;
 }
 
@@ -27,7 +27,7 @@ var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
 var mode = args.Length == 4 ? args[3] : "full";
-if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element" or "expedition")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
+if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element" or "expedition" or "health")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -200,6 +200,69 @@ object DumpCandidateDataTables(IEnumerable<string> assetFiles)
         }
     }
     return new { candidateCount = tables.Count + errors.Count, extractedCount = tables.Count, failedCount = errors.Count, tables, errors };
+}
+
+object DumpWorkerEventClassDefaults()
+{
+    const string workerEventPrefix = "Pal/Content/Pal/Blueprint/BaseCamp/WorkerEvents/BP_PalBaseCampWorkerEvent_";
+    var classPaths = provider.Files.Keys
+        .Where(path => path.StartsWith(workerEventPrefix, StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Select(path =>
+        {
+            var assetPath = path[..^7];
+            var className = Path.GetFileNameWithoutExtension(path);
+            return $"{assetPath}.{className}_C";
+        })
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var classes = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var errors = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var classPath in classPaths)
+    {
+        try
+        {
+            classes[classPath] = DumpClassDefaults(classPath);
+        }
+        catch (Exception error)
+        {
+            errors[classPath] = error.Message;
+        }
+    }
+    return new { requestedClassCount = classPaths.Length, extractedClassCount = classes.Count, failedClassCount = errors.Count, classes, errors };
+}
+
+if (mode == "health")
+{
+    var workerEvents = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/BaseCamp/DT_BaseCampWorkerEventDataTable"));
+    var sickness = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/BaseCamp/DT_BaseCampWorkerSickDataTable"));
+    var workerEventClassDefaults = JObject.FromObject(DumpWorkerEventClassDefaults());
+    Write("health-worker-events.raw.json", workerEvents);
+    Write("health-sickness.raw.json", sickness);
+    Write("health-worker-event-text.raw.json", DumpTextTable("Pal/Content/Pal/DataTable/Text/DT_BaseCampWorkerEventText"));
+    Write("health-worker-event-class-defaults.raw.json", workerEventClassDefaults);
+    Write("item-descriptions.raw.json", DumpLocalizedTextFamily("DT_ItemDescriptionText_Common", "Pal/Content/Pal/DataTable/Text/DT_ItemDescriptionText"));
+    Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
+    Write("health-manifest.json", new
+    {
+        schema = 1,
+        mode,
+        extractedAt = DateTimeOffset.UtcNow,
+        mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings))),
+        pakFiles = Directory.GetFiles(paks, "*.pak", SearchOption.TopDirectoryOnly).OrderBy(path => path).Select(path =>
+        {
+            var info = new FileInfo(path);
+            return new { info.Name, info.Length, info.LastWriteTimeUtc };
+        }).ToArray(),
+        workerEventRowCount = workerEvents.Count,
+        sicknessRowCount = sickness.Count,
+        workerEventClassCount = workerEventClassDefaults["extractedClassCount"]?.Value<int>() ?? 0,
+        workerEventClassFailureCount = workerEventClassDefaults["failedClassCount"]?.Value<int>() ?? 0,
+        localeCount = 17
+    });
+    Console.WriteLine($"Extracted {workerEvents.Count} worker events, {sickness.Count} sickness rows, and {workerEventClassDefaults["extractedClassCount"]} event class defaults to {output}");
+    return 0;
 }
 
 if (mode == "expedition")
