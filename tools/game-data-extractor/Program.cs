@@ -19,7 +19,7 @@ using SkiaSharp;
 
 if (args.Length < 3 || args.Length > 4)
 {
-    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element|expedition|health]");
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element|expedition|health|quest]");
     return 2;
 }
 
@@ -27,7 +27,7 @@ var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
 var mode = args.Length == 4 ? args[3] : "full";
-if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element" or "expedition" or "health")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
+if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element" or "expedition" or "health" or "quest")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -389,6 +389,107 @@ object DumpWorkerEventClassDefaults()
         }
     }
     return new { requestedClassCount = classPaths.Length, extractedClassCount = classes.Count, failedClassCount = errors.Count, classes, errors };
+}
+
+if (mode == "quest")
+{
+    var questAssets = provider.Files.Keys
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("Quest", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var questTables = questAssets
+        .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+    var questRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/Quest/DT_PalQuestData"));
+    var questLocationRows = JObject.FromObject(DumpTable("Pal/Content/Pal/DataTable/Quest/DT_PalQuestLocationData"));
+    var questClassPaths = questRows.Properties()
+        .Select(property => property.Value["QuestData"]?["AssetPathName"]?.Value<string>())
+        .Where(path => !string.IsNullOrWhiteSpace(path) && !string.Equals(path, "None", StringComparison.OrdinalIgnoreCase))
+        .Select(path => NormalizeGameAssetPath(path!))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var questClasses = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var questClassErrors = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var classPath in questClassPaths)
+    {
+        try
+        {
+            questClasses[classPath] = DumpClassDefaults(classPath);
+        }
+        catch (Exception error)
+        {
+            questClassErrors[classPath] = error.Message;
+        }
+    }
+    var questBlockClassPaths = questClasses.Values
+        .SelectMany(value => JObject.FromObject(value)["QuestBlockGroupList"]?.Children<JObject>() ?? [])
+        .SelectMany(group => group["BlockList"]?.Children<JObject>() ?? [])
+        .Select(block => block["AssetPathName"]?.Value<string>())
+        .Where(path => !string.IsNullOrWhiteSpace(path) && !string.Equals(path, "None", StringComparison.OrdinalIgnoreCase))
+        .Select(path => NormalizeGameAssetPath(path!))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var questBlockClasses = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var questBlockClassErrors = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var classPath in questBlockClassPaths)
+    {
+        try
+        {
+            questBlockClasses[classPath] = DumpClassDefaults(classPath);
+        }
+        catch (Exception error)
+        {
+            questBlockClassErrors[classPath] = error.Message;
+        }
+    }
+    Write("quests.raw.json", questRows);
+    Write("quest-locations.raw.json", questLocationRows);
+    Write("quest-class-defaults.raw.json", new
+    {
+        requestedClassCount = questClassPaths.Length,
+        extractedClassCount = questClasses.Count,
+        failedClassCount = questClassErrors.Count,
+        classes = questClasses,
+        errors = questClassErrors
+    });
+    Write("quest-block-class-defaults.raw.json", new
+    {
+        requestedClassCount = questBlockClassPaths.Length,
+        extractedClassCount = questBlockClasses.Count,
+        failedClassCount = questBlockClassErrors.Count,
+        classes = questBlockClasses,
+        errors = questBlockClassErrors
+    });
+    Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
+    Write("npc-talk-text.raw.json", DumpLocalizedTextFamily("DT_NpcTalkText_Common", "Pal/Content/Pal/DataTable/Text/DT_NpcTalkText"));
+    Write("quest-data-assets.raw.json", questAssets);
+    Write("quest-tables.raw.json", DumpCandidateDataTables(questTables));
+    Write("quest-manifest.json", new
+    {
+        schema = 1,
+        mode,
+        extractedAt = DateTimeOffset.UtcNow,
+        mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings))),
+        pakFiles = Directory.GetFiles(paks, "*.pak", SearchOption.TopDirectoryOnly).OrderBy(path => path).Select(path =>
+        {
+            var info = new FileInfo(path);
+            return new { info.Name, info.Length, info.LastWriteTimeUtc };
+        }).ToArray(),
+        questRowCount = questRows.Count,
+        questLocationRowCount = questLocationRows.Count,
+        candidateAssetCount = questAssets.Length,
+        candidateTableCount = questTables.Length,
+        questClassCount = questClasses.Count,
+        questClassFailureCount = questClassErrors.Count,
+        questBlockClassCount = questBlockClasses.Count,
+        questBlockClassFailureCount = questBlockClassErrors.Count,
+        localeCount = 17
+    });
+    Console.WriteLine($"Extracted {questRows.Count} quest rows, {questLocationRows.Count} quest location rows, {questClasses.Count} quest class defaults, {questBlockClasses.Count} quest block defaults, and official text for 17 locales to {output}");
+    return 0;
 }
 
 if (mode == "health")
