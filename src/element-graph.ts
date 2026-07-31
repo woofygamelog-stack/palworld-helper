@@ -5,41 +5,41 @@ type GraphPoint={x:number;y:number};
 type GraphLayout={viewBox:string;positions:Record<string,GraphPoint>;paths:Record<string,string>};
 
 const wide:GraphLayout={
-  viewBox:"0 0 1200 430",
+  viewBox:"0 0 1200 505",
   positions:{
-    electric:{x:90,y:95},water:{x:250,y:95},fire:{x:410,y:95},ice:{x:590,y:95},dragon:{x:770,y:95},dark:{x:950,y:95},neutral:{x:1110,y:95},
-    grass:{x:410,y:330},ground:{x:170,y:330}
+    electric:{x:110,y:130},water:{x:295,y:95},fire:{x:485,y:140},ice:{x:675,y:95},dragon:{x:865,y:135},
+    grass:{x:390,y:350},ground:{x:175,y:360},dark:{x:1050,y:255},neutral:{x:950,y:400}
   },
   paths:{
-    "electric>water":"M 142 95 L 198 95",
-    "water>fire":"M 302 95 L 358 95",
-    "fire>ice":"M 462 95 L 538 95",
-    "ice>dragon":"M 642 95 L 718 95",
-    "dragon>dark":"M 822 95 L 898 95",
-    "dark>neutral":"M 1002 95 L 1058 95",
-    "fire>grass":"M 410 147 L 410 278",
-    "grass>ground":"M 358 330 L 222 330",
-    "ground>electric":"M 170 278 C 170 214 90 214 90 147"
+    "electric>water":"M 158 121 C 190 115 218 108 247 104",
+    "water>fire":"M 343 106 C 379 113 410 121 437 129",
+    "fire>ice":"M 533 129 C 570 119 600 110 627 106",
+    "ice>dragon":"M 723 105 C 760 112 790 121 817 125",
+    "dragon>dark":"M 906 162 C 947 179 983 202 1009 228",
+    "dark>neutral":"M 1022 295 C 1010 321 994 344 978 360",
+    "fire>grass":"M 447 171 C 418 210 395 262 395 302",
+    "grass>ground":"M 342 352 C 304 353 263 356 223 358",
+    "ground>electric":"M 143 324 C 75 292 48 223 85 170"
   }
 };
 
 const compact:GraphLayout={
-  viewBox:"-20 0 440 670",
+  viewBox:"0 0 440 750",
   positions:{
-    electric:{x:55,y:55},water:{x:200,y:55},fire:{x:345,y:55},
-    ground:{x:55,y:245},grass:{x:200,y:245},ice:{x:345,y:245},
-    dragon:{x:345,y:405},dark:{x:200,y:560},neutral:{x:55,y:560}
+    electric:{x:60,y:65},water:{x:210,y:65},fire:{x:360,y:65},
+    ground:{x:60,y:220},grass:{x:210,y:220},ice:{x:360,y:220},
+    dragon:{x:360,y:365},dark:{x:255,y:500},neutral:{x:100,y:640}
   },
   paths:{
-    "electric>water":"M 107 55 L 148 55",
-    "water>fire":"M 252 55 L 293 55",
-    "fire>grass":"M 319 91 C 298 141 255 197 234 212",
-    "grass>ground":"M 148 245 L 107 245",
-    "ground>electric":"M 55 193 L 55 107",
-    "fire>ice":"M 345 107 L 345 193",
-    "ice>dragon":"M 345 297 L 345 353",
-    "dragon>dark":"M 312 445 C 286 485 252 526 235 538",
-    "dark>neutral":"M 148 560 L 107 560"
+    "electric>water":"M 108 65 C 125 65 143 65 162 65",
+    "water>fire":"M 258 65 C 275 65 293 65 312 65",
+    "fire>grass":"M 337 106 C 317 136 276 184 233 180",
+    "grass>ground":"M 162 220 C 145 220 127 220 108 220",
+    "ground>electric":"M 60 172 C 60 152 60 132 60 113",
+    "fire>ice":"M 360 113 C 360 132 360 152 360 172",
+    "ice>dragon":"M 360 268 C 360 284 360 301 360 317",
+    "dragon>dark":"M 331 403 C 316 424 296 450 284 462",
+    "dark>neutral":"M 220 532 C 194 555 162 585 135 608"
   }
 };
 
@@ -53,9 +53,9 @@ const edgeKey=(relation:ElementGraphRelation)=>`${relation.attacker}>${relation.
 function renderDiagram(kind:keyof typeof layouts,nodes:ElementGraphNode[],relations:ElementGraphRelation[],selectedAttacker?:string,selectedDefender?:string){
   const layout=layouts[kind],marker=`element-graph-arrow-${kind}`;
   const hasSelection=Boolean(selectedAttacker),selectedNeighbors=new Set(relations.flatMap(relation=>relation.attacker===selectedAttacker?[relation.defender]:relation.defender===selectedAttacker?[relation.attacker]:[]));
-  const edges=relations.map(relation=>{const key=edgeKey(relation),path=layout.paths[key];if(!path)return "";const states=hasSelection?[relation.attacker===selectedAttacker?"is-outgoing":"",relation.defender===selectedAttacker?"is-incoming":"",relation.attacker===selectedAttacker&&relation.defender===selectedDefender?"is-selected":""].filter(Boolean).join(" "):"";return `<g class="element-graph-edge-group${states?` ${states}`:""}" data-element-edge="${esc(key)}"><path class="element-graph-edge-shadow" d="${path}"></path><path class="element-graph-edge" d="${path}" marker-end="url(#${marker})"></path></g>`}).join("");
-  const nodeMarkup=nodes.map(node=>{const point=layout.positions[node.slug];if(!point)return "";const role=node.slug===selectedAttacker?"source":node.slug===selectedDefender?"target":selectedNeighbors.has(node.slug)?"related":"";return `<g class="element-graph-node${role?` is-${role}`:""}" data-element-node="${esc(node.slug)}"${role?` data-element-role="${role}"`:""} transform="translate(${point.x} ${point.y})"><circle class="element-graph-node-halo" r="50"></circle><circle class="element-graph-node-surface" r="42"></circle><image href="${esc(node.icon)}" x="-31" y="-31" width="62" height="62" preserveAspectRatio="xMidYMid meet"></image><foreignObject x="-72" y="48" width="144" height="48"><div xmlns="http://www.w3.org/1999/xhtml" class="element-graph-node-label">${esc(node.name)}</div></foreignObject></g>`}).join("");
-  return `<svg class="element-graph-diagram element-graph-diagram--${kind}${hasSelection?" has-selection":""}" viewBox="${layout.viewBox}" aria-hidden="true" focusable="false"><defs><marker id="${marker}" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M 1 1 L 11 6 L 1 11 Z"></path></marker></defs>${edges}${nodeMarkup}</svg>`;
+  const edges=relations.map(relation=>{const key=edgeKey(relation),path=layout.paths[key];if(!path)return "";const states=hasSelection?[relation.attacker===selectedAttacker?"is-outgoing":"",relation.defender===selectedAttacker?"is-incoming":"",relation.attacker===selectedAttacker&&relation.defender===selectedDefender?"is-selected":""].filter(Boolean).join(" "):"";return `<g class="element-graph-edge-group${states?` ${states}`:""}" data-element-edge="${esc(key)}"><path class="element-graph-edge-shadow" d="${path}" vector-effect="non-scaling-stroke"></path><path class="element-graph-edge" d="${path}" marker-end="url(#${marker})" vector-effect="non-scaling-stroke"></path></g>`}).join("");
+  const nodeMarkup=nodes.map(node=>{const point=layout.positions[node.slug];if(!point)return "";const role=node.slug===selectedAttacker?"source":node.slug===selectedDefender?"target":selectedNeighbors.has(node.slug)?"related":"";return `<g class="element-graph-node${role?` is-${role}`:""}" data-element-node="${esc(node.slug)}"${role?` data-element-role="${role}"`:""} transform="translate(${point.x} ${point.y})"><circle class="element-graph-node-halo" r="47" vector-effect="non-scaling-stroke"></circle><circle class="element-graph-node-surface" r="39" vector-effect="non-scaling-stroke"></circle><image href="${esc(node.icon)}" x="-29" y="-29" width="58" height="58" preserveAspectRatio="xMidYMid meet"></image><foreignObject x="-76" y="49" width="152" height="50"><div xmlns="http://www.w3.org/1999/xhtml" class="element-graph-node-label">${esc(node.name)}</div></foreignObject></g>`}).join("");
+  return `<svg class="element-graph-diagram element-graph-diagram--${kind}${hasSelection?" has-selection":""}" viewBox="${layout.viewBox}" aria-hidden="true" focusable="false"><defs><marker id="${marker}" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="18" markerHeight="18" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M 2 2 L 10 6 L 2 10 Z"></path></marker></defs>${edges}${nodeMarkup}</svg>`;
 }
 
 export function renderElementMatchupGraph({nodes,relations,title,description,strongLabel,baseHref,selectedAttacker,selectedDefender}:{nodes:ElementGraphNode[];relations:ElementGraphRelation[];title:string;description:string;strongLabel:string;baseHref:string;selectedAttacker?:string;selectedDefender?:string}){

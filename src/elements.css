@@ -4,31 +4,31 @@
 .element-matchup-graph h2,.element-compare h2,.element-relations h2,.element-related h2,.element-matrix-section h2{font-size:1.25rem}
 
 .element-matchup-graph{display:grid;gap:1rem;margin:0;overflow:hidden}
-.element-matchup-graph>header{display:grid;grid-template-columns:minmax(14rem,.4fr) minmax(0,1fr);gap:1rem;align-items:start}
+.element-matchup-graph>header{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:clamp(1rem,3vw,2.5rem);align-items:baseline}
 .element-matchup-graph>header h2,.element-matchup-graph>header p{margin:0}
 .element-matchup-graph>header p{color:var(--muted);line-height:1.65}
-.element-graph-stage{overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));border-radius:16px;background-color:var(--surface-2);background-image:linear-gradient(color-mix(in srgb,var(--accent) 7%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--accent) 7%,transparent) 1px,transparent 1px),radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--accent) 12%,transparent),transparent 42%);background-size:28px 28px,28px 28px,100% 100%}
+.element-graph-stage{overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));border-radius:16px;background-color:var(--surface-2);background-image:linear-gradient(color-mix(in srgb,var(--accent) 5%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--accent) 5%,transparent) 1px,transparent 1px),radial-gradient(circle at 48% 32%,color-mix(in srgb,var(--accent) 9%,transparent),transparent 48%);background-size:32px 32px,32px 32px,100% 100%;box-shadow:inset 0 1px color-mix(in srgb,var(--surface) 70%,transparent)}
 .element-graph-diagram{display:block;width:100%;height:auto;color:var(--accent);overflow:visible}
 .element-graph-diagram--compact{display:none}
 .element-graph-edge-shadow,.element-graph-edge{fill:none;stroke-linecap:round;stroke-linejoin:round}
-.element-graph-edge-shadow{stroke:var(--surface);stroke-width:14}
-.element-graph-edge{stroke:currentColor;stroke-width:6}
+.element-graph-edge-shadow{stroke:color-mix(in srgb,var(--surface) 88%,transparent);stroke-width:8}
+.element-graph-edge{stroke:currentColor;stroke-width:4}
 .element-graph-edge-group,.element-graph-node{transition:opacity .18s ease}
-.element-graph-diagram.has-selection .element-graph-edge-group{opacity:.2}
-.element-graph-diagram.has-selection .element-graph-node{opacity:.42}
-.element-graph-diagram.has-selection .element-graph-edge-group.is-incoming{color:var(--warn);opacity:.6}
-.element-graph-diagram.has-selection .element-graph-edge-group.is-outgoing{opacity:.75}
+.element-graph-diagram.has-selection .element-graph-edge-group{opacity:.34}
+.element-graph-diagram.has-selection .element-graph-node{opacity:.56}
+.element-graph-diagram.has-selection .element-graph-edge-group.is-incoming{opacity:.52}
+.element-graph-diagram.has-selection .element-graph-edge-group.is-outgoing{opacity:.78}
 .element-graph-diagram.has-selection .element-graph-edge-group.is-selected{opacity:1}
-.element-graph-diagram.has-selection .element-graph-edge-group.is-selected .element-graph-edge{stroke-width:9}
-.element-graph-diagram.has-selection .element-graph-node.is-related{opacity:.72}
+.element-graph-diagram.has-selection .element-graph-edge-group.is-selected .element-graph-edge{stroke-width:5.5}
+.element-graph-diagram.has-selection .element-graph-node.is-related{opacity:.78}
 .element-graph-diagram.has-selection .element-graph-node.is-source,.element-graph-diagram.has-selection .element-graph-node.is-target{opacity:1}
-.element-graph-node.is-source .element-graph-node-halo{stroke:var(--accent);stroke-width:5}
-.element-graph-node.is-target .element-graph-node-halo{stroke:var(--focus);stroke-width:5;stroke-dasharray:7 5}
-.element-graph-diagram marker path{fill:currentColor;stroke:var(--surface);stroke-width:1}
-.element-graph-node-halo{fill:color-mix(in srgb,var(--accent) 18%,var(--surface));stroke:color-mix(in srgb,var(--accent) 42%,var(--line));stroke-width:2}
-.element-graph-node-surface{fill:var(--surface);stroke:var(--line);stroke-width:2}
-.element-graph-node image{filter:drop-shadow(0 5px 8px color-mix(in srgb,var(--text) 20%,transparent))}
-.element-graph-node-label{height:100%;display:flex;align-items:flex-start;justify-content:center;color:var(--text);font:800 16px/1.15 system-ui,sans-serif;text-align:center;overflow-wrap:anywhere}
+.element-graph-node.is-source .element-graph-node-halo{fill:color-mix(in srgb,var(--accent) 14%,transparent);stroke:var(--accent);stroke-width:4}
+.element-graph-node.is-target .element-graph-node-halo{fill:color-mix(in srgb,var(--focus) 10%,transparent);stroke:var(--focus);stroke-width:4;stroke-dasharray:6 5}
+.element-graph-diagram marker path{fill:currentColor;stroke:var(--surface);stroke-width:1.5;stroke-linejoin:round}
+.element-graph-node-halo{fill:color-mix(in srgb,var(--accent) 6%,transparent);stroke:color-mix(in srgb,var(--accent) 30%,var(--line));stroke-width:1.5}
+.element-graph-node-surface{fill:color-mix(in srgb,var(--surface) 94%,transparent);stroke:color-mix(in srgb,var(--accent) 16%,var(--line));stroke-width:1.5}
+.element-graph-node image{filter:drop-shadow(0 3px 5px color-mix(in srgb,var(--text) 17%,transparent))}
+.element-graph-node-label{box-sizing:border-box;width:max-content;max-width:100%;min-height:29px;margin:0 auto;padding:.28rem .52rem;border:1px solid color-mix(in srgb,var(--line) 78%,transparent);border-radius:999px;background:color-mix(in srgb,var(--surface) 92%,transparent);box-shadow:0 2px 7px color-mix(in srgb,var(--text) 7%,transparent);color:var(--text);font:800 15px/1.15 system-ui,sans-serif;text-align:center;overflow-wrap:anywhere}
 .element-matchup-graph figcaption{margin:0}
 .element-graph-relations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin:0;padding:0;list-style:none}
 .element-graph-relations li{min-width:0}
@@ -104,7 +104,7 @@
 }
 @media(max-width:900px){
   .element-graph-diagram--wide{display:none}
-  .element-graph-diagram--compact{display:block;max-width:440px;margin:auto}
+  .element-graph-diagram--compact{display:block;max-width:420px;margin:auto}
 }
 @media(max-width:700px){
   .element-page{padding-top:0}
@@ -127,4 +127,7 @@
   .element-graph-relations a{grid-template-columns:2rem minmax(0,1fr) auto 2rem minmax(0,1fr)}
   .element-graph-relations small{grid-column:1/-1;justify-self:start}
   .element-graph-relations img{width:2rem;height:2rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .element-graph-edge-group,.element-graph-node{transition:none}
 }

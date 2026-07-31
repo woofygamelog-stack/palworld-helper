@@ -135,6 +135,8 @@ assert.deepEqual(elementGraphGeometryKeys,elementData.relations.map(relation=>`$
 const selectedElementGraph=renderElementMatchupGraph({nodes:elementData.elements.map(element=>({slug:element.slug,name:element.names["ko-KR"],icon:element.icon})),relations:elementData.relations,title:"속성 상성 흐름도",description:"화살표 설명",strongLabel:"유리",baseHref:"/ko-KR/database/elements",selectedAttacker:"fire",selectedDefender:"grass"});
 assert.match(selectedElementGraph,/has-selection.*data-element-edge="fire&gt;grass"[\s\S]*?is-selected|is-selected[^"]*" data-element-edge="fire&gt;grass"/s,"Selected element relationship must be emphasized in both responsive graphs");
 assert.equal((selectedElementGraph.match(/aria-current="true"/g)||[]).length,1,"Selected accessible relationship must expose one current link");
+assert.match(selectedElementGraph,/viewBox="0 0 1200 505"[\s\S]*viewBox="0 0 440 750"/s,"Element graph must retain separately composed wide and compact layouts");
+assert.equal((selectedElementGraph.match(/markerUnits="userSpaceOnUse"/g)||[]).length,2,"Element graph arrows must use bounded fixed-size markers instead of scaling with stroke width");
 assert.deepEqual(elementData.rules,{numericMultipliers:null,dualElement:null},"Unverified numeric and dual-element rules must stay explicitly unavailable");
 assert.ok(palData.pals.every(pal=>Array.isArray(pal.elementSlugs)&&pal.elementSlugs.length>=1&&pal.elementSlugs.length<=2&&pal.elementSlugs.every(slug=>elementSlugs.has(slug))),"Every published Pal must have one or two verified safe element slugs");
 assert.doesNotMatch(JSON.stringify(elementData),/EPalElementType|COMMON_ELEMENT|[A-Z]:\\|file:\/\//,"Element public data must not expose raw source identifiers or private provenance");
@@ -148,6 +150,7 @@ assert.match(main,/focusId=event\.currentTarget===elementDefender\?"element-defe
 assert.match(elementStyles,/\.element-matrix-scroll.*overflow-x:auto.*@media\(max-width:700px\)/s,"Element matrix and related content must retain a responsive overflow contract");
 assert.match(elementStyles,/\.element-graph-diagram--compact\{display:none\}.*@media\(max-width:900px\).*\.element-graph-diagram--wide\{display:none\}.*\.element-graph-diagram--compact\{display:block/s,"Element graph must switch from the original wide flow to a compact mobile layout");
 assert.match(elementStyles,/\.element-graph-relations a\{.*min-height:58px.*\.element-focus.*@media\(max-width:700px\).*grid-template-areas/s,"Element graph relations and focused comparison must retain accessible responsive layouts");
+assert.match(elementStyles,/\.element-graph-edge-shadow\{[^}]*stroke-width:8\}.*\.element-graph-edge\{[^}]*stroke-width:4\}.*\.element-graph-node-label\{[^}]*width:max-content/s,"Element graph arrows and backed labels must retain the balanced visual hierarchy");
 assert.match(technologyImporter,/extractionManifest\.extractedAt/,"Technology generation timestamp must remain deterministic for one extraction");
 assert.match(technologyImporter,/mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851"/,"Technology import must enforce the build-compatible USMAP");
 assert.match(main,/id="technology-kind".*id="technology-category".*id="technology-level".*id="technology-condition"/s,"Technology collection must expose type, unlock, level, and condition filters");
