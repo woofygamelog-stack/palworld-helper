@@ -1,0 +1,24 @@
+{
+  "ModName": "Element Damage Verifier",
+  "PackageName": "ElementDamageVerifier",
+  "Version": "0.1.0",
+  "DebugMode": true,
+  "MinRevision": 82182,
+  "Author": "Palworld Helper",
+  "Dependencies": [
+    "UE4SSExperimentalPW"
+  ],
+  "Tags": [
+    "UE4SS",
+    "Utilities"
+  ],
+  "InstallRule": [
+    {
+      "Type": "Lua",
+      "IsServer": true,
+      "Targets": [
+        "./Scripts"
+      ]
+    }
+  ]
+}

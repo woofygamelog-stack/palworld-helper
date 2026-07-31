@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "protocolSchema": 3,
+  "mode": "official-dedicated-server",
+  "machineGeneratedOnly": true,
+  "writesClientInstallation": false,
+  "runtimeMod": "ElementDamageVerifier",
+  "runtimeDependency": "UE4SSExperimentalPW",
+  "scope": "isolated disposable server only"
+}

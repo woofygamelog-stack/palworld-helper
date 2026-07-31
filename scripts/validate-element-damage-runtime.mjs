@@ -15,4 +15,4 @@ const evidenceText=await readFile(evidencePath,"utf8").catch(error=>{if(error.co
 const report=validateElementDamageRuntime({sourceReport,testPlan,evidenceText});
 await mkdir(path.dirname(outputPath),{recursive:true});
 await writeFile(outputPath,JSON.stringify(report,null,2));
-console.log(`Verified ${testPlan.lookupCases.length} lookup, ${testPlan.aggregationCases.length} aggregation, and ${testPlan.applicationCases.length} applied-damage cases across ${report.coverage.sessions} independent sessions.`);
+console.log(`Verified ${testPlan.lookupCases.length} lookup and ${testPlan.aggregationCases.length} live damage-route aggregation cases across ${report.coverage.sessions} independent sessions.`);

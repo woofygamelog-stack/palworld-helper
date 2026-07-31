@@ -7,6 +7,7 @@ param(
     [string]$DotnetPath = "dotnet",
     [string]$RuntimeDriverPath = $env:PAL_ELEMENT_RUNTIME_DRIVER,
     [string]$RuntimeServerRoot = $env:PAL_ELEMENT_RUNTIME_SERVER_ROOT,
+    [string]$Ue4ssPackageRoot = $env:PAL_UE4SS_PACKAGE_ROOT,
     [switch]$ReuseExtraction,
     [switch]$SourceOnly
 )
@@ -15,6 +16,15 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+$defaultDriver = Join-Path $repositoryRoot "tools\element-damage-runtime-driver\run.ps1"
+$defaultServer = Join-Path $repositoryRoot "private\runtime\PalServer"
+if (-not $RuntimeDriverPath -and (Test-Path -LiteralPath $defaultDriver -PathType Leaf)) { $RuntimeDriverPath = $defaultDriver }
+if (-not $RuntimeServerRoot -and (Test-Path -LiteralPath (Join-Path $defaultServer "PalServer.exe") -PathType Leaf)) { $RuntimeServerRoot = $defaultServer }
+if (-not $Ue4ssPackageRoot) {
+    $steamApps = Split-Path -Parent (Split-Path -Parent ([IO.Path]::GetFullPath($GameRoot)))
+    $detectedUe4ss = Join-Path $steamApps "workshop\content\1623730\3625223587"
+    if (Test-Path -LiteralPath (Join-Path $detectedUe4ss "UE4SS.dll") -PathType Leaf) { $Ue4ssPackageRoot = $detectedUe4ss }
+}
 $verificationRoot = Join-Path $repositoryRoot "private\verification\element-damage"
 $pendingDetection = Join-Path $verificationRoot ("detected-installation.{0}.pending.json" -f [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $verificationRoot -Force | Out-Null
@@ -75,13 +85,13 @@ try {
     Invoke-NativeChecked { node "scripts\generate-element-damage-test-plan.mjs" } "Machine runtime-plan generation failed"
     $generatedPlan = Get-Content -LiteralPath $testPlanPath -Raw | ConvertFrom-Json
     $pendingRuntimeReport = [ordered]@{
-        meta = [ordered]@{ schema = 2; gameBuild = $gameBuild; generatedAt = [DateTimeOffset]::UtcNow.ToString("o"); status = "runtime-evidence-pending"; planId = $generatedPlan.meta.planId }
-        verification = [ordered]@{ exactWeakCountLookup = $true; weakCountAggregationRule = $false; runtimeApplication = $false; numericMultipliersReadyForPublic = $false; dualElementRuleReadyForPublic = $false }
+        meta = [ordered]@{ schema = 3; gameBuild = $gameBuild; generatedAt = [DateTimeOffset]::UtcNow.ToString("o"); status = "runtime-evidence-pending"; planId = $generatedPlan.meta.planId }
+        verification = [ordered]@{ exactWeakCountLookup = $true; weakCountAggregationRule = $false; damageCalculationRoute = $false; numericMultipliersReadyForPublic = $false; dualElementRuleReadyForPublic = $false }
     }
     $pendingRuntimeReport | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $env:PAL_ELEMENT_RUNTIME_REPORT -Encoding utf8
     Write-RunState "runtime-evidence-pending" $gameBuild "Source lookup passed. Machine runtime evidence is still required; public numeric rules remain disabled." $statePath
 
-    if (-not (Test-Path -LiteralPath $runtimeEvidencePath -PathType Leaf) -and $RuntimeDriverPath) {
+    if (-not $SourceOnly -and $RuntimeDriverPath) {
         $driver = (Resolve-Path -LiteralPath $RuntimeDriverPath).Path
         if (-not $RuntimeServerRoot) { throw "PAL_ELEMENT_RUNTIME_SERVER_ROOT is required with the runtime driver." }
         $serverRoot = (Resolve-Path -LiteralPath $RuntimeServerRoot).Path
@@ -92,12 +102,13 @@ try {
         $driverManifestPath = Join-Path (Split-Path -Parent $driver) "element-damage-driver.manifest.json"
         if (-not (Test-Path -LiteralPath $driverManifestPath -PathType Leaf)) { throw "The runtime driver manifest is missing." }
         $driverManifest = Get-Content -LiteralPath $driverManifestPath -Raw | ConvertFrom-Json
-        if ($driverManifest.schema -ne 1 -or $driverManifest.protocolSchema -ne 2 -or $driverManifest.mode -ne "official-dedicated-server" -or $driverManifest.machineGeneratedOnly -ne $true -or $driverManifest.writesClientInstallation -ne $false) { throw "The runtime driver manifest does not satisfy the isolated machine-only contract." }
-        Invoke-NativeChecked { & $driver --server-root $serverRoot --source-report $sourceReportPath --plan $testPlanPath --contract $runtimeContractPath --output $runtimeEvidencePath --sessions 2 } "Configured isolated runtime driver failed"
+        if ($driverManifest.schema -ne 1 -or $driverManifest.protocolSchema -ne 3 -or $driverManifest.mode -ne "official-dedicated-server" -or $driverManifest.machineGeneratedOnly -ne $true -or $driverManifest.writesClientInstallation -ne $false) { throw "The runtime driver manifest does not satisfy the isolated machine-only contract." }
+        if (-not $Ue4ssPackageRoot) { throw "The official UE4SS Experimental package was not found; set PAL_UE4SS_PACKAGE_ROOT." }
+        Invoke-NativeChecked { & $driver -ServerRoot $serverRoot -SourceReport $sourceReportPath -Plan $testPlanPath -Contract $runtimeContractPath -Output $runtimeEvidencePath -Ue4ssPackageRoot $Ue4ssPackageRoot -Sessions 2 } "Configured isolated runtime driver failed"
     }
-    if (Test-Path -LiteralPath $runtimeEvidencePath -PathType Leaf) {
+    if (-not $SourceOnly -and (Test-Path -LiteralPath $runtimeEvidencePath -PathType Leaf)) {
         Invoke-NativeChecked { node "scripts\validate-element-damage-runtime.mjs" } "Machine runtime evidence failed validation"
-        Write-RunState "runtime-verified" $gameBuild "All source, aggregation, and applied-damage gates passed." $statePath
+        Write-RunState "runtime-verified" $gameBuild "All source lookup and live damage-calculation route gates passed." $statePath
         Write-Output "Element damage verification passed for build $gameBuild."
     } elseif ($SourceOnly) {
         Write-Output "Source verification passed for build $gameBuild; runtime evidence remains pending and public numeric rules remain disabled."

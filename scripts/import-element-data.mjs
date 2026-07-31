@@ -5,6 +5,7 @@ import path from "node:path";
 const root=process.cwd();
 const gameBuild=process.env.PAL_GAME_BUILD||"24467282";
 const sourceRoot=process.env.PAL_ELEMENT_EXTRACTED_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-elements`);
+const runtimeReportPath=process.env.PAL_ELEMENT_RUNTIME_REPORT||path.join(root,"private","verification","element-damage",`build-${gameBuild}`,"runtime-report.json");
 const localeMap={de:"de-DE",en:"en-US","es-MX":"es-419",es:"es-ES",fr:"fr-FR",id:"id-ID",it:"it-IT",ko:"ko-KR",pl:"pl-PL","pt-BR":"pt-BR",ru:"ru-RU",th:"th-TH",tr:"tr-TR",vi:"vi-VN","zh-Hans":"zh-CN","zh-Hant":"zh-TW",ja:"ja-JP"};
 const definitions=[
   {source:"Normal",slug:"neutral",icon:0},
@@ -29,17 +30,21 @@ const relationPairs=[
   ["dragon","dark"],
   ["dark","neutral"],
 ];
-const [uiBytes,palBytes,skillBytes,manifestBytes,chartBytes]=await Promise.all([
+const [uiBytes,palBytes,skillBytes,manifestBytes,chartBytes,runtimeReportBytes]=await Promise.all([
   readFile(path.join(sourceRoot,"ui-common.raw.json")),
   readFile(path.join(sourceRoot,"pal-parameters.raw.json")),
   readFile(path.join(root,"public","data","skills.json")),
   readFile(path.join(sourceRoot,"element-manifest.json")),
   readFile(path.join(sourceRoot,"element-matchup-chart.webp")),
+  readFile(runtimeReportPath),
 ]);
-const ui=JSON.parse(uiBytes.toString("utf8")),palParameters=JSON.parse(palBytes.toString("utf8")),skills=JSON.parse(skillBytes.toString("utf8")),manifest=JSON.parse(manifestBytes.toString("utf8"));
+const ui=JSON.parse(uiBytes.toString("utf8")),palParameters=JSON.parse(palBytes.toString("utf8")),skills=JSON.parse(skillBytes.toString("utf8")),manifest=JSON.parse(manifestBytes.toString("utf8")),runtimeReport=JSON.parse(runtimeReportBytes.toString("utf8"));
 const sha256=bytes=>createHash("sha256").update(bytes).digest("hex");
 if(gameBuild!=="24467282"||manifest.mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851")throw new Error("Element extraction does not match the verified build mapping");
 if(manifest.localeCount!==17||manifest.elementIconCount!==9||sha256(chartBytes).toUpperCase()!=="93BC7116E59463E93FA92968B825F566CBF9F0D55006E6906DC4DCB39658CA52")throw new Error("Official element UI assets drifted from the verified extraction");
+if(runtimeReport.meta?.schema!==3||String(runtimeReport.meta?.gameBuild)!==gameBuild||runtimeReport.meta?.status!=="runtime-verified"||runtimeReport.coverage?.sessions<2||runtimeReport.coverage?.lookupCases!==5||runtimeReport.coverage?.aggregationCases!==405||runtimeReport.verification?.exactWeakCountLookup!==true||runtimeReport.verification?.weakCountAggregationRule!==true||runtimeReport.verification?.damageCalculationRoute!==true||runtimeReport.verification?.numericMultipliersReadyForPublic!==true||runtimeReport.verification?.dualElementRuleReadyForPublic!==true)throw new Error("Element runtime verification is missing or incomplete");
+const numericMultipliers=runtimeReport.rules?.numericMultipliers,dualElement=runtimeReport.rules?.dualElement;
+if(numericMultipliers?.strong!==1.5||numericMultipliers?.weak!==.66||numericMultipliers?.neutral!==1||dualElement?.operation!=="sum-relation-scores"||dualElement?.sameElementResistance!=="all-except-neutral"||dualElement?.neutralAttackIsNeverWeak!==true||JSON.stringify(dualElement?.multipliersByWeakCount)!==JSON.stringify({0:1,1:1.5,2:2.25,"-2":.43,"-1":.66}))throw new Error("Verified runtime element rules drifted from the recognized profile");
 const localizedName=source=>Object.fromEntries(Object.entries(localeMap).map(([from,to])=>{
   const value=ui[from]?.[`COMMON_ELEMENT_NAME_${source}`]||ui.en?.[`COMMON_ELEMENT_NAME_${source}`]||"";
   if(!value.trim())throw new Error(`Element name missing: ${source} ${from}`);
@@ -83,13 +88,13 @@ const elements=definitions.map((definition,order)=>({
   weakTo:relationPairs.filter(([,defender])=>defender===definition.slug).map(([attacker])=>attacker),
 }));
 if(elements.some(element=>Object.keys(element.names).length!==17||element.palCount<1||element.activeSkillCount<1))throw new Error("Element localization or entity coverage is incomplete");
-const relations=relationPairs.map(([attacker,defender])=>({attacker,defender,effect:"strong",multiplier:null,verification:"game-ui-chart"}));
+const relations=relationPairs.map(([attacker,defender])=>({attacker,defender,effect:"strong",multiplier:numericMultipliers.strong,verification:"game-ui-chart-and-runtime"}));
 const generatedAt=manifest.extractedAt;
 const output={
-  meta:{schema:2,gameBuild,generatedAt,verification:"game-ui-chart-and-game-files",localeCount:17,elementCount:9,relationCount:9,palCount:299,numericMultipliersVerified:false,dualElementRuleVerified:false,iconProvenance:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},
+  meta:{schema:3,gameBuild,generatedAt,verification:"game-files-and-runtime",localeCount:17,elementCount:9,relationCount:9,palCount:299,numericMultipliersVerified:true,dualElementRuleVerified:true,iconProvenance:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},
   elements,
   relations,
-  rules:{numericMultipliers:null,dualElement:null},
+  rules:{numericMultipliers,dualElement},
 };
 const dataTarget=path.join(root,"public","data","elements.json"),assetTarget=path.join(root,"public","assets","elements");
 await mkdir(path.dirname(dataTarget),{recursive:true});
@@ -97,5 +102,5 @@ await mkdir(assetTarget,{recursive:true});
 await writeFile(dataTarget,JSON.stringify(output));
 for(const definition of definitions)await copyFile(path.join(sourceRoot,"element-icons",`${String(definition.icon).padStart(2,"0")}.webp`),path.join(assetTarget,`${definition.slug}.webp`));
 await mkdir(path.join(root,"private","provenance"),{recursive:true});
-await writeFile(path.join(root,"private","provenance","elements.json"),JSON.stringify({schema:1,gameBuild,generatedAt,sourceType:"installed-game files and official in-game UI chart",sourcePaths:{uiCommon:path.relative(root,path.join(sourceRoot,"ui-common.raw.json")),palParameters:path.relative(root,path.join(sourceRoot,"pal-parameters.raw.json")),chart:path.relative(root,path.join(sourceRoot,"element-matchup-chart.webp")),icons:path.relative(root,path.join(sourceRoot,"element-icons")),manifest:path.relative(root,path.join(sourceRoot,"element-manifest.json"))},hashes:{uiCommon:sha256(uiBytes),palParameters:sha256(palBytes),chart:sha256(chartBytes),manifest:sha256(manifestBytes)},mappingHash:manifest.mappingHash,verification:{officialNames:9,officialIcons:9,qualitativeRelations:9,publicPals:299,numericMultipliers:false,dualElementRule:false}},null,2));
-console.log(`Imported ${elements.length} elements, ${relations.length} qualitative relationships and element assignments for ${publicPals.length} Pals.`);
+await writeFile(path.join(root,"private","provenance","elements.json"),JSON.stringify({schema:2,gameBuild,generatedAt,sourceType:"installed-game files, official in-game UI chart, and isolated dedicated-server runtime",sourcePaths:{uiCommon:path.relative(root,path.join(sourceRoot,"ui-common.raw.json")),palParameters:path.relative(root,path.join(sourceRoot,"pal-parameters.raw.json")),chart:path.relative(root,path.join(sourceRoot,"element-matchup-chart.webp")),icons:path.relative(root,path.join(sourceRoot,"element-icons")),manifest:path.relative(root,path.join(sourceRoot,"element-manifest.json")),runtimeReport:path.relative(root,runtimeReportPath)},hashes:{uiCommon:sha256(uiBytes),palParameters:sha256(palBytes),chart:sha256(chartBytes),manifest:sha256(manifestBytes),runtimeReport:sha256(runtimeReportBytes)},mappingHash:manifest.mappingHash,verification:{officialNames:9,officialIcons:9,qualitativeRelations:9,publicPals:299,runtimeSessions:runtimeReport.coverage.sessions,runtimeLookupCases:runtimeReport.coverage.lookupCases,runtimeAggregationCases:runtimeReport.coverage.aggregationCases,numericMultipliers:true,dualElementRule:true}},null,2));
+console.log(`Imported ${elements.length} elements, ${relations.length} relationships, verified numeric rules, and element assignments for ${publicPals.length} Pals.`);

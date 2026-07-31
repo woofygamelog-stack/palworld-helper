@@ -5,6 +5,8 @@ export type ElementMatchupRelation={attacker:string;defender:string};
 export type NumericElementMultipliers=Record<ElementOutcome,number>;
 export type DualElementCombinationRule={
   operation:"sum-relation-scores";
+  sameElementResistance:"all-except-neutral";
+  neutralAttackIsNeverWeak:true;
   multipliersByWeakCount:Record<`${ElementWeakCount}`,number>;
 };
 export type ElementMatchupRules={
@@ -28,6 +30,8 @@ export type ElementMatchupEvaluation={
 
 export function qualitativeElementOutcome(attacker:string,defender:string,relations:readonly ElementMatchupRelation[]):ElementOutcome{
   if(relations.some(relation=>relation.attacker===attacker&&relation.defender===defender))return "strong";
+  if(attacker==="neutral")return "neutral";
+  if(attacker===defender&&attacker!=="neutral")return "weak";
   if(relations.some(relation=>relation.attacker===defender&&relation.defender===attacker))return "weak";
   return "neutral";
 }
@@ -48,7 +52,7 @@ export function evaluateElementMatchup(attacker:string,defenders:readonly string
   const weakCount=components.reduce<number>((total,component)=>total+outcomeScore(component.outcome),0) as ElementWeakCount;
   if(rules.numericMultipliers&&rules.dualElement){
     const lookup=rules.dualElement.multipliersByWeakCount;
-    if(lookup["-1"]!==rules.numericMultipliers.weak||lookup["0"]!==rules.numericMultipliers.neutral||lookup["1"]!==rules.numericMultipliers.strong){
+    if(rules.dualElement.sameElementResistance!=="all-except-neutral"||rules.dualElement.neutralAttackIsNeverWeak!==true||lookup["-1"]!==rules.numericMultipliers.weak||lookup["0"]!==rules.numericMultipliers.neutral||lookup["1"]!==rules.numericMultipliers.strong){
       throw new Error("Single-element multipliers must agree with the dual-element weakCount lookup");
     }
   }

@@ -87,6 +87,8 @@ export function analyzeGetWeakScaleAsset(asset){
 
 export function qualitativeOutcome(attacker,defender,relations){
   if(relations.some(value=>value.attacker===attacker&&value.defender===defender))return "strong";
+  if(attacker==="neutral")return "neutral";
+  if(attacker===defender&&attacker!=="neutral")return "weak";
   if(relations.some(value=>value.attacker===defender&&value.defender===attacker))return "weak";
   return "neutral";
 }
