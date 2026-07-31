@@ -17,9 +17,12 @@ import {calculateWeakCount,extractNumericLiterals,multiplierForWeakCount,qualita
 import {parseSteamAppManifest} from "../scripts/detect-palworld-build.mjs";
 import {validateElementDamageRuntime} from "../scripts/element-damage-runtime-validation.mjs";
 import { buildIndexableGroups, buildPrerenderEntries, productionOrigin, renderHtmlDocument, renderRouteModel } from "../scripts/seo-static.mjs";
+import {buildCraftPlan,planBaseTeam} from "../src/planning.ts";
+import {plannerCopy,plannerCopyProvenance} from "../src/planner-i18n.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
+const planning = await readFile("src/planning.ts", "utf8");
 const featureStyles = await readFile("src/features.css", "utf8");
 const styles = await readFile("src/styles.css", "utf8");
 const config = await readFile("src/config.ts", "utf8");
@@ -106,6 +109,7 @@ assert.match(routeManifest,/prefix:"database\/structures".*dataset:"structures".
 assert.match(routeManifest,/path:"database\/expeditions".*mode:"prerendered".*indexable:true/,"Pal Expedition collection must be an implemented indexable prerendered route");
 assert.match(routeManifest,/prefix:"database\/expeditions".*dataset:"expeditions".*prerender:"all"/,"Every verified Pal Expedition detail must receive initial HTML");
 assert.match(routeManifest,/path:"database\/quests".*mode:"prerendered".*indexable:true.*quest-catalog/,"Quest collection must be an implemented indexable prerendered route");
+assert.match(routeManifest,/path:"calculators\/base".*mode:"hybrid".*indexable:true.*base-team-planner/,"Base team planner must be an implemented indexable route");
 assert.match(routeManifest,/prefix:"database\/quests".*dataset:"quests".*prerender:"priority".*priorityLimit:5/,"Quest details must use a deterministic high-value priority prerender policy");
 assert.ok(routeFamilies.every(family=>family.indexable&&family.searchIntent),"every collection route must declare its indexability and search intent");
 assert.ok(entityRouteFamilies.every(family=>family.sitemap&&family.searchIntent&&["all","priority"].includes(family.prerender)),"every entity family must declare one sitemap and deterministic prerender policy");
@@ -309,9 +313,9 @@ assert.equal(seoHreflang("es-419"),"es","Latin American Spanish must keep its ro
 assert.ok(indexableGroups.pals.every(url=>/^https:\/\/palworld-helper\.woofy\.blog\/[a-z]{2}(?:-[A-Z0-9]+)?\/pals\/\d{3,}b?-[a-z0-9-]+$/.test(url)),"Pal sitemap URLs must use Paldeck-based public slugs");
 const rawSeoIds=new Set([...palData.pals,...itemData.items,...skillData.activeSkills,...skillData.passiveSkills,...skillData.partnerSkills].map(entity=>entity.id));
 assert.ok(!Object.values(indexableGroups).flat().some(url=>rawSeoIds.has(decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).at(-1)||""))),"Sitemaps must not expose raw game-object IDs");
-assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73100,"typed SEO groups must enumerate every implemented localized URL");
+assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73117,"typed SEO groups must enumerate every implemented localized URL");
 assert.deepEqual(Object.fromEntries(Object.entries(prerenderSelection).map(([key,value])=>[key,value.length])),{pals:299,items:100,activeSkills:40,passiveSkills:30,partnerSkills:30,npcs:164,dungeons:28,technologies:20,structures:5,conditions:7,expeditions:18,quests:5},"hybrid prerender selection must retain its deterministic family limits");
-assert.equal(prerenderEntries.length,13022,"collection and priority detail prerenders must remain inside the deployment budget");
+assert.equal(prerenderEntries.length,13039,"collection and priority detail prerenders must remain inside the deployment budget");
 const koreanElementEntry=prerenderEntries.find(entry=>entry.locale==="ko-KR"&&entry.kind==="collection"&&entry.route==="database/elements"),koreanElementHtml=renderHtmlDocument(indexHtml,koreanElementEntry,renderRouteModel(koreanElementEntry,seoData,prerenderSelection));
 assert.match(koreanElementHtml,/속성 상성.*속성 상성 흐름도.*data-element-node="fire".*화염 속성.*data-element-relation="fire&gt;grass".*풀 속성/s,"Element initial HTML must contain the localized original graph and official element names");
 assert.equal((koreanElementHtml.match(/data-element-relation=/g)||[]).length,9,"Element initial HTML must expose each verified relationship once in the accessible list");
@@ -579,6 +583,27 @@ assert.throws(()=>expandRecipe("A",1,{A:{id:"A",output:1,ingredients:{B:1}},B:{i
 assert.throws(()=>expandRecipe("A",0,convergingRecipes),/Invalid recipe target or quantity/,"zero target quantity must be rejected");
 assert.throws(()=>expandRecipe("A",1,{A:{id:"A",output:0,ingredients:{E:1}}}),/Invalid recipe output/,"non-positive recipe output must be rejected");
 assert.match(main,/totals\.get\(recipe\.productId\).*number.*totals\.get\(recipe\.productId\)/,"recipe selector must distinguish multiple recipe rows without exposing recipe IDs");
+const multiRecipes=[
+  {id:"a",productId:"A",output:1,workAmount:5,ingredients:[{itemId:"B",count:1},{itemId:"C",count:1}]},
+  {id:"b",productId:"B",output:1,workAmount:3,ingredients:[{itemId:"D",count:1}]},
+  {id:"c",productId:"C",output:1,workAmount:3,ingredients:[{itemId:"D",count:1}]},
+  {id:"d",productId:"D",output:2,workAmount:2,ingredients:[{itemId:"E",count:1}]}
+];
+assert.deepEqual(buildCraftPlan([{recipeId:"a",quantity:1}],multiRecipes).demand,{E:1},"multi-target planner must aggregate converging demand before process rounding");
+assert.deepEqual(buildCraftPlan([{recipeId:"a",quantity:1}],multiRecipes,{D:1}).demand,{E:1},"multi-target planner must consume owned intermediate stock once after convergence");
+const ambiguousRecipes=[...multiRecipes,{id:"b-alt",productId:"B",output:1,workAmount:1,ingredients:[{itemId:"F",count:2}]}];
+const stoppedPlan=buildCraftPlan([{recipeId:"a",quantity:1}],ambiguousRecipes);
+assert.deepEqual(stoppedPlan.ambiguous,["B"],"multi-target planner must expose ambiguous intermediate recipes");
+assert.equal(stoppedPlan.demand.B,1,"multi-target planner must stop at an ambiguous recipe boundary");
+assert.deepEqual(buildCraftPlan([{recipeId:"a",quantity:1}],ambiguousRecipes,{}, {B:"b-alt"}).demand,{E:1,F:2},"an explicit intermediate recipe choice may resume expansion");
+assert.throws(()=>buildCraftPlan([{recipeId:"b",quantity:1},{recipeId:"b-alt",quantity:1}],ambiguousRecipes),/Conflicting recipes/,"the planner must not combine conflicting recipes for one product");
+const baseTeam=planBaseTeam([{id:"one",nocturnal:false,work:{A:3,B:2}},{id:"two",nocturnal:false,work:{C:2}},{id:"three",nocturnal:true,work:{A:1,C:1}}],{A:2,B:1,C:2},3);
+assert.deepEqual(baseTeam.team,["one","two"],"base planner must find a smallest complete coverage team");
+assert.deepEqual(baseTeam.uncovered,[],"base planner must report complete role coverage");
+assert.deepEqual(planBaseTeam([{id:"one",nocturnal:false,work:{A:3}}],{A:1,B:1},1).uncovered,["B"],"base planner must report roles that cannot be covered within the limit");
+assert.equal(plannerCopyProvenance,"gpt","planner explanatory translations must record their provenance");
+assert.deepEqual(Object.keys(plannerCopy).sort(),[...supportedLocales].sort(),"planner copy must cover every official interface locale");
+assert.ok(Object.values(plannerCopy).every(copy=>Object.values(copy).every(value=>value.trim())),"planner copy must not contain empty localized strings");
 const productRecipeCounts=new Map();
 for(const recipe of itemData.recipes)productRecipeCounts.set(recipe.productId,(productRecipeCounts.get(recipe.productId)||0)+1);
 const selectedMega=itemData.recipes.find(recipe=>recipe.id==="PalSphere_Mega");
@@ -586,7 +611,9 @@ const unambiguousRecipes=Object.fromEntries(itemData.recipes.filter(recipe=>prod
 unambiguousRecipes[selectedMega.productId]={id:selectedMega.id,output:selectedMega.output,ingredients:Object.fromEntries(selectedMega.ingredients.map(i=>[i.itemId,i.count]))};
 assert.deepEqual(expandRecipe("PalSphere_Mega",1,unambiguousRecipes),{CopperOre:2,Pal_crystal_S:1,Stone:3,Wood:3},"Mega Sphere expanded BOM must match verified recipes while stopping at ambiguous recipe boundaries");
 assert.deepEqual(expandRecipe("PalSphere_Mega",10,unambiguousRecipes,{Wood:10,Stone:10,CopperIngot:2}),{CopperOre:16,Pal_crystal_S:10,Stone:20,Wood:20},"Mega Sphere owned-material golden case must consume stock once and expand the remainder");
-assert.match(main,/recipeCounts\.get\(recipe\.productId\)===1/,"recursive crafting must not guess among ambiguous intermediate recipes");
+assert.match(planning,/if\(list\.length===1&&!selected\.has\(productId\)\)/,"recursive crafting must not guess among ambiguous intermediate recipes");
+assert.match(main,/data-owned-item.*allItemOptions/s,"owned inventory must use localized item choices instead of raw internal-ID entry");
+assert.doesNotMatch(main,/Wood=10|<code>\$\{esc\(selected\.id\)/,"crafting UI must not expose raw recipe or item IDs");
 assert.match(main,/function enhancePalSelect/,"breeding Pal selectors must use an image-capable searchable combobox");
 assert.match(main,/class=\"pair-card\"/,"reverse breeding results must render image-capable Pal pair cards");
 assert.match(featureStyles,/\.pair-list>\.pair-card-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,20rem\),1fr\)\)/,"reverse-breeding cards must override the legacy child grid with a readable responsive minimum width");

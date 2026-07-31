@@ -10,6 +10,7 @@ export const routeFamilies = [
   {path:"calculators",mode:"hybrid",indexable:true,searchIntent:"calculator-overview"},
   {path:"calculators/breeding",mode:"hybrid",indexable:true,searchIntent:"breeding-calculator"},
   {path:"calculators/crafting",mode:"hybrid",indexable:true,searchIntent:"crafting-calculator"},
+  {path:"calculators/base",mode:"hybrid",indexable:true,searchIntent:"base-team-planner"},
   {path:"database",mode:"hybrid",indexable:true,searchIntent:"item-catalog"},
   {path:"database/quests",mode:"prerendered",indexable:true,searchIntent:"quest-catalog"},
   {path:"database/structures",mode:"hybrid",indexable:true,searchIntent:"structure-catalog"},
