@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { dungeonPublicDefinitions, sourceLocaleToSiteLocale } from "./dungeon-public-config.mjs";
 
-const root=process.cwd(),gameBuild=process.env.PAL_GAME_BUILD||"24181527";
-const dungeonSource=process.env.PAL_DUNGEON_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-dungeons-v3`);
-const mapSource=process.env.PAL_MAP_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-map-refresh`);
+const root=process.cwd(),gameBuild=process.env.PAL_GAME_BUILD||"24467282";
+const dungeonSource=process.env.PAL_DUNGEON_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-dungeons`);
+const mapSource=process.env.PAL_MAP_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}`);
 const actorSource=process.env.PAL_ACTOR_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-map-actor-chunks-v2`);
 const outputPath=path.join(root,"public","data","dungeons.json");
 const read=(directory,name)=>JSON.parse(fs.readFileSync(path.join(directory,name),"utf8"));

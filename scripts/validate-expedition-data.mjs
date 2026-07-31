@@ -7,7 +7,7 @@ const elementData=JSON.parse(fs.readFileSync("public/data/elements.json","utf8")
 const structureData=JSON.parse(fs.readFileSync("public/data/structures.json","utf8"));
 const technologyData=JSON.parse(fs.readFileSync("public/data/technology.json","utf8"));
 const locales=["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
-if(data.meta.schema!==1||data.meta.gameBuild!=="24181527"||data.meta.verification!=="game-files")fail("metadata baseline");
+if(data.meta.schema!==1||data.meta.gameBuild!=="24467282"||data.meta.verification!=="game-files")fail("metadata baseline");
 if(data.meta.localeCount!==17||data.meta.expeditionCount!==18||data.meta.standardCount!==9||data.meta.hardCount!==9)fail("entity counts");
 if(data.meta.rewardRowCount!==279||data.meta.uniqueRewardItemCount!==75||data.meta.rewardContentsVerified!==true||data.meta.rewardQuantitiesVerified!==true||data.meta.probabilitiesVerified!==false||data.meta.durationFormulaVerified!==false)fail("verification boundary");
 if(data.meta.imageProvenance.direct!==9||data.meta.imageProvenance.sharedAssignments!==18||data.meta.imageProvenance.missing!==0)fail("image coverage");

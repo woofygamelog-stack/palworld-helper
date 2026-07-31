@@ -393,6 +393,7 @@ object DumpWorkerEventClassDefaults()
 
 if (mode == "quest")
 {
+    const string questManagerClassPath = "Pal/Content/Pal/Blueprint/System/BP_PalQuestManager.BP_PalQuestManager_C";
     var questAssets = provider.Files.Keys
         .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
         .Where(path => path.Contains("Quest", StringComparison.OrdinalIgnoreCase))
@@ -445,6 +446,17 @@ if (mode == "quest")
             questBlockClassErrors[classPath] = error.Message;
         }
     }
+    object questManagerDefaults;
+    string? questManagerError = null;
+    try
+    {
+        questManagerDefaults = DumpClassDefaults(questManagerClassPath);
+    }
+    catch (Exception error)
+    {
+        questManagerDefaults = new { };
+        questManagerError = error.Message;
+    }
     Write("quests.raw.json", questRows);
     Write("quest-locations.raw.json", questLocationRows);
     Write("quest-class-defaults.raw.json", new
@@ -463,13 +475,19 @@ if (mode == "quest")
         classes = questBlockClasses,
         errors = questBlockClassErrors
     });
+    Write("quest-manager-defaults.raw.json", new
+    {
+        classPath = questManagerClassPath,
+        defaults = questManagerDefaults,
+        error = questManagerError
+    });
     Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
     Write("npc-talk-text.raw.json", DumpLocalizedTextFamily("DT_NpcTalkText_Common", "Pal/Content/Pal/DataTable/Text/DT_NpcTalkText"));
     Write("quest-data-assets.raw.json", questAssets);
     Write("quest-tables.raw.json", DumpCandidateDataTables(questTables));
     Write("quest-manifest.json", new
     {
-        schema = 1,
+        schema = 2,
         mode,
         extractedAt = DateTimeOffset.UtcNow,
         mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings))),
@@ -486,9 +504,11 @@ if (mode == "quest")
         questClassFailureCount = questClassErrors.Count,
         questBlockClassCount = questBlockClasses.Count,
         questBlockClassFailureCount = questBlockClassErrors.Count,
+        questManagerClassPath,
+        questManagerFailureCount = questManagerError is null ? 0 : 1,
         localeCount = 17
     });
-    Console.WriteLine($"Extracted {questRows.Count} quest rows, {questLocationRows.Count} quest location rows, {questClasses.Count} quest class defaults, {questBlockClasses.Count} quest block defaults, and official text for 17 locales to {output}");
+    Console.WriteLine($"Extracted {questRows.Count} quest rows, {questLocationRows.Count} quest location rows, {questClasses.Count} quest class defaults, {questBlockClasses.Count} quest block defaults, the quest manager defaults, and official text for 17 locales to {output}");
     return 0;
 }
 

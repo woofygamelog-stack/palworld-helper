@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import {fileURLToPath} from "node:url";
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
-const gameBuild=process.env.PAL_GAME_BUILD||"24181527";
+const gameBuild=process.env.PAL_GAME_BUILD||"24467282";
 const source=path.resolve(process.env.PAL_EXPEDITION_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-expeditions`));
 const outputFile=path.join(root,"public","data","expeditions.json");
 const outputImageDirectory=path.join(root,"public","assets","expeditions");

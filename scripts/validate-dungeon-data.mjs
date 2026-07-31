@@ -6,7 +6,7 @@ const items=JSON.parse(fs.readFileSync("public/data/items.json","utf8"));
 const maps=JSON.parse(fs.readFileSync("public/data/map-markers.json","utf8"));
 const fail=message=>{throw new Error(`Dungeon validation failed: ${message}`)};
 const expectedLocales=["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
-if(data.meta.schema!==3||data.meta.gameBuild!=="24181527"||data.meta.verification!=="game-files")fail("metadata mismatch");
+if(data.meta.schema!==3||data.meta.gameBuild!=="24467282"||data.meta.verification!=="game-files")fail("metadata mismatch");
 if(data.meta.localeCount!==expectedLocales.length||data.meta.dungeonCount!==28||data.meta.fixedCount!==18||data.meta.rotatingCount!==10||data.meta.entranceCount!==31||data.meta.rewardSourceCount!==79||data.meta.rewardItemCandidateCount!==819)fail("build-specific count drift");
 if(data.meta.probabilitiesVerified!==false||data.meta.resourcesVerified!==false||data.meta.rewardSourcesVerified!==true||data.meta.rewardContentsVerified!==false)fail("Dungeon verification boundaries are inconsistent");
 if(data.dungeons.length!==data.meta.dungeonCount)fail("dungeon count mismatch");

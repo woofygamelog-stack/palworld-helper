@@ -1,7 +1,7 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const root=process.cwd(),source=process.env.PAL_DATA_SOURCE||path.join(root,"private","palcalc-source"),extracted=process.env.PAL_EXTRACTED_SOURCE||path.join(root,"private","extracted","build-24181527-refresh7"),gameBuild=process.env.PAL_GAME_BUILD||"24181527";
+const root=process.cwd(),gameBuild=process.env.PAL_GAME_BUILD||"24467282",source=process.env.PAL_DATA_SOURCE||path.join(root,"private","palcalc-source"),extracted=process.env.PAL_EXTRACTED_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}`);
 const db=JSON.parse(await readFile(path.join(source,"PalCalc.Model","db.json"),"utf8"));
 const localeMap={de:"de-DE",en:"en-US","es-MX":"es-419",es:"es-ES",fr:"fr-FR",id:"id-ID",it:"it-IT",ko:"ko-KR",pl:"pl-PL","pt-BR":"pt-BR",ru:"ru-RU",th:"th-TH",tr:"tr-TR",vi:"vi-VN","zh-Hans":"zh-CN","zh-Hant":"zh-TW",ja:"ja-JP"};
 const localized=value=>Object.fromEntries(Object.entries(localeMap).map(([from,to])=>[to,value?.[from]||value?.en||""]));

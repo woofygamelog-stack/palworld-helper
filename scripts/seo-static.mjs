@@ -8,6 +8,7 @@ import {elementCopy} from "../src/element-i18n.ts";
 import {renderElementMatchupGraph} from "../src/element-graph.ts";
 import {structureCopy} from "../src/structure-i18n.ts";
 import {expeditionCopy} from "../src/expedition-i18n.ts";
+import {questCopy} from "../src/quest-i18n.ts";
 import {partnerLabel,passiveUiLabels,skillLabels} from "../src/skill-i18n.ts";
 import {collectionRoutes,entityRouteFamilies,routeFamilies,seoHreflang,shellNavigation,supportedLocales} from "../src/route-manifest.ts";
 import {activeSkillOwner,assertPublicSlugRegistry,createPublicSlugRegistry,publicSlug} from "../src/public-slugs.ts";
@@ -49,12 +50,12 @@ export function createSeoSlugRegistry({palData,itemData,skillData}){
 
 const publicEntitySlug=(dataset,entity,registry)=>registry.byId[dataset]?publicSlug(registry,dataset,entity.id):entity.slug;
 
-export function createEntityDatasets({palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,structureData,expeditionData}){
-  return {pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills,npcs:npcData.npcs,dungeons:dungeonData.dungeons,technologies:technologyData.technologies,structures:structureData.structures,conditions:healthData.conditions,expeditions:expeditionData.expeditions};
+export function createEntityDatasets({palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,structureData,expeditionData,questData}){
+  return {pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills,npcs:npcData.npcs,dungeons:dungeonData.dungeons,technologies:technologyData.technologies,structures:structureData.structures,conditions:healthData.conditions,expeditions:expeditionData.expeditions,quests:questData.quests};
 }
 
-function relationScores({palData,itemData,skillData,npcData,dungeonData,technologyData,structureData,expeditionData}){
-  const item=new Map(),active=new Map(),passive=new Map(),partner=new Map(),technology=new Map(),structure=new Map();
+function relationScores({palData,itemData,skillData,npcData,dungeonData,technologyData,structureData,expeditionData,questData}){
+  const item=new Map(),active=new Map(),passive=new Map(),partner=new Map(),technology=new Map(),structure=new Map(),quest=new Map();
   for(const recipe of itemData.recipes){addCount(item,recipe.productId,14);for(const ingredient of recipe.ingredients)addCount(item,ingredient.itemId,4)}
   for(const drop of itemData.drops)addCount(item,drop.itemId,8);
   for(const dungeon of dungeonData.dungeons){
@@ -62,6 +63,7 @@ function relationScores({palData,itemData,skillData,npcData,dungeonData,technolo
     for(const candidate of pools.flatMap(pool=>pool.slots.flatMap(slot=>slot.candidates)))addCount(item,candidate.itemId,10);
   }
   for(const expedition of expeditionData.expeditions)for(const candidate of expedition.rewardSlots.flatMap(slot=>slot.candidates))addCount(item,candidate.itemId,10);
+  for(const entry of questData.quests){for(const reward of entry.rewards.items)addCount(item,reward.itemId,10);addCount(quest,entry.slug,(entry.kind==="main"?40:0)+entry.objectiveGroups.reduce((sum,group)=>sum+group.steps.length,0)*8+entry.rewards.items.length*4+(entry.previousSlugs.length+entry.nextSlugs.length)*2)}
   for(const npc of npcData.npcs){
     const offers=npc.merchant?.type==="items"?(npc.merchant.offers||[]):npc.merchant?.type==="item-profiles"?npc.merchant.profiles.flatMap(profile=>profile.offers||[]):[];
     for(const offer of offers)addCount(item,offer.itemId,6);
@@ -73,7 +75,7 @@ function relationScores({palData,itemData,skillData,npcData,dungeonData,technolo
   for(const skill of skillData.partnerSkills)addCount(partner,skill.id,12);
   for(const entry of technologyData.technologies){addCount(technology,entry.slug,entry.unlocks.length*3+entry.dependents.length*8+(entry.prerequisite?10:0)+(entry.towerBossRequired?8:0)+(entry.labResearch?12:0));if(entry.prerequisite)addCount(technology,entry.prerequisite.slug,12)}
   for(const entry of structureData.structures)addCount(structure,entry.slug,entry.materials.length*3+entry.technologies.length*10+(entry.production?20:0)+(entry.energy?5:0));
-  return {items:item,activeSkills:active,passiveSkills:passive,partnerSkills:partner,technologies:technology,structures:structure};
+  return {items:item,activeSkills:active,passiveSkills:passive,partnerSkills:partner,technologies:technology,structures:structure,quests:quest};
 }
 
 export function selectPrerenderEntities(data){
@@ -130,15 +132,16 @@ function pageStructuredData({origin,locale,route,title,description,type,parent})
 }
 
 function collectionModel(route,locale,data,selection,registry){
-  const {palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData}=data,m=messages(locale),skills=skillLabels[locale],dungeons=dungeonCopy[locale],npcs=npcCopy[locale],technology=technologyCopy[locale],structures=structureCopy[locale],health=healthCopy[locale],elementsCopy=elementCopy[locale],expeditions=expeditionCopy[locale];
+  const {palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData}=data,m=messages(locale),skills=skillLabels[locale],dungeons=dungeonCopy[locale],npcs=npcCopy[locale],technology=technologyCopy[locale],structures=structureCopy[locale],health=healthCopy[locale],elementsCopy=elementCopy[locale],expeditions=expeditionCopy[locale],quests=questCopy[locale];
   let title,description,links=[],type="CollectionPage";
-  if(route===""){title=m.hero;description=m.tagline;type="WebSite";links=[{href:href(locale,"pals"),label:m.palDex},{href:href(locale,"calculators/breeding"),label:m.breeding},{href:href(locale,"database"),label:m.itemDatabase},{href:href(locale,"database/structures"),label:structures.title},{href:href(locale,"database/expeditions"),label:expeditions.title},{href:href(locale,"database/elements"),label:elementsCopy.title},{href:href(locale,"database/technology"),label:technology.title},{href:href(locale,"database/dungeons"),label:dungeons.title}]}
+  if(route===""){title=m.hero;description=m.tagline;type="WebSite";links=[{href:href(locale,"pals"),label:m.palDex},{href:href(locale,"calculators/breeding"),label:m.breeding},{href:href(locale,"database"),label:m.itemDatabase},{href:href(locale,"database/quests"),label:quests.title},{href:href(locale,"database/structures"),label:structures.title},{href:href(locale,"database/expeditions"),label:expeditions.title},{href:href(locale,"database/elements"),label:elementsCopy.title},{href:href(locale,"database/technology"),label:technology.title},{href:href(locale,"database/dungeons"),label:dungeons.title}]}
   else if(route==="map"){({title,body:description}=mapSeoCopy[locale]);type="WebApplication";links=[{href:href(locale,"pals"),label:m.palDex},{href:href(locale,"database/dungeons"),label:dungeons.title},{href:href(locale,"database/npcs"),label:npcs.catalogTitle}]}
   else if(route==="pals"){title=m.palDex;description=`${m.palDex}. ${m.tagline}`;links=[...palData.pals].sort((a,b)=>a.dex-b.dex||Number(a.variant)-Number(b.variant)||a.id.localeCompare(b.id)).map(pal=>({href:href(locale,`pals/${encodeURIComponent(pal.id)}`),label:`#${pal.dex}${pal.variant?"B":""} ${localized(pal,locale)}`,image:`/assets/pals/${encodeURIComponent(pal.id)}.png`}))}
   else if(route==="skills"||route.startsWith("skills/")){const group=route.split("/")[1];title=group==="active"?skills.active:group==="passive"?skills.passive:group==="partner"?partnerLabel[locale]:skills.title;description=[skills.active,skills.passive,partnerLabel[locale]].join(" · ");const datasets=group==="active"?["activeSkills"]:group==="passive"?["passiveSkills"]:group==="partner"?["partnerSkills"]:["activeSkills","passiveSkills","partnerSkills"];links=datasets.flatMap(dataset=>selection[dataset].map(entity=>({href:href(locale,`${dataset==="activeSkills"?"skills/active":dataset==="passiveSkills"?"skills/passive":"skills/partner"}/${encodeURIComponent(entity.id)}`),label:localized(entity,locale)||localized(palData.pals.find(pal=>pal.id===entity.palId),locale)})))}
   else if(route==="calculators"||route==="calculators/breeding"){title=route==="calculators"?m.calculators:m.breeding;description=m.breedingBody;type="WebApplication";links=[{href:href(locale,"pals"),label:m.palDex},{href:href(locale,"calculators/crafting"),label:m.crafting}]}
   else if(route==="calculators/crafting"){title=m.crafting;description=m.craftingBody;type="WebApplication";links=selection.items.map(item=>({href:href(locale,`items/${encodeURIComponent(item.id)}`),label:localized(item,locale),image:`/assets/items/${encodeURIComponent(item.id)}.webp`}))}
   else if(route==="database"){title=m.itemDatabase;description=m.itemDatabaseBody;links=selection.items.map(item=>({href:href(locale,`items/${encodeURIComponent(item.id)}`),label:localized(item,locale),image:`/assets/items/${encodeURIComponent(item.id)}.webp`,detail:itemCategoryLabel(item.type,locale)}))}
+  else if(route==="database/quests"){title=quests.title;description=quests.intro;links=[...questData.quests].sort((a,b)=>a.kind.localeCompare(b.kind)||a.order-b.order||a.slug.localeCompare(b.slug)).map(entry=>({href:href(locale,`database/quests/${entry.slug}`),label:localized(entry,locale),detail:`${entry.kind==="main"?quests.main:quests.side} · ${quests.sequence} ${(entry.order+1).toLocaleString(locale)} · ${quests.experience} ${entry.rewards.experience.toLocaleString(locale)}`}))}
   else if(route==="database/structures"){title=structures.title;description=structures.intro;links=selection.structures.map(entry=>({href:href(locale,`database/structures/${entry.slug}`),label:localized(entry,locale),detail:`${localized(entry.category,locale)} · ${structures.level} ${[...entry.technologies].sort((a,b)=>a.level-b.level)[0].level.toLocaleString(locale)}`}))}
   else if(route==="database/expeditions"){title=expeditions.title;description=expeditions.intro;links=[...expeditionData.expeditions].sort((a,b)=>a.order-b.order||a.slug.localeCompare(b.slug)).map(entry=>({href:href(locale,`database/expeditions/${entry.slug}`),label:localized(entry,locale),image:entry.image,detail:`${entry.variant==="hard"?expeditions.hardVariant:expeditions.standard} · ${expeditions.recommendedStrength} ${entry.recommendedStrength.toLocaleString(locale)} · ${expeditions.possibleRewards} ${entry.summary.uniqueRewardItemCount.toLocaleString(locale)}`}))}
   else if(route==="database/elements"){title=elementsCopy.title;description=elementsCopy.intro;const bySlug=new Map(elementData.elements.map(element=>[element.slug,element]));links=elementData.relations.map(relation=>{const attacker=bySlug.get(relation.attacker),defender=bySlug.get(relation.defender);return {href:`${href(locale,"database/elements")}?attack=${relation.attacker}&defend=${relation.defender}`,label:`${localized(attacker,locale)} → ${localized(defender,locale)}`,image:attacker?.icon,detail:elementsCopy.strong}})}
@@ -245,6 +248,16 @@ function expeditionModel(locale,expedition,data){
   return {title,description,body,type:"WebPage",parent:{route:"database/expeditions",label:copy.title}};
 }
 
+function questModel(locale,quest,data){
+  const m=messages(locale),copy=questCopy[locale],title=localized(quest,locale),description=localizedDescription(quest,locale)||copy.intro,items=new Map(data.itemData.items.map(item=>[item.id,item])),quests=new Map(data.questData.quests.map(entry=>[entry.slug,entry]));
+  const objectives=quest.objectiveGroups.length?quest.objectiveGroups.map((group,index)=>`<section class="quest-objective-group"><h3>${esc(`${copy.objectives} ${(index+1).toLocaleString(locale)}`)}</h3><ol>${group.steps.map(step=>`<li>${esc(step.texts[locale]||step.texts[defaultLocale])}</li>`).join("")}</ol></section>`).join(""):`<p class="notice">${esc(copy.noObjectives)}</p>`;
+  const rewardLinks=quest.rewards.items.map(reward=>{const item=items.get(reward.itemId);return item?{href:href(locale,`items/${encodeURIComponent(item.id)}`),label:localized(item,locale),image:`/assets/items/${encodeURIComponent(item.id)}.webp`,detail:`× ${reward.quantity.toLocaleString(locale)}`}:null});
+  const relation=(slugs,label)=>slugs.map(slug=>quests.get(slug)).filter(Boolean).map(entry=>({href:href(locale,`database/quests/${entry.slug}`),label:localized(entry,locale),detail:label}));
+  const previous=relation(quest.previousSlugs,copy.previous),next=relation(quest.nextSlugs,copy.next),facts=details([[quest.kind==="main"?copy.main:copy.side,`${copy.sequence} ${(quest.order+1).toLocaleString(locale)}`],[copy.experience,quest.rewards.experience.toLocaleString(locale)],[copy.items,quest.rewards.items.length.toLocaleString(locale)]]);
+  const body=`${hero(m,title)}<article class="quest-detail section"><div class="panel quest-detail-content">${breadcrumb(locale,"database/quests",copy.title,title)}<p class="entity-description">${esc(description)}</p>${facts}<section class="detail-section"><h2>${esc(copy.objectives)}</h2>${objectives}<p class="notice">${esc(copy.objectiveNotice)}</p></section><section class="detail-section"><h2>${esc(copy.rewards)}</h2>${relationLinks(rewardLinks)}${quest.rewards.additionalRewardStatus==="unavailable"?`<p class="notice warning">${esc(copy.additionalUnavailable)}</p>`:""}</section>${previous.length||next.length?`<section class="detail-section"><h2>${esc(copy.sequence)}</h2>${relationLinks([...previous,...next])}</section>`:""}<p><a class="button" href="${href(locale,"database/quests")}">${esc(copy.back)}</a></p></div></article>`;
+  return {title,description,body,type:"WebPage",parent:{route:"database/quests",label:copy.title}};
+}
+
 function healthConditionModel(locale,condition,data){
   const copy=healthCopy[locale],title=localized(condition,locale),description=localizedDescription(condition,locale),medicine=data.healthData.medicines.find(entry=>entry.slug===condition.medicine),medicineName=localized(medicine,locale);
   const ingredients=medicine.recipe.ingredients.map(ingredient=>`<li><a href="${href(locale,`items/${ingredient.itemId}`)}">${esc(localized(ingredient,locale))}</a> × ${ingredient.count.toLocaleString(locale)}</li>`).join("");
@@ -263,6 +276,7 @@ export function renderRouteModel(entry,data,selection,registry=createSeoSlugRegi
   if(entry.dataset==="technologies")return technologyModel(entry.locale,entry.entity);
   if(entry.dataset==="structures")return structureModel(entry.locale,entry.entity,data);
   if(entry.dataset==="expeditions")return expeditionModel(entry.locale,entry.entity,data);
+  if(entry.dataset==="quests")return questModel(entry.locale,entry.entity,data);
   if(entry.dataset==="conditions")return healthConditionModel(entry.locale,entry.entity,data);
   return dungeonModel(entry.locale,entry.entity,data);
 }

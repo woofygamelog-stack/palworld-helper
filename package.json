@@ -23,6 +23,7 @@
     "data:import:structures": "node scripts/import-structure-data.mjs",
     "data:import:expeditions": "node scripts/import-expedition-data.mjs",
     "data:import:health": "node scripts/import-health-data.mjs",
+    "data:import:quests": "node scripts/import-quest-data.mjs",
     "data:import:elements": "node scripts/import-element-data.mjs",
     "data:verify:element-damage-source": "node scripts/verify-element-damage-source.mjs",
     "data:plan:element-damage-runtime": "node scripts/generate-element-damage-test-plan.mjs",

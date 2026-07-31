@@ -3,8 +3,8 @@ import {copyFile,mkdir,readFile,writeFile} from "node:fs/promises";
 import path from "node:path";
 
 const root=process.cwd();
-const sourceRoot=process.env.PAL_ELEMENT_EXTRACTED_SOURCE||path.join(root,"private","extracted","build-24181527-elements");
-const gameBuild=process.env.PAL_GAME_BUILD||"24181527";
+const gameBuild=process.env.PAL_GAME_BUILD||"24467282";
+const sourceRoot=process.env.PAL_ELEMENT_EXTRACTED_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-elements`);
 const localeMap={de:"de-DE",en:"en-US","es-MX":"es-419",es:"es-ES",fr:"fr-FR",id:"id-ID",it:"it-IT",ko:"ko-KR",pl:"pl-PL","pt-BR":"pt-BR",ru:"ru-RU",th:"th-TH",tr:"tr-TR",vi:"vi-VN","zh-Hans":"zh-CN","zh-Hant":"zh-TW",ja:"ja-JP"};
 const definitions=[
   {source:"Normal",slug:"neutral",icon:0},
@@ -38,7 +38,7 @@ const [uiBytes,palBytes,skillBytes,manifestBytes,chartBytes]=await Promise.all([
 ]);
 const ui=JSON.parse(uiBytes.toString("utf8")),palParameters=JSON.parse(palBytes.toString("utf8")),skills=JSON.parse(skillBytes.toString("utf8")),manifest=JSON.parse(manifestBytes.toString("utf8"));
 const sha256=bytes=>createHash("sha256").update(bytes).digest("hex");
-if(gameBuild!=="24181527"||manifest.mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851")throw new Error("Element extraction does not match the verified build mapping");
+if(gameBuild!=="24467282"||manifest.mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851")throw new Error("Element extraction does not match the verified build mapping");
 if(manifest.localeCount!==17||manifest.elementIconCount!==9||sha256(chartBytes).toUpperCase()!=="93BC7116E59463E93FA92968B825F566CBF9F0D55006E6906DC4DCB39658CA52")throw new Error("Official element UI assets drifted from the verified extraction");
 const localizedName=source=>Object.fromEntries(Object.entries(localeMap).map(([from,to])=>{
   const value=ui[from]?.[`COMMON_ELEMENT_NAME_${source}`]||ui.en?.[`COMMON_ELEMENT_NAME_${source}`]||"";

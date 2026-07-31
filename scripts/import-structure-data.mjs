@@ -4,7 +4,7 @@ import path from "node:path";
 import sharp from "sharp";
 
 const root=process.cwd();
-const gameBuild=process.env.PAL_GAME_BUILD||"24181527";
+const gameBuild=process.env.PAL_GAME_BUILD||"24467282";
 const source=path.resolve(process.env.PAL_STRUCTURE_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-structures`));
 const outputFile=path.join(root,"public","data","structures.json");
 const outputImageDirectory=path.join(root,"public","assets","structures");
@@ -33,7 +33,7 @@ const itemData=JSON.parse(fs.readFileSync(path.join(root,"public","data","items.
 const palData=JSON.parse(fs.readFileSync(path.join(root,"public","data","pals.json"),"utf8"));
 const technologyData=JSON.parse(fs.readFileSync(path.join(root,"public","data","technology.json"),"utf8"));
 
-if(gameBuild!=="24181527"||itemData.meta.gameBuild!==gameBuild||palData.meta.gameBuild!==gameBuild||technologyData.meta.gameBuild!==gameBuild)throw new Error("Structure, item, Pal, and Technology data builds must match the accepted build 24181527.");
+if(gameBuild!=="24467282"||itemData.meta.gameBuild!==gameBuild||palData.meta.gameBuild!==gameBuild||technologyData.meta.gameBuild!==gameBuild)throw new Error("Structure, item, Pal, and Technology data builds must match the accepted current build.");
 if(extractionManifest.mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851")throw new Error("Structure extraction mapping hash is not the accepted build-compatible USMAP.");
 if(extractionManifest.technologyRowCount!==588||extractionManifest.buildObjectRowCount!==498||extractionManifest.linkedBuildObjectCount!==472||extractionManifest.structureIconCount!==472||extractionManifest.productRowCount!==16||extractionManifest.farmCropRowCount!==18||extractionManifest.assignRowCount!==271||extractionManifest.localeCount!==17)throw new Error("Structure extraction baseline drifted.");
 if(iconManifest.expectedStructureCount!==472||iconManifest.exportedCount!==472||iconManifest.failedCount!==0||Object.keys(iconManifest.errors).length!==0)throw new Error("Structure icon extraction baseline drifted.");

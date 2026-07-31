@@ -98,5 +98,24 @@ const vi:Messages = {
   itemDatabase:"Cơ sở dữ liệu vật phẩm",itemDatabaseBody:"Tìm các vật phẩm hợp lệ trong trò chơi bằng tên bản địa hóa chính thức và giá trị có phiên bản từ tệp trò chơi.",searchItems:"Tìm vật phẩm",openCrafting:"Mở công cụ tính chế tạo",rank:"Hạng",stack:"Xếp chồng tối đa",weight:"Trọng lượng",price:"Giá",crafting:"Công cụ tính chế tạo",craftingBody:"Tính vật liệu trực tiếp và vật liệu được khai triển đệ quy từ các công thức đã xác minh. Nếu một sản phẩm có nhiều công thức, ID hiển thị bên dưới sẽ được dùng.",product:"Sản phẩm",quantity:"Số lượng",chooseRecipe:"Chọn công thức",ownedMaterials:"Vật liệu đang có (tùy chọn): một ID nội bộ và số lượng trên mỗi dòng, ví dụ Wood=10.",workAmount:"Khối lượng công việc",directMaterials:"Vật liệu trực tiếp",expandedMaterials:"Vật liệu cuối cùng sau khi trừ kho"
 };
 export const messageCatalogs:Partial<Record<Locale,Messages>>={"en-US":en,"ko-KR":ko,"ja-JP":ja,"zh-CN":zhCN,"zh-TW":zhTW,"fr-FR":fr,"it-IT":it,"de-DE":de,"es-ES":esES,"es-419":es419,"pt-BR":ptBR,"id-ID":idID,"ru-RU":ru,"tr-TR":tr,"pl-PL":pl,"th-TH":th,"vi-VN":vi};
-export function messages(locale:Locale):Messages { return messageCatalogs[locale]||en; }
+const publicVerifiedBody:Record<Locale,string>={
+  "en-US":"299 Pal IDs and 44,851 breeding rows were checked against the current installed game files.",
+  "ko-KR":"팰 ID 299종과 교배 결과 44,851건을 현재 설치된 게임 파일과 대조했습니다.",
+  "ja-JP":"299件のパルIDと44,851件の配合データを、現在インストールされているゲームファイルと照合しました。",
+  "zh-CN":"已将299个帕鲁ID和44,851条配种数据与当前安装的游戏文件进行核对。",
+  "zh-TW":"已將299個帕魯ID和44,851筆配種資料與目前安裝的遊戲檔案進行核對。",
+  "fr-FR":"299 ID de Pals et 44 851 données de reproduction ont été vérifiés à partir des fichiers du jeu actuellement installés.",
+  "it-IT":"299 ID Pal e 44.851 dati di riproduzione sono stati verificati con i file di gioco attualmente installati.",
+  "de-DE":"299 Pal-IDs und 44.851 Zuchtdatensätze wurden mit den aktuell installierten Spieldateien abgeglichen.",
+  "es-ES":"Se cotejaron 299 ID de Pals y 44.851 datos de cría con los archivos del juego instalados actualmente.",
+  "pt-BR":"299 IDs de Pals e 44.851 dados de reprodução foram verificados com os arquivos do jogo instalados atualmente.",
+  "ru-RU":"299 идентификаторов Палов и 44 851 строк разведения сверены с установленными файлами игры.",
+  "id-ID":"299 ID Pal dan 44.851 data pengembangbiakan telah dicocokkan dengan file game yang terpasang saat ini.",
+  "es-419":"Se cotejaron 299 ID de Pals y 44,851 datos de crianza con los archivos del juego instalados actualmente.",
+  "th-TH":"ตรวจสอบ ID พัล 299 รายการและข้อมูลการผสมพันธุ์ 44,851 แถวกับไฟล์เกมที่ติดตั้งอยู่ในปัจจุบันแล้ว",
+  "tr-TR":"299 Pal kimliği ve 44.851 yetiştirme verisi, şu anda yüklü olan oyun dosyalarıyla karşılaştırıldı.",
+  "vi-VN":"299 ID Pal và 44.851 dữ liệu phối giống đã được đối chiếu với các tệp trò chơi hiện được cài đặt.",
+  "pl-PL":"299 identyfikatorów Pali i 44 851 rekordów hodowli sprawdzono na podstawie aktualnie zainstalowanych plików gry."
+};
+export function messages(locale:Locale):Messages { const catalog=messageCatalogs[locale]||en;return {...catalog,verifiedBody:publicVerifiedBody[locale]}; }
 export const translationProvenance:Record<Locale,"reviewed"|"gpt"|"fallback"> = {"en-US":"reviewed","ko-KR":"reviewed","ja-JP":"gpt","zh-CN":"gpt","zh-TW":"gpt","fr-FR":"gpt","it-IT":"gpt","de-DE":"gpt","es-ES":"gpt","pt-BR":"gpt","ru-RU":"gpt","id-ID":"gpt","es-419":"gpt","th-TH":"gpt","tr-TR":"gpt","vi-VN":"gpt","pl-PL":"gpt"};

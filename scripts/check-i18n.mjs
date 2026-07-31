@@ -10,6 +10,7 @@ import { elementCopy, elementCopyProvenance } from "../src/element-i18n.ts";
 import { elementMatchupCopy, elementMatchupCopyProvenance } from "../src/element-matchup-i18n.ts";
 import { structureCopy, structureCopyProvenance } from "../src/structure-i18n.ts";
 import { expeditionCopy, expeditionCopyProvenance } from "../src/expedition-i18n.ts";
+import { questCopy, questCopyProvenance } from "../src/quest-i18n.ts";
 import { mapSeoCopy, mapSeoTranslationProvenance } from "./seo-static.mjs";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
@@ -137,8 +138,16 @@ for(const locale of expected){
   if(!provenance||provenance.remaining!=="gpt")throw new Error(`${locale} expedition translation provenance is incomplete`);
   if(locale!=="en-US"&&expeditionKeys.filter(key=>catalog[key]!==expeditionEnglish[key]).length<Math.floor(expeditionKeys.length*.8))throw new Error(`${locale} expedition catalog appears to be an accidental English fallback`);
 }
+const questEnglish=questCopy["en-US"],questKeys=Object.keys(questEnglish).sort();
+for(const locale of expected){
+  const catalog=questCopy[locale],provenance=questCopyProvenance[locale];
+  if(JSON.stringify(Object.keys(catalog||{}).sort())!==JSON.stringify(questKeys))throw new Error(`${locale} quest catalog key mismatch`);
+  if(Object.values(catalog).some(value=>typeof value!=="string"||!value.trim()))throw new Error(`${locale} quest catalog contains an empty value`);
+  if(!provenance)throw new Error(`${locale} quest translation provenance is incomplete`);
+  if(locale!=="en-US"&&questKeys.filter(key=>catalog[key]!==questEnglish[key]).length<Math.floor(questKeys.length*.8))throw new Error(`${locale} quest catalog appears to be an accidental English fallback`);
+}
 if(/\$\{esc\((?:encounter|step)\.variant\)/.test(main))throw new Error("NPC internal variant is rendered directly");
 for(const text of [">Skill Fruit<",">Surgery cost<",">Breeding power<",">Size<","Server management","Import existing INI","Import and validate","INI output","Only settings documented by the official Palworld Server Guide"]){
   if(main.includes(text))throw new Error(`Hard-coded English UI copy remains in main.ts: ${text}`);
 }
-console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${elementMatchupKeys.length} element matchup, ${structureKeys.length} structure, and ${expeditionKeys.length} expedition message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
+console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${elementMatchupKeys.length} element matchup, ${structureKeys.length} structure, ${expeditionKeys.length} expedition, and ${questKeys.length} quest message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);

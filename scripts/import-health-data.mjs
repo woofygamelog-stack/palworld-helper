@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root=path.resolve(import.meta.dirname,"..");
-const source=path.resolve(process.argv[2]||path.join(root,"private/extracted/build-24181527-health"));
+const gameBuild=process.env.PAL_GAME_BUILD||"24467282";
+const source=path.resolve(process.argv[2]||path.join(root,"private","extracted",`build-${gameBuild}-health`));
 const expectedMappingHash="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851";
 const itemData=JSON.parse(fs.readFileSync(path.join(root,"public/data/items.json"),"utf8"));
 const ui=JSON.parse(fs.readFileSync(path.join(source,"ui-common.raw.json"),"utf8"));
@@ -37,7 +38,7 @@ const medicineSpecs=[
   ["high-grade-medical-supplies","LuxuryMedicines",3,["weakened","depressed"]],
 ];
 
-if(String(itemData.meta.gameBuild)!=="24181527"||manifest.schema!==1||manifest.mode!=="health"||manifest.mappingHash!==expectedMappingHash)throw new Error("Health extraction does not match the verified build mapping");
+if(String(itemData.meta.gameBuild)!==gameBuild||manifest.schema!==1||manifest.mode!=="health"||manifest.mappingHash!==expectedMappingHash)throw new Error("Health extraction does not match the verified build mapping");
 if(manifest.localeCount!==17||manifest.workerEventRowCount!==11||manifest.sicknessRowCount!==9||manifest.workerEventClassCount!==11||manifest.workerEventClassFailureCount!==0)throw new Error("Health extraction counts drifted from the verified source");
 if(Object.keys(workerEventRows).length!==11||Object.keys(sicknessRows).length!==9||classDefaults.requestedClassCount!==11||classDefaults.failedClassCount!==0)throw new Error("Health source tables are incomplete");
 

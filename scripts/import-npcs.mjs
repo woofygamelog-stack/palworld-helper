@@ -1,11 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const root=process.cwd(),build="24181527";
-const sourceRoot=path.join(root,"private","extracted",`build-${build}-npcs`);
-const actorRoot=path.join(root,"private","extracted",`build-${build}-map-actor-chunks-v2`);
+const root=process.cwd(),build=process.env.PAL_GAME_BUILD||"24467282";
+const sourceRoot=process.env.PAL_NPC_SOURCE||path.join(root,"private","extracted",`build-${build}-npcs`);
+const actorRoot=process.env.PAL_ACTOR_SOURCE||path.join(root,"private","extracted",`build-${build}-map-actor-chunks-v2`);
 const read=name=>JSON.parse(fs.readFileSync(path.join(sourceRoot,name),"utf8"));
 if(!fs.existsSync(sourceRoot)||!fs.existsSync(actorRoot))throw new Error("Private NPC tables and cooked-world actor chunks are required.");
+const npcManifest=read("npc-manifest.json");
+if(npcManifest.schema!==1||npcManifest.mode!=="npc"||npcManifest.localeCount!==17||npcManifest.mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851")throw new Error("NPC extraction manifest is incompatible with the accepted current build.");
+const actorFiles=fs.readdirSync(actorRoot).filter(file=>file.endsWith(".raw.json")).sort();
+if(actorFiles.length!==10)throw new Error(`Expected 10 complete actor chunks, found ${actorFiles.length}`);
 
 const locales={"en-US":"en","zh-CN":"zh-Hans","zh-TW":"zh-Hant","ja-JP":"ja","fr-FR":"fr","it-IT":"it","de-DE":"de","es-ES":"es","pt-BR":"pt-BR","ru-RU":"ru","ko-KR":"ko","id-ID":"id","es-419":"es-MX","th-TH":"th","tr-TR":"tr","vi-VN":"vi","pl-PL":"pl"};
 const uniqueRows=read("unique-npcs.raw.json"),humanNames=read("human-names.raw.json"),uniqueNames=read("unique-npc-text.raw.json"),talkFlows=read("npc-talk-flow.raw.json"),shops=read("item-shop-create.raw.json"),shopSettings=read("item-shop-settings.raw.json"),palShops=read("pal-shop-create.raw.json"),achievements=read("achievement-reward-npcs.raw.json"),requests=read("item-request-npcs.raw.json"),palDisplays=read("pal-display-npcs.raw.json");
@@ -29,7 +33,7 @@ function inferredUniqueKey(type){
 }
 
 const actors=[];
-for(const file of fs.readdirSync(actorRoot).filter(file=>file.endsWith(".raw.json")).sort()){
+for(const file of actorFiles){
   const chunk=JSON.parse(fs.readFileSync(path.join(actorRoot,file),"utf8"));
   if(chunk.failedPackageCount!==0)throw new Error(`${file} contains failed world cells`);
   for(const actor of chunk.actors){

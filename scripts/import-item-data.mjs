@@ -4,8 +4,8 @@ import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const root=process.cwd();
-const source=process.env.PAL_EXTRACTED_DATA||path.join(root,"private","extracted","build-24181527");
-const gameBuild=process.env.PAL_GAME_BUILD||"24181527";
+const gameBuild=process.env.PAL_GAME_BUILD||"24467282";
+const source=process.env.PAL_EXTRACTED_DATA||path.join(root,"private","extracted",`build-${gameBuild}`);
 const files={items:"items.raw.json",recipes:"recipes.raw.json",names:"item-names.raw.json",descriptions:"item-descriptions.raw.json",map:"map-meta.raw.json",drops:"pal-drops.raw.json",dropsCommon:"pal-drops-common.raw.json",image:"world-map.webp"};
 const bytes=Object.fromEntries(await Promise.all(Object.entries(files).map(async([key,name])=>[key,await readFile(path.join(source,name))])));
 const rawItems=JSON.parse(bytes.items), rawRecipes=JSON.parse(bytes.recipes), rawNames=JSON.parse(bytes.names), rawDescriptions=JSON.parse(bytes.descriptions), map=JSON.parse(bytes.map),rawDrops=JSON.parse(bytes.drops),rawDropsCommon=JSON.parse(bytes.dropsCommon);

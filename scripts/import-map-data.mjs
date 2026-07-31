@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const root=process.cwd(),build="24181527",refreshed=path.join(root,"private","extracted",`build-${build}-map-refresh`),source=fs.existsSync(refreshed)?refreshed:path.join(root,"private","extracted",`build-${build}`);
+const root=process.cwd(),build=process.env.PAL_GAME_BUILD||"24467282",refreshed=process.env.PAL_MAP_SOURCE||path.join(root,"private","extracted",`build-${build}-map-refresh`),source=fs.existsSync(refreshed)?refreshed:path.join(root,"private","extracted",`build-${build}`);
 const read=name=>JSON.parse(fs.readFileSync(path.join(source,name),"utf8"));
 const pals=JSON.parse(fs.readFileSync(path.join(root,"public","data","pals.json"),"utf8")).pals;
 const known=new Set(pals.map(p=>p.id));

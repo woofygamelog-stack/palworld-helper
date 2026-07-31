@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { dungeonPublicDefinitions } from "./dungeon-public-config.mjs";
 
-const root=process.cwd(),build="24181527";
-const preferred=path.join(root,"private","extracted",`build-${build}-map-actor-chunks-v2`);
+const root=process.cwd(),build=process.env.PAL_GAME_BUILD||"24467282";
+const preferred=process.env.PAL_ACTOR_SOURCE||path.join(root,"private","extracted",`build-${build}-map-actor-chunks-v2`);
 const chunks=fs.existsSync(preferred)?preferred:path.join(root,"private","extracted",`build-${build}-map-actor-chunks`);
 if(!fs.existsSync(chunks))throw new Error("Private cooked-world actor chunks are required.");
 const files=fs.readdirSync(chunks).filter(file=>file.endsWith(".raw.json")).sort();
@@ -11,7 +11,7 @@ if(files.length!==10)throw new Error(`Expected 10 complete actor chunks, found $
 const worlds=JSON.parse(fs.readFileSync(path.join(root,"public","data","map-markers.json"),"utf8")).worlds;
 const npcData=JSON.parse(fs.readFileSync(path.join(root,"public","data","npcs.json"),"utf8"));
 const npcAt=new Map(npcData.npcs.flatMap(npc=>npc.encounters.map(encounter=>[`${encounter.x}|${encounter.y}|${encounter.z}`,npc])));
-const dungeonSource=path.join(root,"private","extracted",`build-${build}-dungeons`);
+const dungeonSource=process.env.PAL_DUNGEON_SOURCE||path.join(root,"private","extracted",`build-${build}-dungeons`);
 if(!fs.existsSync(dungeonSource))throw new Error("Private dungeon extraction is required for verified entrance relations.");
 const dungeonSpawnAreas=JSON.parse(fs.readFileSync(path.join(dungeonSource,"dungeon-spawn-areas.raw.json"),"utf8"));
 const dungeonClassDefaults=JSON.parse(fs.readFileSync(path.join(dungeonSource,"dungeon-class-defaults.raw.json"),"utf8"));

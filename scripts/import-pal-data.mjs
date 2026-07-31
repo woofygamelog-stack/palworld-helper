@@ -3,11 +3,11 @@ import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
+const gameBuild = process.env.PAL_GAME_BUILD || "24467282";
 const sourceRoot = process.env.PAL_DATA_SOURCE || path.join(root, "private", "palcalc-source");
-const localExport = process.env.PAL_LOCAL_EXPORT || path.join(root, "private", "raw", "build-24181527", "DT_PalMonsterParameter.json");
-const extractedRoot = process.env.PAL_EXTRACTED_SOURCE || path.join(root, "private", "extracted", "build-24181527-work-icons");
-const elementExtractedRoot = process.env.PAL_ELEMENT_EXTRACTED_SOURCE || path.join(root, "private", "extracted", "build-24181527-elements");
-const gameBuild = process.env.PAL_GAME_BUILD || "24181527";
+const extractedRoot = process.env.PAL_EXTRACTED_SOURCE || path.join(root, "private", "extracted", `build-${gameBuild}`);
+const elementExtractedRoot = process.env.PAL_ELEMENT_EXTRACTED_SOURCE || path.join(root, "private", "extracted", `build-${gameBuild}-elements`);
+const localExport = process.env.PAL_LOCAL_EXPORT || path.join(extractedRoot, "pal-parameters.raw.json");
 const dbPath = path.join(sourceRoot, "PalCalc.Model", "db.json");
 const breedingPath = path.join(sourceRoot, "PalCalc.Model", "breeding.json");
 const [dbBytes, breedingBytes, localBytes, longDescriptionBytes, shortDescriptionBytes, uiCommonBytes, skillNameBytes, palParameterBytes] = await Promise.all([
@@ -20,7 +20,8 @@ const [dbBytes, breedingBytes, localBytes, longDescriptionBytes, shortDescriptio
 ]);
 const db = JSON.parse(dbBytes.toString("utf8"));
 const breeding = JSON.parse(breedingBytes.toString("utf8"));
-const localNameMap = new Set(JSON.parse(localBytes.toString("utf8")).NameMap || []);
+const localExportData=JSON.parse(localBytes.toString("utf8"));
+const localNameMap = new Set(Array.isArray(localExportData.NameMap)?localExportData.NameMap:Object.keys(localExportData));
 const longDescriptions = JSON.parse(longDescriptionBytes.toString("utf8"));
 const shortDescriptions = JSON.parse(shortDescriptionBytes.toString("utf8"));
 const uiCommon = JSON.parse(uiCommonBytes.toString("utf8"));

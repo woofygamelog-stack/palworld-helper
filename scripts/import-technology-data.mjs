@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root=process.cwd();
-const gameBuild=process.env.PAL_GAME_BUILD||"24181527";
+const gameBuild=process.env.PAL_GAME_BUILD||"24467282";
 const source=path.resolve(process.env.PAL_TECHNOLOGY_SOURCE||path.join(root,"private","extracted",`build-${gameBuild}-technology`));
 const outputFile=path.join(root,"public","data","technology.json");
 const outputImageDirectory=path.join(root,"public","assets","technology");
@@ -31,7 +31,7 @@ const extractionManifest=read("technology-manifest.json");
 const itemData=JSON.parse(fs.readFileSync(path.join(root,"public","data","items.json"),"utf8"));
 const palData=JSON.parse(fs.readFileSync(path.join(root,"public","data","pals.json"),"utf8"));
 
-if(gameBuild!=="24181527"||itemData.meta.gameBuild!==gameBuild||palData.meta.gameBuild!==gameBuild)throw new Error("Technology, item, and Pal data builds must match the accepted build 24181527.");
+if(gameBuild!=="24467282"||itemData.meta.gameBuild!==gameBuild||palData.meta.gameBuild!==gameBuild)throw new Error("Technology, item, and Pal data builds must match the accepted current build.");
 if(extractionManifest.mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851")throw new Error("Technology extraction mapping hash is not the accepted build-compatible USMAP.");
 if(extractionManifest.technologyRowCount!==588||buildingIconManifest.expectedBuildingTechnologyCount!==217||buildingIconManifest.exportedCount!==217||buildingIconManifest.failedCount!==0)throw new Error("Technology extraction baseline drifted.");
 

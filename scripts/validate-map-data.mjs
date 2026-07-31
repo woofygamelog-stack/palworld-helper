@@ -21,7 +21,7 @@ const entranceCoordinates=new Set(dungeonData.dungeons.flatMap(dungeon=>dungeon.
 if(dungeonPoints.some(point=>!entranceCoordinates.has(`${point.dungeonSlug}|${point.x}|${point.y}|${point.z}`)))throw new Error("Dungeon map point does not match a normalized entrance");
 for(const [category,count] of Object.entries(surfaceResourceCounts)){const resources=pointData.points.filter(point=>point.category===category);if(resources.length!==count)throw new Error(`Surface resource count mismatch for ${category}`);const anchor=surfaceResourceAnchors[category];if(!resources.some(point=>Math.abs(point.x-anchor.x)<0.01&&Math.abs(point.y-anchor.y)<0.01&&point.z>0))throw new Error(`Surface resource anchor missing for ${category}`)}
 const fail=message=>{throw new Error(`Map validation failed: ${message}`)};
-if(data.meta.gameBuild!=="24181527")fail("unexpected game build");
+if(data.meta.gameBuild!=="24467282")fail("unexpected game build");
 if(data.meta.bossCount!==data.bosses.length||data.meta.habitatCount!==data.habitats.length)fail("metadata count mismatch");
 if(data.worlds.length!==2)fail("Palpagos and World Tree definitions are required");
 const worlds=new Map(data.worlds.map(world=>[world.id,world]));
