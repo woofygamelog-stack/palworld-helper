@@ -11,6 +11,8 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Schema, references, ranges, duplicates, and version diffs pass.
 - [ ] Assets have usable rights and required notices are preserved.
 - [ ] Private provenance, source URLs, local paths, and logs are absent from output.
+- [ ] Exact element multipliers and compound rules have build-matched source evidence plus two clean live-runtime sessions covering all attacker elements and all valid one-/two-element defenders.
+- [ ] Element evidence verifies lookup values, component-score aggregation, and the live damage-calculation route; public import fails closed unless both numeric and compound-rule readiness gates pass.
 
 ## Calculators and server tools
 
@@ -84,4 +86,5 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Broken links, missing images, secrets, incorrect domains, and private files are absent.
 - [ ] The deployment artifact is deterministic and static-only.
 - [ ] Production deployment was explicitly authorized.
+- [ ] No GitHub Actions deployment workflow was added or restored unless explicitly requested; Cloudflare's connected repository and production branch remain the deployment trigger.
 - [ ] Staged files exclude private/raw extraction data, `.env`, dependencies, `dist`, logs, and tool `bin`/`obj` output.

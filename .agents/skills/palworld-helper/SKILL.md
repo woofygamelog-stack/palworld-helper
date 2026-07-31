@@ -43,6 +43,10 @@ Apply every matching section of `AGENTS.md` and the release checklist. Keep the 
 
 For patch updates, create a structured diff, identify affected entities and calculators, rerun golden tests, and show stale-data warnings until verification is complete.
 
+### Verify exact element damage
+
+For any change to element multipliers, same-element behavior, Neutral exceptions, or compound defender rules, read and follow [references/element-damage-verification.md](references/element-damage-verification.md). Use the repository's automated verifier and fail-closed importer; do not replace live damage-route evidence with a UI chart, static data lookup, or manual HP sampling. Keep machine evidence private and publish only normalized values whose readiness gates pass.
+
 ## Implement calculator changes
 
 1. Locate the authoritative inputs and build version.
@@ -103,6 +107,7 @@ For this project:
 - Confirm repository initialization and remote state rather than assuming Git already exists.
 - Before staging, ensure `.gitignore` excludes `private/`, `.env`, dependencies, `dist/`, logs, and extractor/compiler `bin` and `obj` directories.
 - Inspect the complete staged name list before committing. Published normalized datasets and approved web assets may be committed; local game exports, provenance manifests, installed-game paths, and build artifacts may not.
+- Preserve Cloudflare's connected Git deployment model. Do not add or restore `.github/workflows` deployment automation unless the user explicitly requests it; diagnose the Cloudflare repository/branch connection when pushes are not detected.
 
 ## Verify and report
 
