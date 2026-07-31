@@ -92,7 +92,7 @@
 
 ## Current verified baselines
 
-- Current normalized game-data target: local Palworld build `24181527`.
+- Current normalized game-data target: local Palworld build `24467282`.
 - Published counts for this build are 299 Pals, 44,851 breeding rows, 1,891 legal items, and 1,286 valid recipes; tests must fail closed when these drift without an intentional data refresh.
 - Breeding outcomes remain community-derived and require game-file-based independent verification before production release. Items, recipes, localized item names, map bounds, and the map texture are game-file-derived.
 - Server INI output is limited to keys present in the current official Palworld Server Guide. Recheck that live documentation before adding or retaining any key.

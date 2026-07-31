@@ -12,6 +12,8 @@ import { structureCopy, structureCopyProvenance } from "../src/structure-i18n.ts
 import { expeditionCopy, expeditionCopyProvenance } from "../src/expedition-i18n.ts";
 import { questCopy, questCopyProvenance } from "../src/quest-i18n.ts";
 import { plannerCopy, plannerCopyProvenance } from "../src/planner-i18n.ts";
+import { basePresetCopy, basePresetCopyProvenance } from "../src/base-preset-i18n.ts";
+import { basePresets } from "../src/base-presets.ts";
 import { mapSeoCopy, mapSeoTranslationProvenance } from "./seo-static.mjs";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
@@ -155,8 +157,19 @@ for(const locale of expected){
   if(locale!=="en-US"&&plannerKeys.filter(key=>catalog[key]!==plannerEnglish[key]).length<Math.floor(plannerKeys.length*.8))throw new Error(`${locale} planner catalog appears to be an accidental English fallback`);
 }
 if(plannerCopyProvenance!=="gpt")throw new Error("Planner translation provenance is incomplete");
+const basePresetIds=basePresets.map(preset=>preset.id).sort(),basePresetGroupKeys=Object.keys(basePresetCopy["en-US"].groups).sort(),basePresetEnglish=[basePresetCopy["en-US"].custom,basePresetCopy["en-US"].selectedRoles,basePresetCopy["en-US"].noRoles,...Object.values(basePresetCopy["en-US"].groups),...Object.values(basePresetCopy["en-US"].presets)];
+for(const locale of expected){
+  const catalog=basePresetCopy[locale];
+  if(!catalog)throw new Error(`Base preset catalog missing: ${locale}`);
+  if(JSON.stringify(Object.keys(catalog.groups).sort())!==JSON.stringify(basePresetGroupKeys))throw new Error(`${locale} base preset group key mismatch`);
+  if(JSON.stringify(Object.keys(catalog.presets).sort())!==JSON.stringify(basePresetIds))throw new Error(`${locale} base preset key mismatch`);
+  const values=[catalog.custom,catalog.selectedRoles,catalog.noRoles,...Object.values(catalog.groups),...Object.values(catalog.presets)];
+  if(values.some(value=>typeof value!=="string"||!value.trim()))throw new Error(`${locale} base preset catalog contains an empty value`);
+  if(locale!=="en-US"&&values.filter((value,index)=>value!==basePresetEnglish[index]).length<Math.floor(values.length*.8))throw new Error(`${locale} base preset catalog appears to be an accidental English fallback`);
+}
+if(basePresetCopyProvenance!=="gpt")throw new Error("Base preset translation provenance is incomplete");
 if(/\$\{esc\((?:encounter|step)\.variant\)/.test(main))throw new Error("NPC internal variant is rendered directly");
 for(const text of [">Skill Fruit<",">Surgery cost<",">Breeding power<",">Size<","Server management","Import existing INI","Import and validate","INI output","Only settings documented by the official Palworld Server Guide"]){
   if(main.includes(text))throw new Error(`Hard-coded English UI copy remains in main.ts: ${text}`);
 }
-console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${elementMatchupKeys.length} element matchup, ${structureKeys.length} structure, ${expeditionKeys.length} expedition, ${questKeys.length} quest, and ${plannerKeys.length} planner message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
+console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${elementMatchupKeys.length} element matchup, ${structureKeys.length} structure, ${expeditionKeys.length} expedition, ${questKeys.length} quest, ${plannerKeys.length} planner, and ${basePresetIds.length} base preset message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
