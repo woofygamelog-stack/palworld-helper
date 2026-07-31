@@ -13,6 +13,7 @@ import { entityRouteFamilies, routeFamilies, seoHreflang, supportedLocales } fro
 import {assertPublicSlugRegistry} from "../src/public-slugs.ts";
 import {elementGraphGeometryKeys,elementGraphNodeKeys,renderElementMatchupGraph} from "../src/element-graph.ts";
 import {evaluateElementMatchup,qualitativeElementOutcome} from "../src/element-matchup.ts";
+import {calculateWeakCount,extractNumericLiterals,multiplierForWeakCount} from "../scripts/element-damage-evidence.mjs";
 import { buildIndexableGroups, buildPrerenderEntries, productionOrigin, renderHtmlDocument, renderRouteModel } from "../scripts/seo-static.mjs";
 
 const data = await readFile("src/data.ts", "utf8");
@@ -144,8 +145,23 @@ assert.equal(qualitativeElementOutcome("fire","water",elementData.relations),"we
 const unavailableDualMatchup=evaluateElementMatchup("fire",["grass","water"],elementData.relations,elementData.rules);
 assert.deepEqual(unavailableDualMatchup.components.map(component=>({defender:component.defender,outcome:component.outcome,multiplier:component.multiplier})),[{defender:"grass",outcome:"strong",multiplier:null},{defender:"water",outcome:"weak",multiplier:null}],"Dual-element comparison must retain both independently verified qualitative effects");
 assert.deepEqual({combined:unavailableDualMatchup.combinedMultiplier,numeric:unavailableDualMatchup.numericMultipliersVerified,dual:unavailableDualMatchup.dualElementRuleVerified},{combined:null,numeric:false,dual:false},"Unverified numeric and dual rules must fail closed in the calculator");
-const syntheticVerifiedMatchup=evaluateElementMatchup("fire",["grass","water"],elementData.relations,{numericMultipliers:{strong:1.5,weak:.5,neutral:1},dualElement:{operation:"multiply"}});
-assert.equal(syntheticVerifiedMatchup.combinedMultiplier,.75,"The pure calculator must apply an explicitly supplied verified combination rule");
+const sourceLikeLookup={"-2":.43,"-1":.66,"0":1,"1":1.5,"2":2.25};
+const syntheticVerifiedMatchup=evaluateElementMatchup("fire",["grass","water"],elementData.relations,{numericMultipliers:{strong:1.5,weak:.66,neutral:1},dualElement:{operation:"sum-relation-scores",multipliersByWeakCount:sourceLikeLookup}});
+assert.equal(syntheticVerifiedMatchup.combinedMultiplier,1,"Opposing dual-element outcomes must cancel before looking up the combined multiplier");
+const incompleteDualMatchup=evaluateElementMatchup("fire",["grass","water"],elementData.relations,{numericMultipliers:null,dualElement:{operation:"sum-relation-scores",multipliersByWeakCount:sourceLikeLookup}});
+assert.deepEqual({combined:incompleteDualMatchup.combinedMultiplier,dual:incompleteDualMatchup.dualElementRuleVerified},{combined:null,dual:false},"A dual lookup without independently verified single multipliers must remain unavailable");
+assert.throws(()=>evaluateElementMatchup("fire",["grass","water"],elementData.relations,{numericMultipliers:{strong:1.5,weak:.5,neutral:1},dualElement:{operation:"sum-relation-scores",multipliersByWeakCount:sourceLikeLookup}}),/agree/,"Conflicting single and dual multiplier evidence must be rejected");
+assert.equal(calculateWeakCount("fire",["grass","water"],elementData.relations),0,"The source-evidence helper must sum strong and weak component scores");
+assert.equal(calculateWeakCount("fire",["grass","ice"],elementData.relations),2,"Two strong components must produce weakCount 2");
+assert.equal(multiplierForWeakCount(2,sourceLikeLookup),2.25,"The source-evidence helper must resolve the exact weakCount lookup");
+const bytecodeFixture=Buffer.alloc(11);
+bytecodeFixture[0]=0x1d;
+bytecodeFixture.writeInt32LE(-2,1);
+bytecodeFixture[5]=0x1e;
+bytecodeFixture.writeFloatLE(.43,6);
+const numericLiterals=extractNumericLiterals(bytecodeFixture);
+assert.deepEqual(numericLiterals.integers,[{offset:0,value:-2}],"The bytecode evidence reader must preserve signed integer literals");
+assert.ok(Math.abs(numericLiterals.floats[0].value-.43)<1e-6,"The bytecode evidence reader must preserve float literals");
 assert.throws(()=>evaluateElementMatchup("fire",["grass","grass"],elementData.relations,elementData.rules),/unique/,"Duplicate defending elements must be rejected rather than combined twice");
 assert.ok(palData.pals.every(pal=>Array.isArray(pal.elementSlugs)&&pal.elementSlugs.length>=1&&pal.elementSlugs.length<=2&&pal.elementSlugs.every(slug=>elementSlugs.has(slug))),"Every published Pal must have one or two verified safe element slugs");
 assert.doesNotMatch(JSON.stringify(elementData),/EPalElementType|COMMON_ELEMENT|[A-Z]:\\|file:\/\//,"Element public data must not expose raw source identifiers or private provenance");

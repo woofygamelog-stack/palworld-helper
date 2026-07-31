@@ -202,6 +202,164 @@ object DumpCandidateDataTables(IEnumerable<string> assetFiles)
     return new { candidateCount = tables.Count + errors.Count, extractedCount = tables.Count, failedCount = errors.Count, tables, errors };
 }
 
+object DumpPackageExports(IEnumerable<string> assetFiles)
+{
+    object DumpFunctionFields(UFunction function)
+    {
+        var fields = new List<object>();
+        var pending = function.ChildProperties is System.Collections.IEnumerable enumerable
+            ? enumerable.Cast<object>().ToList()
+            : function.ChildProperties is null ? new List<object>() : new List<object> { function.ChildProperties };
+        var visited = new HashSet<object>(System.Collections.Generic.ReferenceEqualityComparer.Instance);
+        while (pending.Count > 0 && fields.Count < 128)
+        {
+            var current = pending[0];
+            pending.RemoveAt(0);
+            if (!visited.Add(current)) continue;
+            var type = current.GetType();
+            var values = new SortedDictionary<string, string?>(StringComparer.Ordinal);
+            foreach (var member in type.GetMembers(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+                .Where(member => member.MemberType is System.Reflection.MemberTypes.Field or System.Reflection.MemberTypes.Property))
+            {
+                object? memberValue;
+                try
+                {
+                    memberValue = member switch
+                    {
+                        System.Reflection.FieldInfo field => field.GetValue(current),
+                        System.Reflection.PropertyInfo property when property.GetIndexParameters().Length == 0 => property.GetValue(current),
+                        _ => null
+                    };
+                }
+                catch { continue; }
+                if (memberValue is null || memberValue is string || memberValue.GetType().IsPrimitive || memberValue.GetType().IsEnum || member.Name == "Name")
+                {
+                    values[member.Name] = memberValue?.ToString();
+                }
+            }
+            fields.Add(new { runtimeType = type.FullName ?? type.Name, values });
+            var next = type.GetProperty("Next")?.GetValue(current) ?? type.GetField("Next")?.GetValue(current);
+            if (next is not null) pending.Add(next);
+        }
+        return fields;
+    }
+
+    var packages = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var errors = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var assetFile in assetFiles.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+    {
+        try
+        {
+            if (!provider.TryLoadPackage(assetFile, out var package) || package is null) throw new InvalidDataException("Package could not be loaded.");
+            var exports = package.GetExports()
+                .Select(value => new
+                {
+                    runtimeType = value.GetType().FullName ?? value.GetType().Name,
+                    exportType = value.ExportType ?? "Unknown",
+                    exportName = value.Name,
+                    runtimeMembers = value.GetType()
+                        .GetMembers(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+                        .Where(member => member.MemberType is System.Reflection.MemberTypes.Field or System.Reflection.MemberTypes.Property)
+                        .Select(member => member.Name)
+                        .Distinct(StringComparer.Ordinal)
+                        .OrderBy(name => name, StringComparer.Ordinal)
+                        .ToArray(),
+                    functionFlags = value is UFunction function ? function.FunctionFlags.ToString() : null,
+                    functionFields = value is UFunction signatureFunction ? DumpFunctionFields(signatureFunction) : null,
+                    scriptBytecode = value is UFunction bytecodeFunction ? bytecodeFunction.ScriptBytecode : null,
+                    propertyCount = value.Properties.Count,
+                    properties = value.Properties.ToDictionary(property => property.Name.Text, property => property.Tag)
+                })
+                .ToArray();
+            packages[assetFile] = new { exportCount = exports.Length, exports };
+        }
+        catch (Exception error)
+        {
+            errors[assetFile] = error.Message;
+        }
+    }
+    return new { candidateCount = packages.Count + errors.Count, extractedCount = packages.Count, failedCount = errors.Count, packages, errors };
+}
+
+object FindMappingFieldOwners(IEnumerable<string> fieldNames)
+{
+    SortedDictionary<string, string?> DescribeSimpleMembers(object source)
+    {
+        var result = new SortedDictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var member in source.GetType().GetMembers(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+            .Where(member => member.MemberType is System.Reflection.MemberTypes.Field or System.Reflection.MemberTypes.Property))
+        {
+            object? value;
+            try
+            {
+                value = member switch
+                {
+                    System.Reflection.FieldInfo field => field.GetValue(source),
+                    System.Reflection.PropertyInfo property when property.GetIndexParameters().Length == 0 => property.GetValue(source),
+                    _ => null
+                };
+            }
+            catch { continue; }
+            if (value is null || value is string || value.GetType().IsPrimitive || value.GetType().IsEnum || member.Name == "Name")
+            {
+                result[member.Name] = value?.ToString();
+            }
+        }
+        return result;
+    }
+
+    var requestedNames = fieldNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var mappingsForGame = provider.MappingsContainer?.MappingsForGame
+        ?? throw new InvalidDataException("Game type mappings were not loaded.");
+    var matches = new List<object>();
+    foreach (var owner in mappingsForGame.Types.Values)
+    {
+        foreach (var property in owner.Properties.Values)
+        {
+            if (!requestedNames.Contains(property.Name)) continue;
+            matches.Add(new
+            {
+                owner = owner.Name,
+                collection = "Properties",
+                field = property.Name,
+                runtimeType = property.GetType().FullName ?? property.GetType().Name,
+                values = DescribeSimpleMembers(property)
+            });
+        }
+    }
+    return new { requestedFields = requestedNames.OrderBy(value => value, StringComparer.Ordinal).ToArray(), matchCount = matches.Count, matches };
+}
+
+object DumpMappingDefinitions(IEnumerable<string> typeNames)
+{
+    var mappingsForGame = provider.MappingsContainer?.MappingsForGame
+        ?? throw new InvalidDataException("Game type mappings were not loaded.");
+    var requestedNames = typeNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var definitions = mappingsForGame.Types.Values
+        .Where(value => requestedNames.Contains(value.Name))
+        .OrderBy(value => value.Name, StringComparer.Ordinal)
+        .Select(value => new
+    {
+        name = value.Name,
+        superType = value.SuperType,
+        propertyCount = value.PropertyCount,
+        properties = value.Properties.Values
+            .OrderBy(property => property.Index)
+            .ThenBy(property => property.Name, StringComparer.Ordinal)
+            .Select(property => new
+            {
+                property.Name,
+                property.Index,
+                property.ArraySize,
+                mappingType = property.MappingType.ToString()
+            })
+            .ToArray()
+    })
+        .ToArray();
+    var missing = requestedNames.Except(definitions.Select(value => value.name), StringComparer.OrdinalIgnoreCase).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+    return new { requestedTypeCount = requestedNames.Count, extractedTypeCount = definitions.Length, missingTypeCount = missing.Length, definitions, missing };
+}
+
 object DumpWorkerEventClassDefaults()
 {
     const string workerEventPrefix = "Pal/Content/Pal/Blueprint/BaseCamp/WorkerEvents/BP_PalBaseCampWorkerEvent_";
@@ -339,9 +497,69 @@ if (mode == "element")
     var candidateTableAssets = elementAssets
         .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
         .ToArray();
+    var runtimeKeywords = new[]
+    {
+        "ActionDamage", "DamageReaction", "DamageCalculation", "StatusCalculator",
+        "CharacterParameterStorage", "DatabaseCharacterParameter", "DamagePopUp",
+        "PlayerElementStepAttack", "PalGameSetting", "PalBattleManager"
+    };
+    var runtimeBlueprintAssets = provider.Files.Keys
+        .Where(path => path.StartsWith("Pal/Content/Pal/Blueprint/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => !path.Contains("/UI/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => runtimeKeywords.Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
 
     Write("element-data-assets.raw.json", elementAssets);
     Write("element-tables.raw.json", DumpCandidateDataTables(candidateTableAssets));
+    var runtimeBlueprintPackages = JObject.FromObject(DumpPackageExports(runtimeBlueprintAssets));
+    Write("element-runtime-blueprint-assets.raw.json", runtimeBlueprintAssets);
+    Write("element-runtime-blueprint-exports.raw.json", runtimeBlueprintPackages);
+    const string gameSettingPackagePath = "Pal/Content/Pal/Blueprint/System/BP_PalGameSetting.uasset";
+    var gameSettingExports = runtimeBlueprintPackages["packages"]?[gameSettingPackagePath]?["exports"] as JArray
+        ?? throw new InvalidDataException("Pal game-setting exports were not extracted.");
+    var gameSettingDefaults = gameSettingExports
+        .OfType<JObject>()
+        .FirstOrDefault(value => value["exportName"]?.Value<string>() == "Default__BP_PalGameSetting_C")?["properties"] as JObject
+        ?? throw new InvalidDataException("Pal game-setting class defaults were not extracted.");
+    var getWeakScaleFunction = gameSettingExports
+        .OfType<JObject>()
+        .FirstOrDefault(value => value["exportName"]?.Value<string>() == "GetWeakScale")
+        ?? throw new InvalidDataException("GetWeakScale function metadata was not extracted.");
+    var damageSettingNames = new[]
+    {
+        "DamageElementMatchRate", "DamageRate_WealPoint", "DamageRate_SleepHit", "FinalDamageRate_Waza",
+        "damageTextMargineMap", "damageTextScaleMap"
+    };
+    var damageSettings = damageSettingNames.ToDictionary(
+        name => name,
+        name => gameSettingDefaults[name] ?? throw new InvalidDataException($"Pal game-setting property is missing: {name}"));
+    Write("element-damage-settings.raw.json", new
+    {
+        schema = 1,
+        sourcePackage = gameSettingPackagePath,
+        sourceClass = "Default__BP_PalGameSetting_C",
+        damageSettings,
+        combinationFunction = new
+        {
+            name = "GetWeakScale",
+            flags = getWeakScaleFunction["functionFlags"],
+            fields = getWeakScaleFunction["functionFields"],
+            scriptBytecodeAvailable = getWeakScaleFunction["scriptBytecode"]?.Type is not (null or JTokenType.Null)
+        }
+    });
+    Write("element-damage-mapping-owners.raw.json", FindMappingFieldOwners(new[]
+    {
+        "AttackElementType", "DefenderElementType1", "DefenderElementType2", "WeakElementRate",
+        "NonWeakElementRate", "DamageElementMatchRate"
+    }));
+    Write("element-damage-mapping-definitions.raw.json", DumpMappingDefinitions(new[]
+    {
+        "PalGameSetting", "PalSkillDamageReactionComponent", "PalDamageInfo", "PalDamageResult",
+        "PalCalcCharacterDamageInfo", "PalDamageInfoUtility"
+    }));
     Write("pal-parameters.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalMonsterParameter"));
     Write("ui-common.raw.json", DumpLocalizedTextFamily("DT_UI_Common_Text_Common", "Pal/Content/Pal/DataTable/Text/DT_UI_Common_Text"));
     Write("element-icon-assets.raw.json", provider.Files.Keys
@@ -396,17 +614,20 @@ if (mode == "element")
     var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
     Write("element-manifest.json", new
     {
-        schema = 1,
+        schema = 2,
         mode,
         extractedAt = DateTimeOffset.UtcNow,
         mappingHash,
         pakFiles,
         candidateAssetCount = elementAssets.Length,
         candidateTableCount = candidateTableAssets.Length,
+        runtimeBlueprintCandidateCount = runtimeBlueprintAssets.Length,
+        runtimeBlueprintExtractedCount = runtimeBlueprintPackages["extractedCount"]?.Value<int>() ?? 0,
+        runtimeBlueprintFailureCount = runtimeBlueprintPackages["failedCount"]?.Value<int>() ?? 0,
         elementIconCount = elementIconSources.Count - 1,
         localeCount = 17
     });
-    Console.WriteLine($"Extracted {candidateTableAssets.Length} element table candidates, Pal element fields, and official text for 17 locales to {output}");
+    Console.WriteLine($"Extracted {candidateTableAssets.Length} element table candidates, {runtimeBlueprintAssets.Length} runtime Blueprint candidates, Pal element fields, and official text for 17 locales to {output}");
     return 0;
 }
 

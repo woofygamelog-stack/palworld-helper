@@ -1,8 +1,12 @@
 export type ElementOutcome="strong"|"weak"|"neutral";
+export type ElementWeakCount=-2|-1|0|1|2;
 
 export type ElementMatchupRelation={attacker:string;defender:string};
 export type NumericElementMultipliers=Record<ElementOutcome,number>;
-export type DualElementCombinationRule={operation:"multiply"};
+export type DualElementCombinationRule={
+  operation:"sum-relation-scores";
+  multipliersByWeakCount:Record<`${ElementWeakCount}`,number>;
+};
 export type ElementMatchupRules={
   numericMultipliers:NumericElementMultipliers|null;
   dualElement:DualElementCombinationRule|null;
@@ -28,6 +32,10 @@ export function qualitativeElementOutcome(attacker:string,defender:string,relati
   return "neutral";
 }
 
+function outcomeScore(outcome:ElementOutcome):ElementWeakCount{
+  return outcome==="strong"?1:outcome==="weak"?-1:0;
+}
+
 export function evaluateElementMatchup(attacker:string,defenders:readonly string[],relations:readonly ElementMatchupRelation[],rules:ElementMatchupRules):ElementMatchupEvaluation{
   if(!attacker)throw new Error("An attacking element is required");
   if(defenders.length<1||defenders.length>2)throw new RangeError("One or two defending elements are required");
@@ -37,16 +45,23 @@ export function evaluateElementMatchup(attacker:string,defenders:readonly string
     const outcome=qualitativeElementOutcome(attacker,defender,relations);
     return {defender,outcome,multiplier:rules.numericMultipliers?.[outcome]??null};
   });
+  const weakCount=components.reduce<number>((total,component)=>total+outcomeScore(component.outcome),0) as ElementWeakCount;
+  if(rules.numericMultipliers&&rules.dualElement){
+    const lookup=rules.dualElement.multipliersByWeakCount;
+    if(lookup["-1"]!==rules.numericMultipliers.weak||lookup["0"]!==rules.numericMultipliers.neutral||lookup["1"]!==rules.numericMultipliers.strong){
+      throw new Error("Single-element multipliers must agree with the dual-element weakCount lookup");
+    }
+  }
   const combinedMultiplier=components.length===1
     ?components[0].multiplier
-    :rules.dualElement?.operation==="multiply"&&components.every(component=>component.multiplier!==null)
-      ?components.reduce((total,component)=>total*(component.multiplier as number),1)
+    :rules.numericMultipliers!==null&&rules.dualElement?.operation==="sum-relation-scores"
+      ?rules.dualElement.multipliersByWeakCount[String(weakCount) as `${ElementWeakCount}`]
       :null;
   return {
     attacker,
     components,
     combinedMultiplier,
     numericMultipliersVerified:rules.numericMultipliers!==null,
-    dualElementRuleVerified:components.length===1||rules.dualElement!==null
+    dualElementRuleVerified:components.length===1||(rules.numericMultipliers!==null&&rules.dualElement!==null)
   };
 }
