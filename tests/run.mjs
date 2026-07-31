@@ -13,7 +13,9 @@ import { entityRouteFamilies, routeFamilies, seoHreflang, supportedLocales } fro
 import {assertPublicSlugRegistry} from "../src/public-slugs.ts";
 import {elementGraphGeometryKeys,elementGraphNodeKeys,renderElementMatchupGraph} from "../src/element-graph.ts";
 import {evaluateElementMatchup,qualitativeElementOutcome} from "../src/element-matchup.ts";
-import {calculateWeakCount,extractNumericLiterals,multiplierForWeakCount} from "../scripts/element-damage-evidence.mjs";
+import {calculateWeakCount,extractNumericLiterals,multiplierForWeakCount,qualitativeChartProfileForHash} from "../scripts/element-damage-evidence.mjs";
+import {parseSteamAppManifest} from "../scripts/detect-palworld-build.mjs";
+import {validateElementDamageRuntime} from "../scripts/element-damage-runtime-validation.mjs";
 import { buildIndexableGroups, buildPrerenderEntries, productionOrigin, renderHtmlDocument, renderRouteModel } from "../scripts/seo-static.mjs";
 
 const data = await readFile("src/data.ts", "utf8");
@@ -54,6 +56,11 @@ const elementStyles = await readFile("src/elements.css", "utf8");
 const healthStyles = await readFile("src/health.css", "utf8");
 const healthI18n = await readFile("src/health-i18n.ts", "utf8");
 const mapImage = await readFile("public/assets/world-map.webp");
+const elementSourceVerifier = await readFile("scripts/verify-element-damage-source.mjs", "utf8");
+const elementRuntimePlanner = await readFile("scripts/generate-element-damage-test-plan.mjs", "utf8");
+const elementRuntimeValidator = await readFile("scripts/validate-element-damage-runtime.mjs", "utf8");
+const elementRuntimeValidation = await readFile("scripts/element-damage-runtime-validation.mjs", "utf8");
+const elementRunner = await readFile("scripts/run-element-damage-verification.ps1", "utf8");
 
 assert.match(data, /Math\.min\(32,\s*Math\.max\(1/, "server generator must clamp the official supported player range");
 assert.doesNotMatch(data, /WorkSpeedRate|bEnablePlayerToPlayerDamage|bEnableDefenseOtherGuildPlayer/, "server generator must not emit parameters absent from the current official parameter list");
@@ -146,6 +153,12 @@ const unavailableDualMatchup=evaluateElementMatchup("fire",["grass","water"],ele
 assert.deepEqual(unavailableDualMatchup.components.map(component=>({defender:component.defender,outcome:component.outcome,multiplier:component.multiplier})),[{defender:"grass",outcome:"strong",multiplier:null},{defender:"water",outcome:"weak",multiplier:null}],"Dual-element comparison must retain both independently verified qualitative effects");
 assert.deepEqual({combined:unavailableDualMatchup.combinedMultiplier,numeric:unavailableDualMatchup.numericMultipliersVerified,dual:unavailableDualMatchup.dualElementRuleVerified},{combined:null,numeric:false,dual:false},"Unverified numeric and dual rules must fail closed in the calculator");
 const sourceLikeLookup={"-2":.43,"-1":.66,"0":1,"1":1.5,"2":2.25};
+const currentChartProfile=qualitativeChartProfileForHash("93BC7116E59463E93FA92968B825F566CBF9F0D55006E6906DC4DCB39658CA52");
+assert.equal(currentChartProfile.elements.length,9,"The reviewed qualitative chart profile must enumerate all official elements");
+assert.deepEqual(currentChartProfile.relations,elementData.relations.map(({attacker,defender})=>({attacker,defender})),"The content-addressed chart profile must match the published reviewed relation transcription");
+const steamManifest=parseSteamAppManifest('"AppState" { "appid" "1623730" "StateFlags" "4" "buildid" "24467282" "BytesToDownload" "100" "BytesDownloaded" "100" "TargetBuildID" "24467282" }');
+assert.equal(steamManifest.buildId,"24467282","Build detection must read the installed Steam build instead of using a repository constant");
+assert.throws(()=>parseSteamAppManifest('"AppState" { "appid" "1623730" "StateFlags" "2" "buildid" "24467282" }'),/fully installed/,"Build detection must reject an incomplete Steam update");
 const syntheticVerifiedMatchup=evaluateElementMatchup("fire",["grass","water"],elementData.relations,{numericMultipliers:{strong:1.5,weak:.66,neutral:1},dualElement:{operation:"sum-relation-scores",multipliersByWeakCount:sourceLikeLookup}});
 assert.equal(syntheticVerifiedMatchup.combinedMultiplier,1,"Opposing dual-element outcomes must cancel before looking up the combined multiplier");
 const incompleteDualMatchup=evaluateElementMatchup("fire",["grass","water"],elementData.relations,{numericMultipliers:null,dualElement:{operation:"sum-relation-scores",multipliersByWeakCount:sourceLikeLookup}});
@@ -163,6 +176,30 @@ const numericLiterals=extractNumericLiterals(bytecodeFixture);
 assert.deepEqual(numericLiterals.integers,[{offset:0,value:-2}],"The bytecode evidence reader must preserve signed integer literals");
 assert.ok(Math.abs(numericLiterals.floats[0].value-.43)<1e-6,"The bytecode evidence reader must preserve float literals");
 assert.throws(()=>evaluateElementMatchup("fire",["grass","grass"],elementData.relations,elementData.rules),/unique/,"Duplicate defending elements must be rejected rather than combined twice");
+assert.doesNotMatch(elementSourceVerifier,/build-24181527|40526106335|2026-07-15T13:16/,"The source verifier must not pin the previous installed build or PAK timestamp");
+assert.match(elementRuntimePlanner,/manualInputAllowed:false.*aggregationCases/s,"Runtime planning must explicitly prohibit manual input and enumerate aggregation cases");
+assert.match(elementRuntimeValidation,/hpBefore-value\.hpAfter.*reportedAppliedDamage/s,"Runtime validation must corroborate applied damage with the target HP delta");
+assert.match(elementRuntimeValidator,/validateElementDamageRuntime/ ,"The runtime CLI must delegate to the tested pure validator");
+assert.match(elementRunner,/detect-palworld-build\.mjs.*runtime-evidence-pending.*PAL_ELEMENT_RUNTIME_DRIVER/s,"The restartable runner must detect the installed build and fail closed until a machine driver is configured");
+const fixtureSource={meta:{schema:2,gameBuild:"fixture-build"},source:{mappingHash:"fixture-mapping",functionRawHash:"fixture-function",pakFingerprint:{length:123,sampledSha256:"fixture-pak"}}};
+const fixturePlan={meta:{schema:2,gameBuild:"fixture-build",planId:"fixture-plan"},protocol:{minimumIndependentSessions:2,minimumApplicationSamplesPerArmPerSession:20,maxRelativeMeanError:.01,damageDeltaTolerance:1e-6},lookupCases:[{id:"lookup-1",weakCount:1,expectedMultiplier:1.5}],aggregationCases:[{id:"aggregation-fire-grass",attacker:"fire",defenders:["grass"],expectedWeakCount:1,expectedMultiplier:1.5}],applicationCases:[{id:"application-fire-grass",expectedMultiplier:1.5}]};
+const fixtureRecords=[];
+for(const sessionId of ["session-a","session-b"]){
+  const common={schema:2,gameBuild:"fixture-build",planId:"fixture-plan",sessionId};
+  fixtureRecords.push({...common,type:"session-start",mappingHash:"fixture-mapping",pakFingerprint:{length:123,sampledSha256:"fixture-pak"},serverFingerprint:"fixture-server-fingerprint",runtimeFunctionRawHash:"fixture-function",driverFingerprint:"fixture-driver-fingerprint",worldSettingsFingerprint:"fixture-world-fingerprint"});
+  fixtureRecords.push({...common,type:"lookup-observation",caseId:"lookup-1",weakCount:1,observedMultiplier:1.5});
+  fixtureRecords.push({...common,type:"aggregation-observation",caseId:"aggregation-fire-grass",attacker:"fire",defenders:["grass"],observedWeakCount:1,observedMultiplier:1.5});
+  for(const arm of ["control","treatment"])for(let index=0;index<20;index++){
+    const damage=arm==="control"?100:150;
+    fixtureRecords.push({...common,type:"damage-observation",caseId:"application-fire-grass",sampleId:`${arm}-${index}`,arm,comparisonFingerprint:"identical-setup",hpBefore:1000,hpAfter:1000-damage,reportedAppliedDamage:damage,singleHit:true,contamination:{critical:false,weakPoint:false,statusEffect:false,multiHit:false,passiveModifier:false,partnerModifier:false,worldSettingsDrift:false}});
+  }
+  fixtureRecords.push({...common,type:"session-end",completed:true});
+}
+const fixtureEvidence=fixtureRecords.map(value=>JSON.stringify(value)).join("\n");
+const fixtureReport=validateElementDamageRuntime({sourceReport:fixtureSource,testPlan:fixturePlan,evidenceText:fixtureEvidence});
+assert.equal(fixtureReport.verification.numericMultipliersReadyForPublic,true,"Complete machine evidence must open the runtime gate in the isolated validator fixture");
+fixtureRecords.find(value=>value.type==="damage-observation").contamination.weakPoint=true;
+assert.throws(()=>validateElementDamageRuntime({sourceReport:fixtureSource,testPlan:fixturePlan,evidenceText:fixtureRecords.map(value=>JSON.stringify(value)).join("\n")}),/Contaminated applied-damage sample/,"Contaminated machine evidence must fail closed");
 assert.ok(palData.pals.every(pal=>Array.isArray(pal.elementSlugs)&&pal.elementSlugs.length>=1&&pal.elementSlugs.length<=2&&pal.elementSlugs.every(slug=>elementSlugs.has(slug))),"Every published Pal must have one or two verified safe element slugs");
 assert.doesNotMatch(JSON.stringify(elementData),/EPalElementType|COMMON_ELEMENT|[A-Z]:\\|file:\/\//,"Element public data must not expose raw source identifiers or private provenance");
 assert.match(elementImporter,/sha256\(chartBytes\).*93BC7116E59463E93FA92968B825F566CBF9F0D55006E6906DC4DCB39658CA52/s,"Element import must pin the verified official matchup chart");

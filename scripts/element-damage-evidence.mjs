@@ -1,8 +1,7 @@
 import {createHash} from "node:crypto";
 
-const sourceProfile={
-  gameBuild:"24181527",
-  mappingHash:"C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851",
+const acceptedFunctionProfiles=[{
+  profileId:"get-weak-scale-e8bd2cb8",
   functionName:"GetWeakScale",
   functionRawHash:"e8bd2cb86426c838299e3c1eac3604cf384b1c1eb589aedb7053e7f6755e64d4",
   functionRawLength:909,
@@ -21,7 +20,26 @@ const sourceProfile={
     {weakCount:2,floatOffset:717,multiplier:2.25},
   ],
   defaultBranch:{floatOffset:873,multiplier:.66},
-};
+}];
+
+const sourceProfile=acceptedFunctionProfiles[0];
+
+const qualitativeChartProfiles=[{
+  profileId:"element-chart-93bc7116",
+  hash:"93bc7116e59463e93fa92968b825f566cbf9f0d55006e6906dc4dcb39658ca52",
+  elements:["neutral","fire","water","electric","grass","dark","dragon","ground","ice"],
+  relations:[
+    {attacker:"electric",defender:"water"},
+    {attacker:"water",defender:"fire"},
+    {attacker:"fire",defender:"grass"},
+    {attacker:"fire",defender:"ice"},
+    {attacker:"grass",defender:"ground"},
+    {attacker:"ground",defender:"electric"},
+    {attacker:"ice",defender:"dragon"},
+    {attacker:"dragon",defender:"dark"},
+    {attacker:"dark",defender:"neutral"},
+  ],
+}];
 
 function invariant(condition,message){if(!condition)throw new Error(message)}
 function nearlyEqual(actual,expected,tolerance=1e-6){return Math.abs(actual-expected)<=tolerance}
@@ -38,30 +56,31 @@ export function extractNumericLiterals(buffer){
 
 export function analyzeGetWeakScaleAsset(asset){
   invariant(Array.isArray(asset?.Exports)&&Array.isArray(asset?.Imports),"UAssetAPI JSON is missing exports or imports");
-  const exported=asset.Exports.find(value=>value.ObjectName===sourceProfile.functionName);
-  invariant(exported?.Data,`${sourceProfile.functionName} raw export was not found`);
+  const exported=asset.Exports.find(value=>value.ObjectName==="GetWeakScale");
+  invariant(exported?.Data,"GetWeakScale raw export was not found");
   const raw=Buffer.from(exported.Data,"base64");
-  invariant(raw.length===sourceProfile.functionRawLength,`Unexpected ${sourceProfile.functionName} raw length: ${raw.length}`);
   const rawHash=sha256(raw);
-  invariant(rawHash===sourceProfile.functionRawHash,`${sourceProfile.functionName} raw hash drifted: ${rawHash}`);
+  const profile=acceptedFunctionProfiles.find(value=>value.functionRawLength===raw.length&&value.functionRawHash===rawHash);
+  invariant(profile,`GetWeakScale bytecode is not a recognized source profile (length ${raw.length}, sha256 ${rawHash})`);
   const literals=extractNumericLiterals(raw);
-  for(const expected of sourceProfile.comparisons){
+  for(const expected of profile.comparisons){
     invariant(raw[expected.callOffset]===0x68,`CallMath opcode missing at ${expected.callOffset}`);
     const importIndex=raw.readInt32LE(expected.callOffset+1);
     invariant(importIndex<0&&asset.Imports[-importIndex-1]?.ObjectName===expected.comparison,`Comparison call drifted for weakCount ${expected.weakCount}`);
     invariant(raw[expected.intOffset]===0x1d&&raw.readInt32LE(expected.intOffset+1)===expected.weakCount,`Integer branch drifted for weakCount ${expected.weakCount}`);
   }
-  for(const expected of [...sourceProfile.branches,sourceProfile.defaultBranch]){
+  for(const expected of [...profile.branches,profile.defaultBranch]){
     invariant(raw[expected.floatOffset]===0x1e,`Float branch opcode missing at ${expected.floatOffset}`);
     invariant(nearlyEqual(raw.readFloatLE(expected.floatOffset+1),expected.multiplier),`Float branch drifted at ${expected.floatOffset}`);
   }
   return {
-    functionName:sourceProfile.functionName,
+    profileId:profile.profileId,
+    functionName:profile.functionName,
     rawHash,
     rawLength:raw.length,
-    comparisons:sourceProfile.comparisons,
-    branches:sourceProfile.branches,
-    defaultBranch:sourceProfile.defaultBranch,
+    comparisons:profile.comparisons,
+    branches:profile.branches,
+    defaultBranch:profile.defaultBranch,
     literalInventory:literals,
   };
 }
@@ -86,9 +105,15 @@ export function multiplierForWeakCount(weakCount,lookup){
   return value;
 }
 
+export function qualitativeChartProfileForHash(hash){
+  const profile=qualitativeChartProfiles.find(value=>value.hash===String(hash).toLowerCase());
+  invariant(profile,`Qualitative element chart is not a recognized reviewed profile: ${hash}`);
+  return profile;
+}
+
 export function mean(values){
   invariant(Array.isArray(values)&&values.length>0&&values.every(value=>Number.isFinite(value)&&value>0),"Damage samples must be positive finite numbers");
   return values.reduce((total,value)=>total+value,0)/values.length;
 }
 
-export {sourceProfile};
+export {acceptedFunctionProfiles,qualitativeChartProfiles,sourceProfile};

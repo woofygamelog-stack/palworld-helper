@@ -27,6 +27,7 @@
     "data:verify:element-damage-source": "node scripts/verify-element-damage-source.mjs",
     "data:plan:element-damage-runtime": "node scripts/generate-element-damage-test-plan.mjs",
     "data:verify:element-damage-runtime": "node scripts/validate-element-damage-runtime.mjs",
+    "data:verify:element-damage": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-element-damage-verification.ps1",
     "check": "npm run typecheck && npm run check:i18n && npm run check:item-images && npm test && npm run build"
   },
   "devDependencies": {

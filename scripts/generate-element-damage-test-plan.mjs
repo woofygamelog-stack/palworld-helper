@@ -1,100 +1,80 @@
+import {createHash} from "node:crypto";
 import {mkdir,readFile,writeFile} from "node:fs/promises";
 import path from "node:path";
-import {calculateWeakCount,multiplierForWeakCount,qualitativeOutcome} from "./element-damage-evidence.mjs";
+import {calculateWeakCount,multiplierForWeakCount,qualitativeChartProfileForHash,qualitativeOutcome} from "./element-damage-evidence.mjs";
 
 const root=process.cwd();
-const reportPath=process.env.PAL_ELEMENT_SOURCE_REPORT||path.join(root,"private","verification","element-damage","build-24181527","source-report.json");
-const outputPath=process.env.PAL_ELEMENT_TEST_PLAN||path.join(root,"private","verification","element-damage","build-24181527","test-plan.json");
-const templatePath=process.env.PAL_ELEMENT_RUNTIME_TEMPLATE||path.join(root,"private","verification","element-damage","build-24181527","runtime-observations.template.json");
-const [sourceReport,elementData,palData,skillData]=await Promise.all([
-  readFile(reportPath,"utf8").then(JSON.parse),
-  readFile(path.join(root,"public","data","elements.json"),"utf8").then(JSON.parse),
-  readFile(path.join(root,"public","data","pals.json"),"utf8").then(JSON.parse),
-  readFile(path.join(root,"public","data","skills.json"),"utf8").then(JSON.parse),
-]);
-if(sourceReport.meta.gameBuild!==elementData.meta.gameBuild||palData.meta.gameBuild!==elementData.meta.gameBuild||skillData.meta.gameBuild!==elementData.meta.gameBuild)throw new Error("Element test-plan inputs are mixed across builds");
-if(!sourceReport.verification.exactWeakCountLookup||sourceReport.verification.runtimeApplication)throw new Error("Source report is not in the expected runtime-pending state");
-const relations=elementData.relations,lookup=sourceReport.findings.weakCountLookup;
-const palOrder=(a,b)=>a.dex-b.dex||Number(a.variant)-Number(b.variant)||a.id.localeCompare(b.id);
-const singlePals=palData.pals.filter(value=>value.elementSlugs.length===1).sort(palOrder);
-const dualPals=palData.pals.filter(value=>value.elementSlugs.length===2).sort(palOrder);
-const palRef=value=>value?{id:value.id,dex:value.dex,name:value.names["en-US"],elements:value.elementSlugs,baseDefense:value.defense}:null;
-const neutralControl=(attacker,target)=>singlePals.find(value=>qualitativeOutcome(attacker,value.elementSlugs[0],relations)==="neutral"&&value.defense===target?.defense)||null;
-const pairedTargetFor=(attacker,elements)=>{
-  const targets=palData.pals.filter(value=>value.elementSlugs.length===elements.length&&elements.every(element=>value.elementSlugs.includes(element))).sort(palOrder);
-  for(const target of targets){
-    const control=neutralControl(attacker,target);
-    if(control)return {target,control};
-  }
-  return {target:targets[0]??null,control:null};
+const invariant=(condition,message)=>{if(!condition)throw new Error(message)};
+const sourceReportPath=process.env.PAL_ELEMENT_SOURCE_REPORT;
+invariant(sourceReportPath,"PAL_ELEMENT_SOURCE_REPORT must point to a build-scoped source report");
+const sourceReport=JSON.parse(await readFile(path.resolve(sourceReportPath),"utf8"));
+invariant(sourceReport.meta?.schema===2&&sourceReport.meta?.status==="source-lookup-verified-runtime-pending","Source report is not runtime-pending schema 2 evidence");
+invariant(sourceReport.verification?.exactWeakCountLookup===true&&sourceReport.verification?.runtimeApplication===false,"Source report is not in the expected fail-closed state");
+const gameBuild=String(sourceReport.meta.gameBuild);
+const base=path.join(root,"private","verification","element-damage",`build-${gameBuild}`);
+const outputPath=path.resolve(process.env.PAL_ELEMENT_TEST_PLAN||path.join(base,"test-plan.json"));
+const contractPath=path.resolve(process.env.PAL_ELEMENT_RUNTIME_CONTRACT||path.join(base,"runtime-evidence.contract.json"));
+const chartProfile=qualitativeChartProfileForHash(sourceReport.source.qualitativeChartHash);
+const relations=chartProfile.relations,lookup=sourceReport.findings.weakCountLookup,elements=chartProfile.elements;
+
+const defenderSets=[];
+for(const element of elements)defenderSets.push([element]);
+for(let left=0;left<elements.length;left++)for(let right=left+1;right<elements.length;right++)defenderSets.push([elements[left],elements[right]]);
+const aggregationCases=[];
+for(const attacker of elements)for(const defenders of defenderSets){
+  const weakCount=calculateWeakCount(attacker,defenders,relations);
+  aggregationCases.push({id:`aggregation-${attacker}-${defenders.join("-")}`,layer:"aggregation",attacker,defenders,outcomes:defenders.map(defender=>qualitativeOutcome(attacker,defender,relations)),expectedWeakCount:weakCount,expectedMultiplier:multiplierForWeakCount(weakCount,lookup)});
+}
+const lookupCases=Object.keys(lookup).map(Number).sort((a,b)=>a-b).map(weakCount=>({id:`lookup-${weakCount}`,layer:"lookup",weakCount,expectedMultiplier:multiplierForWeakCount(weakCount,lookup)}));
+const neutralDefenderFor=attacker=>elements.find(defender=>qualitativeOutcome(attacker,defender,relations)==="neutral")??attacker;
+const applicationKeys=new Set(),applicationCases=[];
+const addApplicationCase=(attacker,defenders,kind)=>{
+  const key=`${attacker}:${defenders.join("+")}`;
+  if(applicationKeys.has(key))return;
+  applicationKeys.add(key);
+  const weakCount=calculateWeakCount(attacker,defenders,relations);
+  applicationCases.push({id:`application-${attacker}-${defenders.join("-")}`,layer:"application",kind,attacker,defenders,controlDefenders:[neutralDefenderFor(attacker)],outcomes:defenders.map(defender=>qualitativeOutcome(attacker,defender,relations)),expectedWeakCount:weakCount,expectedMultiplier:multiplierForWeakCount(weakCount,lookup)});
 };
-const skillCandidates=Object.fromEntries(elementData.elements.map(element=>{
-  const sourceId=skillData.elements.find(value=>value.names["en-US"]===element.names["en-US"])?.id;
-  const candidates=skillData.activeSkills.filter(value=>value.elementId===sourceId&&value.hasSkillFruit&&value.power>0).sort((a,b)=>a.power-b.power||a.cooldown-b.cooldown||a.id.localeCompare(b.id)).slice(0,5);
-  return [element.slug,candidates.map(value=>({id:value.id,name:value.names["en-US"],power:value.power,cooldown:value.cooldown,requiresSingleHitManualReview:true}))];
-}));
-const singleCases=[];
 for(const relation of relations){
-  for(const [kind,attacker,defender] of [["strong",relation.attacker,relation.defender],["weak",relation.defender,relation.attacker]]){
-    const pair=pairedTargetFor(attacker,[defender]),weakCount=calculateWeakCount(attacker,[defender],relations);
-    singleCases.push({id:`single-${kind}-${attacker}-${defender}`,kind,attacker,defenders:[defender],outcomes:[qualitativeOutcome(attacker,defender,relations)],weakCount,sourceMultiplier:multiplierForWeakCount(weakCount,lookup),target:palRef(pair.target),neutralControl:palRef(pair.control),skillCandidates:skillCandidates[attacker]});
+  addApplicationCase(relation.attacker,[relation.defender],"single-strong");
+  addApplicationCase(relation.defender,[relation.attacker],"single-weak");
+}
+for(const attacker of elements)addApplicationCase(attacker,[neutralDefenderFor(attacker)],"single-neutral");
+for(const attacker of elements){
+  const byPattern=new Map();
+  for(const defenders of defenderSets.filter(value=>value.length===2)){
+    const outcomes=defenders.map(defender=>qualitativeOutcome(attacker,defender,relations)).sort();
+    const pattern=outcomes.join("+");
+    if(!byPattern.has(pattern))byPattern.set(pattern,defenders);
   }
+  for(const [pattern,defenders] of [...byPattern].sort(([left],[right])=>left.localeCompare(right)))addApplicationCase(attacker,defenders,`dual-${pattern}`);
 }
-for(const attacker of elementData.elements.map(value=>value.slug)){
-  const defender=elementData.elements.map(value=>value.slug).find(value=>qualitativeOutcome(attacker,value,relations)==="neutral"&&value!==attacker)||attacker;
-  const pair=pairedTargetFor(attacker,[defender]);
-  singleCases.push({id:`single-neutral-${attacker}-${defender}`,kind:"neutral",attacker,defenders:[defender],outcomes:["neutral"],weakCount:0,sourceMultiplier:1,target:palRef(pair.target),neutralControl:palRef(pair.target),skillCandidates:skillCandidates[attacker]});
-}
-const dualCandidates=[];
-for(const attacker of elementData.elements.map(value=>value.slug))for(const pal of dualPals){
-  const outcomes=pal.elementSlugs.map(defender=>qualitativeOutcome(attacker,defender,relations));
-  const weakCount=calculateWeakCount(attacker,pal.elementSlugs,relations);
-  dualCandidates.push({attacker,pal,outcomes,weakCount,pattern:[...outcomes].sort().join("+")});
-}
-const groupedDualCandidates=new Map();
-for(const candidate of dualCandidates){
-  const key=`${candidate.attacker}:${candidate.pattern}`;
-  const values=groupedDualCandidates.get(key)??[];
-  values.push(candidate);
-  groupedDualCandidates.set(key,values);
-}
-const dualCases=[],excludedCases=[];
-for(const candidates of groupedDualCandidates.values()){
-  const candidate=candidates.find(value=>neutralControl(value.attacker,value.pal));
-  if(!candidate){
-    const unavailable=candidates[0];
-    excludedCases.push({id:`dual-${unavailable.attacker}-${unavailable.pattern.replaceAll("+","-")}`,attacker:unavailable.attacker,pattern:unavailable.pattern,candidateTargets:candidates.map(value=>palRef(value.pal)),reason:"No single-element neutral-control Pal has matching base defense; changing both defense and attack would confound the ratio."});
-    continue;
-  }
-  dualCases.push({id:`dual-${candidate.attacker}-${candidate.pattern.replaceAll("+","-")}`,kind:"dual",attacker:candidate.attacker,defenders:candidate.pal.elementSlugs,outcomes:candidate.outcomes,pattern:candidate.pattern,weakCount:candidate.weakCount,sourceMultiplier:multiplierForWeakCount(candidate.weakCount,lookup),target:palRef(candidate.pal),neutralControl:palRef(neutralControl(candidate.attacker,candidate.pal)),skillCandidates:skillCandidates[candidate.attacker]});
-}
-const reachableWeakCounts=[...new Set(dualCandidates.map(value=>value.weakCount))].sort((a,b)=>a-b);
-const requiredCases=[...singleCases,...dualCases];
-if(requiredCases.some(value=>!value.target||!value.neutralControl||value.skillCandidates.length===0))throw new Error("A required runtime case is missing a target, matched neutral control, or usable skill candidate");
-const requiredInvariants=["sameAttacker","sameSkill","sameAttackerLevel","sameTargetLevel","sameTargetDefense","singleHitOnly","noCritical","noWeakPoint","noStatusEffects","noPassiveOrPartnerModifiers","sameWorldDamageSettings","hpDeltaMeasured"];
+const planIdentity={gameBuild,mappingHash:sourceReport.source.mappingHash,pak:sourceReport.source.pakFingerprint,functionRawHash:sourceReport.source.functionRawHash,chartHash:sourceReport.source.qualitativeChartHash,lookup};
+const planId=createHash("sha256").update(JSON.stringify(planIdentity)).digest("hex");
 const plan={
-  meta:{schema:1,gameBuild:elementData.meta.gameBuild,generatedAt:new Date().toISOString(),status:"runtime-observations-pending",caseCount:requiredCases.length},
-  sourceExpectation:{weakCountLookup:lookup,aggregationHypothesis:"sum qualitative component scores (strong +1, neutral 0, weak -1)",aggregationVerified:false,runtimeVerified:false},
-  coverage:{singleCaseCount:singleCases.length,dualCaseCount:dualCases.length,excludedCaseCount:excludedCases.length,reachableDualWeakCounts:reachableWeakCounts,sourceOnlyWeakCounts:Object.keys(lookup).map(Number).filter(value=>!reachableWeakCounts.includes(value)),dualPatterns:[...new Set(dualCases.map(value=>value.pattern))].sort()},
-  measurementProtocol:{minimumSessionsPerCase:2,minimumSamplesPerSession:20,maxRelativeMeanError:.01,requiredInvariants,notes:["Record target HP deltas, not only popup text.","Pair every treatment sample with the listed same-defense neutral control while keeping the attacker and skill unchanged.","Reject multi-hit, damage-over-time, critical, weak-point, status, passive, partner-skill, and world-setting contamination.","Use only the exact build and PAK fingerprint recorded in the source report."]},
-  requiredCases,
-  excludedCases,
+  meta:{schema:2,gameBuild,generatedAt:new Date().toISOString(),status:"machine-runtime-evidence-pending",planId},
+  sourceExpectation:{functionProfileId:sourceReport.source.functionProfileId,qualitativeChartProfileId:chartProfile.profileId,weakCountLookup:lookup,aggregationHypothesis:"sum qualitative component scores (strong +1, neutral 0, weak -1)",aggregationVerified:false,runtimeVerified:false},
+  coverage:{lookupCaseCount:lookupCases.length,aggregationCaseCount:aggregationCases.length,applicationCaseCount:applicationCases.length,attackerCount:elements.length,defenderSetCount:defenderSets.length,weakCounts:[...new Set(aggregationCases.map(value=>value.expectedWeakCount))].sort((a,b)=>a-b),applicationPatterns:[...new Set(applicationCases.map(value=>value.kind))].sort()},
+  protocol:{minimumIndependentSessions:2,minimumApplicationSamplesPerArmPerSession:20,maxRelativeMeanError:.01,damageDeltaTolerance:1e-6,execution:"isolated official dedicated server with a disposable world and a verification-only driver",manualInputAllowed:false,requiredHooks:["GetWeakScale","CalcDamageCharacter","actual applied damage"],failClosedConditions:["build, mapping, PAK, plan, server, or world-settings fingerprint mismatch","missing or duplicate required cases","critical, weak-point, status, multi-hit, passive, partner, or world-setting contamination","damage popup without matching target HP delta","unrecognized function or chart profile"]},
+  lookupCases,
+  aggregationCases,
+  applicationCases,
 };
-const template={
-  schema:1,
-  gameBuild:sourceReport.meta.gameBuild,
-  mappingHash:sourceReport.source.mappingHash,
-  pakFingerprint:sourceReport.source.pakFingerprint,
-  worldDamageSettingsFingerprint:"<recorded-settings-fingerprint>",
-  observations:[{
-    caseId:"<requiredCases[].id>",
-    sessionId:"<independent-session-id>",
-    setup:{attackerPalId:"<immutable-pal-id>",skillId:"<one listed skillCandidates[].id>",attackerLevel:0,attackerAttack:0,treatmentTargetId:"<required case target.id>",controlTargetId:"<required case neutralControl.id>",targetLevel:0,treatmentDefense:0,controlDefense:0,worldDamageSettingsFingerprint:"<same as top-level>"},
-    invariants:Object.fromEntries(requiredInvariants.map(value=>[value,false])),
-    controlSamples:[],
-    treatmentSamples:[],
-  }],
+const contract={
+  schema:2,
+  gameBuild,
+  planId,
+  format:"UTF-8 JSON Lines; one object per line",
+  recordTypes:{
+    "session-start":{required:["schema","type","gameBuild","planId","sessionId","mappingHash","pakFingerprint","serverFingerprint","runtimeFunctionRawHash","driverFingerprint","worldSettingsFingerprint"]},
+    "lookup-observation":{required:["schema","type","gameBuild","planId","sessionId","caseId","weakCount","observedMultiplier"]},
+    "aggregation-observation":{required:["schema","type","gameBuild","planId","sessionId","caseId","attacker","defenders","observedWeakCount","observedMultiplier"]},
+    "damage-observation":{required:["schema","type","gameBuild","planId","sessionId","caseId","sampleId","arm","comparisonFingerprint","hpBefore","hpAfter","reportedAppliedDamage","singleHit","contamination"]},
+    "session-end":{required:["schema","type","gameBuild","planId","sessionId","completed"]},
+  },
+  contaminationFields:["critical","weakPoint","statusEffect","multiHit","passiveModifier","partnerModifier","worldSettingsDrift"],
+  notes:["The verification driver writes this file. Human-entered samples are rejected by policy and are not part of this contract.","A runtime report may open publication gates only after every planned record passes in two independent fresh sessions."],
 };
 await mkdir(path.dirname(outputPath),{recursive:true});
-await Promise.all([writeFile(outputPath,JSON.stringify(plan,null,2)),writeFile(templatePath,JSON.stringify(template,null,2))]);
-console.log(`Generated ${singleCases.length} single-element and ${dualCases.length} feasible dual-element controlled runtime cases (${excludedCases.length} confounded case excluded); reachable dual weakCount values: ${reachableWeakCounts.join(", ")}.`);
+await Promise.all([writeFile(outputPath,JSON.stringify(plan,null,2)),writeFile(contractPath,JSON.stringify(contract,null,2))]);
+console.log(`Generated a machine-only runtime plan for build ${gameBuild}: ${lookupCases.length} lookup, ${aggregationCases.length} aggregation, and ${applicationCases.length} applied-damage cases.`);
