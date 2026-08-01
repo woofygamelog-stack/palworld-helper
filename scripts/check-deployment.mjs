@@ -5,11 +5,12 @@ import { deploymentFileBudget } from "../src/route-manifest.ts";
 const root = process.cwd();
 const dist = path.join(root, "dist");
 const readJson = async (file) => JSON.parse(await readFile(file, "utf8"));
+const readOptional = async (file) => readFile(file, "utf8").catch((error) => error.code === "ENOENT" ? "" : Promise.reject(error));
 const [packageJson, wrangler, report, redirects, adsTxt, envExample, config] = await Promise.all([
   readJson("package.json"),
   readJson("wrangler.jsonc"),
   readJson(path.join(dist, "prerender-report.json")),
-  readFile(path.join(dist, "_redirects"), "utf8"),
+  readOptional(path.join(dist, "_redirects")),
   readFile(path.join(dist, "ads.txt"), "utf8"),
   readFile(".env.example", "utf8"),
   readFile("src/config.ts", "utf8"),
@@ -31,9 +32,7 @@ if (!/^\d+\.\d+\.\d+$/.test(wranglerVersion || "")) fail("Wrangler must be pinne
 if (packageJson.scripts?.["deploy:production"] !== "npm run release:check && wrangler deploy") fail("production deploys must retain the full release gate");
 if (!packageJson.scripts?.["release:check"]?.includes("deploy:dry-run")) fail("the release gate must include Wrangler dry-run packaging");
 
-const redirectRules = redirects.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-if (redirectRules.length !== 1 || redirectRules[0] !== "/ /en-US 308") fail("only the narrow root locale redirect is allowed");
-if (/^\/\*\s+\/index\.html\s+200\s*$/m.test(redirects)) fail("a catch-all redirect cannot coexist with Workers SPA fallback");
+if (redirects.trim()) fail("static redirects must stay absent so the SPA can resolve stored and browser locale preferences");
 if (adsTxt.trim() !== "google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0") fail("ads.txt does not match the approved publisher account");
 if (/\.example|\.invalid|localhost|127\.0\.0\.1/i.test(`${envExample}\n${config}`)) fail("placeholder or local origins remain in public configuration");
 if (!/^VITE_HUB_URL=https:\/\/woofy\.blog$/m.test(envExample)) fail("the example Hub destination must match the owner-wide destination");

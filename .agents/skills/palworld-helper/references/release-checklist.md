@@ -34,7 +34,7 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] All 17 configured locales build without missing keys or accidental fallback.
 - [ ] Official game terminology takes precedence.
 - [ ] Translation provenance and placeholder/markup parity pass.
-- [ ] Locale URL, stored choice, then `en-US` resolution is tested.
+- [ ] Locale URL, stored choice, normalized browser-language match, then `en-US` resolution is tested.
 - [ ] `Intl.Collator` sorting is deterministic with official-ID tie-breaking.
 - [ ] Search covers localized names, official names, safe aliases, IDs, categories, and relevant keywords.
 - [ ] Search result count, active filters, reset, keyboard behavior, and empty state work.

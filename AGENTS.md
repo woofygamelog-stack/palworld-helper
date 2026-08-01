@@ -44,7 +44,7 @@
 
 - Support exactly the current official interface-language set, verified from an authoritative source at release time. The current baseline is:
   `en-US`, `zh-CN`, `zh-TW`, `ja-JP`, `fr-FR`, `it-IT`, `de-DE`, `es-ES`, `pt-BR`, `ru-RU`, `ko-KR`, `id-ID`, `es-419`, `th-TH`, `tr-TR`, `vi-VN`, `pl-PL`.
-- Use `en-US` as the default. Resolve locale in this order only: explicit URL locale, stored user selection, then `en-US`. Do not automatically choose the initial locale from browser or operating-system preferences.
+- Use `en-US` as the final fallback. Resolve locale in this order only: explicit URL locale, stored user selection, the first supported locale matched from browser language preferences, then `en-US`. Normalize browser language tags to the supported locale set and ignore unsupported values.
 - Use locale-prefixed public routes. Do not use language query parameters in canonical URLs, hreflang, sitemap URLs, sharing URLs, or new internal links.
 - Prefer shipped official localized terminology, then official publisher/documentation terminology, then approved glossary terms. Use GPT only for missing UI and explanatory prose, never for missing facts.
 - Record translation provenance as `official`, `gpt`, or `reviewed`. Never overwrite an official translation with GPT output.

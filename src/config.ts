@@ -6,5 +6,21 @@ export const localeLabels: Record<Locale,string> = {
 };
 const env=import.meta.env||{};
 export const site = { name:"Palworld Helper", origin:env.VITE_SITE_ORIGIN||"https://palworld-helper.woofy.blog", hubUrl:env.VITE_HUB_URL||"https://woofy.blog",contactUrl:env.VITE_SUPPORT_URL||"https://github.com/woofygamelog-stack/woofy-community/issues",gameVersion:"1.0.0", gameBuild:"24467282",analyticsId:env.VITE_GA_ID||"G-FF7N186M72",searchConsoleVerification:env.VITE_SEARCH_CONSOLE_VERIFICATION||"vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ",adsenseClient:env.VITE_ADSENSE_CLIENT||"ca-pub-1986785092914105",adsenseContentSlot:env.VITE_ADSENSE_CONTENT_SLOT||"" } as const;
-export function resolveLocale(pathname:string):Locale { const segment=pathname.split("/").filter(Boolean)[0]; if(locales.includes(segment as Locale))return segment as Locale; const stored=localStorage.getItem("pw-locale"); return stored&&locales.includes(stored as Locale)?stored as Locale:defaultLocale; }
+const languageDefaults:Record<string,Locale>={en:"en-US",ja:"ja-JP",fr:"fr-FR",it:"it-IT",de:"de-DE",pt:"pt-BR",ru:"ru-RU",ko:"ko-KR",id:"id-ID",in:"id-ID",th:"th-TH",tr:"tr-TR",vi:"vi-VN",pl:"pl-PL"};
+const latinAmericanSpanishRegions=new Set(["419","AR","BO","BR","BZ","CL","CO","CR","CU","DO","EC","GT","HN","MX","NI","PA","PE","PR","PY","SV","US","UY","VE"]);
+export function browserLocale(languageTags:readonly string[]):Locale|undefined {
+  for(const languageTag of languageTags){
+    const normalized=languageTag.trim().replaceAll("_","-");
+    if(!normalized)continue;
+    const exact=locales.find(candidate=>candidate.toLowerCase()===normalized.toLowerCase());
+    if(exact)return exact;
+    const [language,...subtags]=normalized.split("-"),base=language.toLowerCase(),upperSubtags=subtags.map(value=>value.toUpperCase());
+    if(base==="zh")return subtags.some(value=>value.toLowerCase()==="hant")||upperSubtags.some(value=>["TW","HK","MO"].includes(value))?"zh-TW":"zh-CN";
+    if(base==="es")return upperSubtags.some(value=>latinAmericanSpanishRegions.has(value))?"es-419":"es-ES";
+    const fallback=languageDefaults[base];if(fallback)return fallback;
+  }
+}
+function storedLocale():Locale|undefined { try { const stored=typeof localStorage==="undefined"?null:localStorage.getItem("pw-locale");return stored&&locales.includes(stored as Locale)?stored as Locale:undefined } catch { return undefined } }
+function browserLanguages():readonly string[] { if(typeof navigator==="undefined")return [];return navigator.languages?.length?navigator.languages:navigator.language?[navigator.language]:[] }
+export function resolveLocale(pathname:string,languageTags:readonly string[]=browserLanguages()):Locale { const segment=pathname.split("/").filter(Boolean)[0]; if(locales.includes(segment as Locale))return segment as Locale; return storedLocale()||browserLocale(languageTags)||defaultLocale; }
 export function localizePath(locale:Locale,route=""):string { return `/${locale}${route.startsWith("/")?route:`/${route}`}`.replace(/\/$/,"")||`/${locale}`; }

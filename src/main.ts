@@ -108,7 +108,7 @@ const app=document.querySelector<HTMLDivElement>("#app")!;
 let preservingPrerender=app.hasAttribute("data-prerender-route");
 let locale=resolveLocale(location.pathname),m=messages(locale),data:PalData|null=null,itemData:ItemData|null=null,mapData:MapData|null=null,skillData:SkillData|null=null,npcData:NpcData|null=null,dungeonData:DungeonData|null=null,technologyData:TechnologyData|null=null,healthData:HealthData|null=null,elementData:ElementData|null=null,structureData:StructureData|null=null,expeditionData:ExpeditionData|null=null,questData:QuestData|null=null,itemLoading=false,palLoading=false,mapLoading=false,skillLoading=false,npcLoading=false,dungeonLoading=false,technologyLoading=false,healthLoading=false,elementLoading=false,structureLoading=false,expeditionLoading=false,questLoading=false,dungeonLoadError=false,technologyLoadError=false,healthLoadError=false,elementLoadError=false,structureLoadError=false,expeditionLoadError=false,questLoadError=false;
 const mapView={scale:1,x:0,y:0};
-if(!locales.includes(location.pathname.split("/").filter(Boolean)[0] as Locale))history.replaceState({},"",localizePath(locale,location.pathname));
+if(!locales.includes(location.pathname.split("/").filter(Boolean)[0] as Locale))history.replaceState({},"",`${localizePath(locale,location.pathname)}${location.search}${location.hash}`);
 const analyticsTracker=createAnalyticsTracker({
   consentGranted:()=>localStorage.getItem("pw-consent")==="granted",
   currentPath:()=>location.pathname,
