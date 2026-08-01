@@ -195,7 +195,7 @@ if(/EPal|BUILDOBJECT|MAPOBJECT|OverrideDesc|RequiredEnergyType|Material[1-4]_Id|
 
 const generatedAt=new Date(extractionManifest.extractedAt).toISOString();
 const atlas={path:"/assets/structures/structures-atlas.webp",cellSize:atlasCellSize,columns:atlasColumns,rows:atlasRows};
-const output={meta:{schema:1,gameBuild,generatedAt,verification:"game-files",localeCount:expectedLocales.length,structureCount,categoryCounts,productionCount,energyCount,materialRelationCount,technologyRelationCount,imageProvenance:{direct:structureCount,"atlas-official":structureCount,missing:0},atlas},structures};
+const output={meta:{schema:1,gameBuild,generatedAt,verification:"verified",localeCount:expectedLocales.length,structureCount,categoryCounts,productionCount,energyCount,materialRelationCount,technologyRelationCount,imageProvenance:{direct:structureCount,"atlas-official":structureCount,missing:0},atlas},structures};
 fs.mkdirSync(path.dirname(outputFile),{recursive:true});
 fs.writeFileSync(outputFile,JSON.stringify(output));
 fs.mkdirSync(provenanceDirectory,{recursive:true});

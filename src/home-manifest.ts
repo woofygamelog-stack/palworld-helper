@@ -2,7 +2,7 @@ import type {IconName} from "./icons";
 
 export type HomeQuickActionId="map"|"pals"|"breeding"|"crafting"|"base"|"server";
 export type HomeCatalogGroupId="pals-and-skills"|"items-and-progression"|"exploration"|"combat-and-management";
-export type HomeTrustItemId="game-files"|"unknowns"|"locales";
+export type HomeTrustItemId="verified"|"unknowns"|"locales";
 
 export type HomeRouteLink={id:string;path:string};
 export type HomeQuickAction=HomeRouteLink&{id:HomeQuickActionId;icon:IconName};

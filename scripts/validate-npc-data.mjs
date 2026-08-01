@@ -6,7 +6,7 @@ const palData=JSON.parse(fs.readFileSync("public/data/pals.json","utf8"));
 const mapPoints=JSON.parse(fs.readFileSync("public/data/map-points.json","utf8")).points;
 const locales=["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
 const itemIds=new Set(itemData.items.map(item=>item.id)),palIds=new Set(palData.pals.map(pal=>pal.id)),slugs=new Set();
-if(npcData.meta.schema!==2||npcData.meta.sourceDefinitionCount!==216||npcData.meta.publishedDefinitionCount!==190||npcData.meta.excludedDefinitionCount!==26||npcData.meta.npcCount!==164||npcData.meta.merchantCount!==7||npcData.meta.combatCount!==41||npcData.meta.fixedNpcCount!==101||npcData.meta.encounterCount!==155||npcData.meta.localeCount!==locales.length||npcData.meta.verification!=="game-files")throw new Error("NPC metadata baseline mismatch");
+if(npcData.meta.schema!==2||npcData.meta.sourceDefinitionCount!==216||npcData.meta.publishedDefinitionCount!==190||npcData.meta.excludedDefinitionCount!==26||npcData.meta.npcCount!==164||npcData.meta.merchantCount!==7||npcData.meta.combatCount!==41||npcData.meta.fixedNpcCount!==101||npcData.meta.encounterCount!==155||npcData.meta.localeCount!==locales.length||npcData.meta.verification!=="verified")throw new Error("NPC metadata baseline mismatch");
 for(const npc of npcData.npcs){
   if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(npc.slug)||slugs.has(npc.slug))throw new Error(`Invalid or duplicate NPC slug ${npc.slug}`);slugs.add(npc.slug);
   if(JSON.stringify(Object.keys(npc.names).sort())!==JSON.stringify([...locales].sort())||Object.values(npc.names).some(name=>!name.trim()))throw new Error(`${npc.slug} has incomplete official names`);

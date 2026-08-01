@@ -130,7 +130,7 @@ for(const [textureType,{slug,image}] of Object.entries(textureByEnum)){
 
 const generatedAt=manifest.extractedAt;
 const payload={
-  meta:{schema:1,gameBuild,generatedAt,verification:"game-files",localeCount:17,expeditionCount:18,standardCount:9,hardCount:9,rewardSlotCount:expeditions.reduce((sum,entry)=>sum+entry.rewardSlots.length,0),rewardRowCount:279,uniqueRewardItemCount:75,rewardContentsVerified:true,rewardQuantitiesVerified:true,probabilitiesVerified:false,durationFormulaVerified:false,imageProvenance:{direct:9,sharedAssignments:18,missing:0}},
+  meta:{schema:1,gameBuild,generatedAt,verification:"verified",localeCount:17,expeditionCount:18,standardCount:9,hardCount:9,rewardSlotCount:expeditions.reduce((sum,entry)=>sum+entry.rewardSlots.length,0),rewardRowCount:279,uniqueRewardItemCount:75,rewardContentsVerified:true,rewardQuantitiesVerified:true,probabilitiesVerified:false,durationFormulaVerified:false,imageProvenance:{direct:9,sharedAssignments:18,missing:0}},
   station:{structureSlug:"pal-expedition-station",technologySlug:"pal-expedition-station"},
   expeditions
 };

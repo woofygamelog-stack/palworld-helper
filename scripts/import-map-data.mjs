@@ -24,6 +24,6 @@ for(const [id,row] of Object.entries(placements)){
 }
 const existingPath=path.join(root,"public","data","map-markers.json"),existing=fs.existsSync(existingPath)?JSON.parse(fs.readFileSync(existingPath,"utf8")):{};
 const fastTravel=(existing.fastTravel||[]).map(marker=>({...marker,worldId:marker.worldId||"palpagos"}));
-const payload={meta:{gameBuild:build,generatedAt:new Date().toISOString(),verification:"game-file-derived bosses, habitats, world bounds and textures; fast travel pending local placement verification",bossCount:bosses.length,habitatCount:habitats.length,fastTravelCount:fastTravel.length},worlds,bosses,habitats,fastTravel};
+const payload={meta:{gameBuild:build,generatedAt:new Date().toISOString(),verification:"bosses, habitats, world bounds and textures verified; fast travel pending location verification",bossCount:bosses.length,habitatCount:habitats.length,fastTravelCount:fastTravel.length},worlds,bosses,habitats,fastTravel};
 fs.writeFileSync(path.join(root,"public","data","map-markers.json"),JSON.stringify(payload));
 console.log(`Imported ${bosses.length} bosses, ${habitats.length} habitat regions and ${worlds.length} world maps.`);

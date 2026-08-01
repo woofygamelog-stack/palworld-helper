@@ -65,14 +65,14 @@ if(activeSourceEvents.length!==7||activeSourceEvents.some(([id])=>!eventSpecs[id
 const behaviors=activeSourceEvents.map(([id,row],order)=>{
   if(!Number.isInteger(row.TriggerSanity)||row.TriggerSanity<0||row.TriggerSanity>100)throw new Error(`Invalid SAN source value: ${id}`);
   const spec=eventSpecs[id],names=localized(`BASECAMP_EVENT_TYPE_${id}`);
-  return {slug:spec.slug,sourceId:id,category:spec.category,order,names,descriptions:spec.comment?localized(spec.comment):names,sanValue:row.TriggerSanity,sourceValueVerified:true,triggerSelectionVerified:false,verification:"game-files-data-table-and-localization"};
+  return {slug:spec.slug,sourceId:id,category:spec.category,order,names,descriptions:spec.comment?localized(spec.comment):names,sanValue:row.TriggerSanity,sourceValueVerified:true,triggerSelectionVerified:false,verification:"verified"};
 });
 
 const conditions=conditionSpecs.map(([slug,key,category,rank,medicine])=>{
   const row=sicknessRows[key];
   if(!row||row.EffectiveItemRank!==rank)throw new Error(`Sickness treatment rank drifted: ${key}`);
   for(const field of ["WorkSpeed","MoveSpeed","SatietyDecrease","RecoveryProbabilityPercentageInPalBox"])if(typeof row[field]!=="number")throw new Error(`Sickness source value missing: ${key}.${field}`);
-  return {slug,sourceId:key,category,medicine,effectiveItemRank:rank,names:localized(`COMMON_CONDITION_NAME_${key}`),descriptions:localized(`COMMON_CONDITION_DESC_${key}`),effects:{workSpeed:row.WorkSpeed,moveSpeed:row.MoveSpeed,satietyDecrease:row.SatietyDecrease,palBoxRecovery:row.RecoveryProbabilityPercentageInPalBox,sourceValuesVerified:true,runtimeApplicationVerified:false},verification:"game-files-data-table-and-localization"};
+  return {slug,sourceId:key,category,medicine,effectiveItemRank:rank,names:localized(`COMMON_CONDITION_NAME_${key}`),descriptions:localized(`COMMON_CONDITION_DESC_${key}`),effects:{workSpeed:row.WorkSpeed,moveSpeed:row.MoveSpeed,satietyDecrease:row.SatietyDecrease,palBoxRecovery:row.RecoveryProbabilityPercentageInPalBox,sourceValuesVerified:true,runtimeApplicationVerified:false},verification:"verified"};
 });
 if(sicknessRows.NoneSick?.EffectiveItemRank!==0||sicknessRows.DisturbingElement?.EffectiveItemRank!==4)throw new Error("Special sickness rows drifted from the verified source");
 
@@ -81,10 +81,10 @@ const medicines=medicineSpecs.map(([slug,id,rank,cures])=>{
   if(!item||!recipe)throw new Error(`Missing medicine or recipe: ${id}`);
   if(!conditions.filter(condition=>condition.effectiveItemRank===rank).every(condition=>cures.includes(condition.slug)))throw new Error(`Medicine cure relation drifted: ${id}`);
   const descriptions=Object.fromEntries(Object.entries(locales).map(([locale,sourceLocale])=>[locale,resolveMarkup(itemDescriptions[sourceLocale]?.[`ITEM_DESC_${id}`],sourceLocale)]));
-  return {slug,itemId:id,effectiveItemRank:rank,names:item.names,descriptions,image:`/assets/items/${id}.webp`,cures,healthRestoration:0,recipe:{output:recipe.output,workAmount:recipe.workAmount,ingredients:recipe.ingredients.map(ingredient=>{const related=items.get(ingredient.itemId);if(!related)throw new Error(`Missing ingredient: ${ingredient.itemId}`);return {itemId:ingredient.itemId,names:related.names,image:related.image?`/assets/items/${ingredient.itemId}.webp`:null,count:ingredient.count};})},verification:"game-files-item-description-and-recipe"};
+  return {slug,itemId:id,effectiveItemRank:rank,names:item.names,descriptions,image:`/assets/items/${id}.webp`,cures,healthRestoration:0,recipe:{output:recipe.output,workAmount:recipe.workAmount,ingredients:recipe.ingredients.map(ingredient=>{const related=items.get(ingredient.itemId);if(!related)throw new Error(`Missing ingredient: ${ingredient.itemId}`);return {itemId:ingredient.itemId,names:related.names,image:related.image?`/assets/items/${ingredient.itemId}.webp`:null,count:ingredient.count};})},verification:"verified"};
 });
 
-const data={meta:{schema:2,gameBuild:String(itemData.meta.gameBuild),localeCount:Object.keys(locales).length,behaviorCount:behaviors.length,conditionCount:conditions.length,medicineCount:medicines.length,excludedSpecialConditionCount:1,verification:"game-files",sourceValuesVerified:true,runtimeApplicationVerified:false},san:{names:localized("COMMON_STATUS_SANITY_TITLE"),descriptions:localized("COMMON_STATUS_SANITY_DESC"),behaviors,sourceValuesVerified:true,triggerSelectionVerified:false,verification:"game-files-data-table-and-localization"},conditions,medicines};
+const data={meta:{schema:2,gameBuild:String(itemData.meta.gameBuild),localeCount:Object.keys(locales).length,behaviorCount:behaviors.length,conditionCount:conditions.length,medicineCount:medicines.length,excludedSpecialConditionCount:1,verification:"verified",sourceValuesVerified:true,runtimeApplicationVerified:false},san:{names:localized("COMMON_STATUS_SANITY_TITLE"),descriptions:localized("COMMON_STATUS_SANITY_DESC"),behaviors,sourceValuesVerified:true,triggerSelectionVerified:false,verification:"verified"},conditions,medicines};
 for(const condition of conditions)for(const locale of Object.keys(locales))if(!condition.names[locale]||!condition.descriptions[locale])throw new Error(`Missing ${condition.slug} ${locale}`);
 const output=JSON.stringify(data);fs.writeFileSync(path.join(root,"public/data/health.json"),output);
 const provenanceDirectory=path.join(root,"private/provenance");fs.mkdirSync(provenanceDirectory,{recursive:true});

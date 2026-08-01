@@ -6,7 +6,7 @@ const items=JSON.parse(fs.readFileSync("public/data/items.json","utf8"));
 const maps=JSON.parse(fs.readFileSync("public/data/map-markers.json","utf8"));
 const fail=message=>{throw new Error(`Dungeon validation failed: ${message}`)};
 const expectedLocales=["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
-if(data.meta.schema!==3||data.meta.gameBuild!=="24467282"||data.meta.verification!=="game-files")fail("metadata mismatch");
+if(data.meta.schema!==3||data.meta.gameBuild!=="24467282"||data.meta.verification!=="verified")fail("metadata mismatch");
 if(data.meta.localeCount!==expectedLocales.length||data.meta.dungeonCount!==28||data.meta.fixedCount!==18||data.meta.rotatingCount!==10||data.meta.entranceCount!==31||data.meta.rewardSourceCount!==79||data.meta.rewardItemCandidateCount!==819)fail("build-specific count drift");
 if(data.meta.probabilitiesVerified!==false||data.meta.resourcesVerified!==false||data.meta.rewardSourcesVerified!==true||data.meta.rewardContentsVerified!==false)fail("Dungeon verification boundaries are inconsistent");
 if(data.dungeons.length!==data.meta.dungeonCount)fail("dungeon count mismatch");
@@ -16,7 +16,7 @@ let fixedCount=0,rotatingCount=0,entranceCount=0,encounterGroupCount=0,itemCandi
 for(const dungeon of data.dungeons){
   if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(dungeon.slug)||slugs.has(dungeon.slug))fail(`invalid or duplicate slug ${dungeon.slug}`);slugs.add(dungeon.slug);
   if(dungeon.kind==="fixed")fixedCount++;else if(dungeon.kind==="rotating")rotatingCount++;else fail(`invalid kind ${dungeon.slug}`);
-  if(dungeon.verification!=="game-files")fail(`unverified dungeon published ${dungeon.slug}`);
+  if(dungeon.verification!=="verified")fail(`unverified dungeon published ${dungeon.slug}`);
   if(JSON.stringify(Object.keys(dungeon.names).sort())!==JSON.stringify([...expectedLocales].sort()))fail(`locale coverage ${dungeon.slug}`);
   for(const value of Object.values(dungeon.names))if(!value.trim()||/^(?:[a-z-]+[ _]Text|\?\?\?|This Dungeon is under investigation\.)$/i.test(value))fail(`placeholder name ${dungeon.slug}`);
   if(dungeon.encounterLevel&&(!Number.isFinite(dungeon.encounterLevel.min)||!Number.isFinite(dungeon.encounterLevel.max)||dungeon.encounterLevel.min<=0||dungeon.encounterLevel.min>dungeon.encounterLevel.max))fail(`encounter level ${dungeon.slug}`);

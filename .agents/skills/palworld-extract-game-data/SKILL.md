@@ -39,6 +39,8 @@ Use the global `extract-game-data`, `build-game-helper-sites`, and project `palw
 8. Use an official-derived image only when no authoritative unique icon resolves and the product explicitly requires complete visual coverage. Use only extracted official assets, record the deterministic source mapping in repository code, and do not substitute a semantically unrelated category image silently.
 9. Resolve shipped localization markup only through verified build-matched joins to item, Pal, map-object, and UI-common tables. Reject unresolved tags, placeholder keys, raw enums, and internal asset paths instead of publishing them.
 10. Keep direct source values separate from runtime formulas and selection semantics. SAN worker-event values and sickness-table modifiers may be published as source values when their rows and localization are verified, while event-selection rules, final modifier application, probabilities, effective-duration curves, numeric matchup multipliers, and dual-element rules remain unavailable without independent runtime validation. Keep a hashed matchup chart private when it is needed only as relationship evidence; publish an original code-native presentation instead of copying the chart.
+11. Never publish the acquisition method as provenance. Public JSON, UI, metadata, filenames, URLs, accessibility strings, client validation messages, and verification enums must use neutral states such as `verified`, `reviewed`, `partial`, `unverified`, or `unavailable`; labels such as `game-files`, `game-file-derived`, `extracted`, tool names, local paths, and localized equivalents remain private.
+12. When a normalized schema previously exposed acquisition wording, migrate the generator, generated output, runtime guards, types, tests, and built-artifact assertions together. Do not preserve a disclosure-bearing enum for compatibility in the public payload.
 
 ## Validate changes
 
@@ -49,6 +51,7 @@ Use the global `extract-game-data`, `build-game-helper-sites`, and project `palw
 5. Run the relevant import command, `npm run typecheck`, `npm test`, `npm run check:i18n`, and `npm run build`.
 6. Inspect the built artifact and staged file list for local paths, private data, logs, source URLs, raw object identifiers, secrets, and accidental build output.
 7. Fail mixed-build joins across raw extracts and normalized Pal, item, skill, map, technology, structure, element, and health catalogs. Do not copy a private directory into an expected default path to bypass an importer that lacks source overrides.
+8. Run `npm run check:public-disclosure` after normalization and after the production build. Fail on acquisition wording in any shipped text artifact, including public JSON, minified JavaScript, HTML, XML, manifests, console/error strings, accessibility/SEO copy, and source maps.
 
 ## Report
 

@@ -11,6 +11,8 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Schema, references, ranges, duplicates, and version diffs pass.
 - [ ] Assets have usable rights and required notices are preserved.
 - [ ] Private provenance, source URLs, local paths, and logs are absent from output.
+- [ ] Public UI, accessibility text, SEO/social/structured metadata, JSON, exports, URLs, filenames, bundled code, console/errors, screenshots, and public documentation do not state or imply game-file inspection, extraction, unpacking, data mining, reverse engineering, installed-copy use, tools, or acquisition pipelines.
+- [ ] Public verification/status values use neutral states such as `verified`, `partial`, `unverified`, or `unavailable`; acquisition-bearing values such as `game-files`, `game-file-derived`, `extracted`, tool names, and localized equivalents are absent.
 - [ ] Exact element multipliers and compound rules have build-matched source evidence plus two clean live-runtime sessions covering all attacker elements and all valid one-/two-element defenders.
 - [ ] Element evidence verifies lookup values, component-score aggregation, and the live damage-calculation route; public import fails closed unless both numeric and compound-rule readiness gates pass.
 
@@ -47,7 +49,9 @@ Use the sections matching the current change. For a production release, use ever
 ## UI and accessibility
 
 - [ ] Mobile, tablet, and desktop layouts have no horizontal overflow.
-- [ ] Light, dark, and system themes work without first-paint flashing.
+- [ ] The shared-header theme trigger shows the current preference with a monitor/system, sun/light, or moon/dark icon, and one activation exposes all three choices with matching icons and localized visible labels.
+- [ ] The selected theme is programmatically exposed; trigger and choices have localized accessible names, visible focus, keyboard/Escape/outside-close behavior with focus return, and 44px targets; a binary or unlabeled cycle-only control is absent.
+- [ ] Light, dark, and system themes work without first-paint flashing; only explicit light/dark overrides persist, choosing system clears the override, and system-mode OS changes update the effective theme and browser theme metadata without navigation.
 - [ ] Text, focus, status, charts, maps, tables, errors, and ads meet contrast requirements.
 - [ ] Semantic labels, headings, controls, visible focus, and 44px touch targets are present.
 - [ ] Maps have keyboard access and an equivalent marker list.
@@ -84,6 +88,7 @@ Use the sections matching the current change. For a production release, use ever
 - [ ] Format, lint, types, unit, integration, localization, and production build pass as applicable.
 - [ ] Representative `en-US` and non-Latin routes are browser-checked on mobile and desktop in light and dark modes.
 - [ ] Broken links, missing images, secrets, incorrect domains, and private files are absent.
+- [ ] `npm run check:public-disclosure` passes against the public source boundary and the final `dist/` artifact, including generated JSON and JavaScript bundles.
 - [ ] The deployment artifact is deterministic and static-only.
 - [ ] Production deployment was explicitly authorized.
 - [ ] No GitHub Actions deployment workflow was added or restored unless explicitly requested; Cloudflare's connected repository and production branch remain the deployment trigger.

@@ -88,10 +88,10 @@ const elements=definitions.map((definition,order)=>({
   weakTo:relationPairs.filter(([,defender])=>defender===definition.slug).map(([attacker])=>attacker),
 }));
 if(elements.some(element=>Object.keys(element.names).length!==17||element.palCount<1||element.activeSkillCount<1))throw new Error("Element localization or entity coverage is incomplete");
-const relations=relationPairs.map(([attacker,defender])=>({attacker,defender,effect:"strong",multiplier:numericMultipliers.strong,verification:"game-ui-chart-and-runtime"}));
+const relations=relationPairs.map(([attacker,defender])=>({attacker,defender,effect:"strong",multiplier:numericMultipliers.strong,verification:"matchup-and-runtime-verified"}));
 const generatedAt=manifest.extractedAt;
 const output={
-  meta:{schema:3,gameBuild,generatedAt,verification:"game-files-and-runtime",localeCount:17,elementCount:9,relationCount:9,palCount:299,numericMultipliersVerified:true,dualElementRuleVerified:true,iconProvenance:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},
+  meta:{schema:3,gameBuild,generatedAt,verification:"verified-and-runtime",localeCount:17,elementCount:9,relationCount:9,palCount:299,numericMultipliersVerified:true,dualElementRuleVerified:true,iconProvenance:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},
   elements,
   relations,
   rules:{numericMultipliers,dualElement},

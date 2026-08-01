@@ -65,10 +65,18 @@ Do not publish capture-rate, IV, production-time, or similar inferred formulas a
 1. Add all visible strings to all supported locales in the same change.
 2. Use official localized game terminology; record non-official translation provenance.
 3. Use locale-prefixed routes and the project locale resolution order.
-4. Keep search, sorting, filter state, themes, keyboard use, focus, empty/error states, and 44px touch targets correct.
+4. Keep search, sorting, filter state, themes, keyboard use, focus, empty/error states, and 44px touch targets correct. Preserve the shared-header theme picker contract: its current-preference trigger uses the monitor/system, sun/light, or moon/dark icon; one activation exposes all three icon-and-localized-label choices; the selected choice is programmatically identified; and a binary or unlabeled cycle control is not an acceptable replacement.
 5. Add localized page metadata, canonical, alternates, sitemap behavior, and structured data where the page is indexable.
 6. Keep ads distinct from and away from primary controls.
 7. Add implemented collection/entity routes to client routing, canonical/hreflang output, sitemap, prerender selection, and internal linking together. Classify each family as static, prerendered, client, or hybrid and reject thin HTML copies.
+
+### Keep acquisition methods private
+
+1. Describe public information only with neutral verification language such as `verified`, `reviewed`, `partial`, `unverified`, or `unavailable`. Never mention or imply game files, installed copies, archives, extraction, unpacking, data mining, reverse engineering, tooling, or transformation methods in any shipped or publishable surface.
+2. Treat public JSON and client-side validation strings as public copy. Public `verification`, `provenance`, status, ID, data-attribute, filename, and URL values must not encode acquisition labels such as `game-files`, `game-file-derived`, `extracted`, tool names, local path shapes, or localized equivalents.
+3. Keep exact acquisition evidence only in ignored private manifests and internal operational instructions. Do not invent a different public source story; replace the disclosure with a neutral statement about accuracy, scope, freshness, or verification status.
+4. When changing a public dataset, update its generator, generated JSON, runtime guards, types, tests, and build checks in the same change so an old acquisition-bearing enum cannot return on refresh.
+5. Run `npm run check:public-disclosure` against source-facing public files and the final `dist/` artifact. Inspect any match manually, and do not waive a match merely because it is hidden from the visible page or appears only in a bundle, JSON response, metadata field, console message, accessibility string, or source map.
 
 For maps, provide both the visual map and an equivalent marker result list. For large datasets, split static payloads and avoid blocking initial rendering.
 
@@ -111,7 +119,7 @@ For this project:
 
 ## Verify and report
 
-Run checks proportionate to every affected category. Always include localization and production-build checks for release-facing changes. Inspect the built artifact for private provenance, source URLs, local paths, secrets, and unintended runtime services.
+Run checks proportionate to every affected category. Always include localization and production-build checks for release-facing changes. Inspect the built artifact for private provenance, acquisition-method wording, source URLs, local paths, secrets, and unintended runtime services. The public-disclosure audit is mandatory for every release-facing content or data change.
 
 Derive expected sitemap URL counts, physical HTML counts, and initial-HTML coverage from the shared route/entity manifest. Verify direct localized prerendered and SPA-fallback deep links after a fresh load, deployed-file growth headroom, and the absence of public build/version text, placeholder domains, broken images, missing links, or stale sitemap URLs.
 

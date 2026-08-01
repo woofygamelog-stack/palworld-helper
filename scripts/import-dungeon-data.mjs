@@ -186,7 +186,7 @@ for(const [nameId,definition] of Object.entries(dungeonPublicDefinitions)){
     slug:definition.slug,
     names:localizedNames(nameId),
     kind:definition.kind,
-    verification:"game-files",
+    verification:"verified",
     probabilityStatus:definition.kind==="fixed"?"not-applicable":"unverified-multi-stage",
     entranceStatus,
     encounterLevel:levelsFound.length?{min:Math.min(...levelsFound),max:Math.max(...levelsFound)}:null,
@@ -208,6 +208,6 @@ for(const [nameId,definition] of Object.entries(dungeonPublicDefinitions)){
 }
 dungeons.sort((a,b)=>(a.encounterLevel?.min??Number.MAX_SAFE_INTEGER)-(b.encounterLevel?.min??Number.MAX_SAFE_INTEGER)||a.names["en-US"].localeCompare(b.names["en-US"])||a.slug.localeCompare(b.slug));
 const slugs=new Set();for(const dungeon of dungeons){if(slugs.has(dungeon.slug))throw new Error(`Duplicate dungeon slug ${dungeon.slug}`);slugs.add(dungeon.slug);if(Object.keys(dungeon.names).length!==17)throw new Error(`Dungeon locale coverage failed for ${dungeon.slug}`)}
-const payload={meta:{schema:3,gameBuild,localeCount:17,dungeonCount:dungeons.length,fixedCount:dungeons.filter(row=>row.kind==="fixed").length,rotatingCount:dungeons.filter(row=>row.kind==="rotating").length,entranceCount:dungeons.reduce((sum,row)=>sum+row.entrances.length,0),rewardSourceCount:dungeons.reduce((sum,row)=>sum+row.rewardSources.length,0),rewardItemCandidateCount:dungeons.reduce((sum,row)=>sum+row.summary.rewardItemCandidateCount,0),verification:"game-files",probabilitiesVerified:false,resourcesVerified:false,rewardSourcesVerified:true,rewardContentsVerified:false},dungeons};
+const payload={meta:{schema:3,gameBuild,localeCount:17,dungeonCount:dungeons.length,fixedCount:dungeons.filter(row=>row.kind==="fixed").length,rotatingCount:dungeons.filter(row=>row.kind==="rotating").length,entranceCount:dungeons.reduce((sum,row)=>sum+row.entrances.length,0),rewardSourceCount:dungeons.reduce((sum,row)=>sum+row.rewardSources.length,0),rewardItemCandidateCount:dungeons.reduce((sum,row)=>sum+row.summary.rewardItemCandidateCount,0),verification:"verified",probabilitiesVerified:false,resourcesVerified:false,rewardSourcesVerified:true,rewardContentsVerified:false},dungeons};
 fs.writeFileSync(outputPath,JSON.stringify(payload));
 console.log(`Imported ${payload.meta.dungeonCount} dungeons (${payload.meta.fixedCount} fixed, ${payload.meta.rotatingCount} rotating), ${payload.meta.entranceCount} linked entrances, ${dungeons.reduce((sum,row)=>sum+row.encounterGroups.length,0)} encounter groups, ${dungeons.reduce((sum,row)=>sum+row.itemPools.reduce((count,pool)=>count+pool.slots.reduce((slotCount,slot)=>slotCount+slot.candidates.length,0),0),0)} floor item candidates, ${payload.meta.rewardSourceCount} reward sources, and ${payload.meta.rewardItemCandidateCount} unique per-dungeon reward item candidates.`);

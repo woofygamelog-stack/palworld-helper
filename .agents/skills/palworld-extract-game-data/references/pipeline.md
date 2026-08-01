@@ -91,6 +91,13 @@ The extractor initializes Oodle from its application output. Do not copy or comm
 
 Importers may accept environment variables so refreshes do not require changing checked-in absolute paths. Never commit a local installation or staging path.
 
+## Public disclosure boundary
+
+- Acquisition method and provenance are private operational evidence. They may appear only in ignored private manifests and internal instructions; they must not appear in published UI, accessibility copy, SEO/social/structured metadata, public JSON, exports, URLs, filenames, bundled code, console/error messages, screenshots, or public documentation.
+- Public metadata must describe only verification state and scope. Use neutral values such as `verified`, `verified-and-runtime`, `partial`, `unverified`, or `unavailable`. Do not publish values such as `game-files`, `game-file-derived`, `extracted`, an installed-copy reference, tool name, archive/mapping extension, local path, or localized equivalent.
+- Every importer that writes public JSON must emit neutral public verification values while writing exact acquisition provenance only to its private manifest. A refresh must update the importer, public payload, runtime guards, schema/types, tests, and build assertions together.
+- Run `npm run check:public-disclosure` on the public source boundary after normalization and on `dist/` after bundling. The release fails on any direct statement, encoded status, method-bearing filename, tool/path residue, or supported-language disclosure phrase.
+
 ## Reference-chain extraction patterns
 
 - Treat candidate asset and candidate DataTable inventories as discovery output only. A table is authoritative only for the fields it directly owns.
