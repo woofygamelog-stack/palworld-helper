@@ -16,9 +16,17 @@ import { basePresetCopy, basePresetCopyProvenance } from "../src/base-preset-i18
 import { basePresets } from "../src/base-presets.ts";
 import { mapSeoCopy, mapSeoTranslationProvenance } from "./seo-static.mjs";
 import { shellCopy, shellCopyProvenance } from "../src/shell-i18n.ts";
+import {homeCopy,homeCopyProvenance} from "../src/home-i18n.ts";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
 const expected = ["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
+const flattenStrings=value=>typeof value==="string"?[value]:Object.values(value).flatMap(flattenStrings),homeEnglish=flattenStrings(homeCopy["en-US"]);
+for(const locale of expected){
+  const values=flattenStrings(homeCopy[locale]||{});
+  if(values.length!==homeEnglish.length||values.some(value=>!value.trim()))throw new Error(`${locale} Home catalog is incomplete`);
+  if(!homeCopyProvenance[locale])throw new Error(`${locale} Home translation provenance is missing`);
+  if(locale!=="en-US"&&values.filter((value,index)=>value!==homeEnglish[index]).length<Math.floor(values.length*.8))throw new Error(`${locale} Home catalog appears to be an accidental English fallback`);
+}
 for (const locale of expected) {
   if (!config.includes(`"${locale}"`)) throw new Error(`Locale missing from config: ${locale}`);
   if (!i18n.includes(`"${locale}"`)) throw new Error(`Translation provenance missing: ${locale}`);

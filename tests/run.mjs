@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import { findBreedingResult, findParentPairs } from "../src/breeding.ts";
 import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts";
-import { resolveLocale } from "../src/config.ts";
+import { locales,resolveLocale } from "../src/config.ts";
 import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
 import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
@@ -21,6 +21,9 @@ import {buildCraftPlan,planBaseTeam} from "../src/planning.ts";
 import {plannerCopy,plannerCopyProvenance} from "../src/planner-i18n.ts";
 import {basePresetCopy,basePresetCopyProvenance} from "../src/base-preset-i18n.ts";
 import {basePresets,baseWorkSuitabilityIds,parseBasePlannerState,requirementsForBaseRoles,validateBasePresets,writeBasePlannerState} from "../src/base-presets.ts";
+import {homeCopy,homeCopyProvenance} from "../src/home-i18n.ts";
+import {homeCatalogGroups,homeQuickActions,homeTrustItems,validateHomeManifest} from "../src/home-manifest.ts";
+import {renderHomeMarkup} from "../src/home-render.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -72,6 +75,23 @@ const elementRuntimePlanner = await readFile("scripts/generate-element-damage-te
 const elementRuntimeValidator = await readFile("scripts/validate-element-damage-runtime.mjs", "utf8");
 const elementRuntimeValidation = await readFile("scripts/element-damage-runtime-validation.mjs", "utf8");
 const elementRunner = await readFile("scripts/run-element-damage-verification.ps1", "utf8");
+
+assert.equal(Object.keys(homeCopy).length,locales.length,"Home copy must cover every supported locale");
+assert.ok(validateHomeManifest(routeFamilies.map(route=>route.path)),"Home destinations must stay inside the implemented route allowlist");
+const flattenHomeStrings=value=>typeof value==="string"?[value]:Object.values(value).flatMap(flattenHomeStrings),englishHomeStrings=flattenHomeStrings(homeCopy["en-US"]);
+for(const locale of locales){
+  const values=flattenHomeStrings(homeCopy[locale]);
+  assert.equal(values.length,54,`${locale} Home copy must retain every localized field`);assert.ok(values.every(value=>value.trim()),`${locale} Home copy must be complete and non-empty`);
+  assert.ok(homeCopyProvenance[locale],`${locale} Home translation provenance must be recorded`);
+  if(locale!=="en-US"){const changed=values.filter((value,index)=>value!==englishHomeStrings[index]).length;assert.ok(changed>=Math.floor(values.length*.8),`${locale} Home copy appears to be an accidental English fallback`)}
+}
+const koreanHomeMarkup=renderHomeMarkup({copy:homeCopy["ko-KR"],href:route=>`/ko-KR/${route}`,renderIcon:()=>"<svg></svg>",quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,trustItems:homeTrustItems});
+assert.equal((koreanHomeMarkup.match(/<h1(?:\s[^>]*)?>/g)||[]).length,1,"Home must contain exactly one h1");
+assert.equal((koreanHomeMarkup.match(/data-home-action=/g)||[]).length,homeQuickActions.length,"Home must render every quick action once");
+assert.equal((koreanHomeMarkup.match(/data-home-group=/g)||[]).length,homeCatalogGroups.length,"Home must render every topic group once");
+assert.equal((koreanHomeMarkup.match(/class="home-trust-icon"/g)||[]).length,homeTrustItems.length,"Home must render every trust item once");
+assert.match(koreanHomeMarkup,/data-open-search.*aria-controls="global-search-dialog"/s,"Home search launcher must reuse the global search dialog");
+assert.doesNotMatch(koreanHomeMarkup,/(?:24181527|24467282)|Data version|Game build|업데이트 버전/,"Home must not expose build or data-version labels");
 
 assert.match(data, /Math\.min\(32,\s*Math\.max\(1/, "server generator must clamp the official supported player range");
 assert.doesNotMatch(data, /WorkSpeedRate|bEnablePlayerToPlayerDamage|bEnableDefenseOtherGuildPlayer/, "server generator must not emit parameters absent from the current official parameter list");
@@ -321,6 +341,12 @@ assert.ok(!Object.values(indexableGroups).flat().some(url=>rawSeoIds.has(decodeU
 assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73117,"typed SEO groups must enumerate every implemented localized URL");
 assert.deepEqual(Object.fromEntries(Object.entries(prerenderSelection).map(([key,value])=>[key,value.length])),{pals:299,items:100,activeSkills:40,passiveSkills:30,partnerSkills:30,npcs:164,dungeons:28,technologies:20,structures:5,conditions:7,expeditions:18,quests:5},"hybrid prerender selection must retain its deterministic family limits");
 assert.equal(prerenderEntries.length,13039,"collection and priority detail prerenders must remain inside the deployment budget");
+const koreanHomeEntry=prerenderEntries.find(entry=>entry.locale==="ko-KR"&&entry.kind==="collection"&&entry.route===""),koreanHomeModel=renderRouteModel(koreanHomeEntry,seoData,prerenderSelection),koreanHomeHtml=renderHtmlDocument(indexHtml,koreanHomeEntry,koreanHomeModel);
+assert.match(koreanHomeHtml,/필요한 정보를 빠르게 찾고, 다시 팰월드로\./,"Home initial HTML must contain the localized redesigned hero");
+assert.equal((koreanHomeHtml.match(/data-home-action=/g)||[]).length,6,"Home initial HTML must contain all six task shortcuts");
+assert.equal((koreanHomeHtml.match(/data-home-group=/g)||[]).length,4,"Home initial HTML must contain all four catalog groups");
+assert.equal((koreanHomeHtml.match(/<h1(?:\s[^>]*)?>/g)||[]).length,1,"Home initial HTML must contain exactly one h1");
+assert.doesNotMatch(koreanHomeHtml,/(?:24181527|24467282)|Data version|Game build|업데이트 버전/,"Home initial HTML must not expose public build metadata");
 const koreanElementEntry=prerenderEntries.find(entry=>entry.locale==="ko-KR"&&entry.kind==="collection"&&entry.route==="database/elements"),koreanElementHtml=renderHtmlDocument(indexHtml,koreanElementEntry,renderRouteModel(koreanElementEntry,seoData,prerenderSelection));
 assert.match(koreanElementHtml,/속성 상성.*속성 상성 흐름도.*data-element-node="fire".*화염 속성.*data-element-relation="fire&gt;grass".*풀 속성/s,"Element initial HTML must contain the localized original graph and official element names");
 const koreanPrimaryNavigation=koreanElementHtml.match(/<nav class="primary-nav"[\s\S]*?<\/nav>/)?.[0]||"";
@@ -680,6 +706,9 @@ assert.match(main,/data-shell-group.*Escape/s,"two-level disclosure navigation m
 assert.match(main,/aria-current="page"/,"the active shell destination must expose aria-current");
 assert.match(main,/id="global-search-dialog"/,"the shell must provide a global search dialog");
 assert.match(main,/ensureGlobalSearchData/,"global search must load Pal, item and skill data on demand");
+assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,trustItems:homeTrustItems,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
+assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,trustItems:homeTrustItems\}\)/,"static Home must use the same shared pure renderer");
+assert.match(styles,/\.home-action-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\).*@media\(max-width:700px\).*\.home-action-grid,\.home-topic-grid\{grid-template-columns:1fr\}/s,"Home task and topic grids must collapse to one column on phones");
 assert.match(main,/data-theme-choice/,"theme selection must expose explicit system, light and dark choices");
 assert.doesNotMatch(main,/trackEvent\([^\n]*(query|searchInput)/,"global search text must not be sent to analytics");
 assert.match(main,/meta\[name="theme-color"\]/,"theme changes must update the browser theme color");

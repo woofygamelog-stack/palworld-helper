@@ -2,6 +2,8 @@ import {access,readFile,readdir,stat} from "node:fs/promises";
 import path from "node:path";
 import {deploymentFileBudget,seoHreflang,supportedLocales as locales} from "../src/route-manifest.ts";
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo-static.mjs";
+import {homeCopy} from "../src/home-i18n.ts";
+import {homeCatalogGroups,homeQuickActions,homeTrustItems} from "../src/home-manifest.ts";
 
 const root=process.cwd(),dist=path.join(root,"dist"),readJson=file=>readFile(file,"utf8").then(JSON.parse);
 const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData,index,sitemapIndex,report,wrangler]=await Promise.all([
@@ -66,6 +68,12 @@ for(const entry of representativeEntries){
   representativeTitles.add(`${entry.locale}:${title}`);
 }
 if(representativeTitles.size!==representativeEntries.length)throw new Error("Representative prerender pages must have unique localized titles");
+for(const locale of locales){
+  const file=path.join(dist,`${locale}.html`),html=await readFile(file,"utf8"),copy=homeCopy[locale],escapedTitle=copy.title.replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
+  if(!html.includes(escapedTitle)||(html.match(/data-home-action=/g)||[]).length!==homeQuickActions.length||(html.match(/data-home-group=/g)||[]).length!==homeCatalogGroups.length||(html.match(/class="home-trust-icon"/g)||[]).length!==homeTrustItems.length)throw new Error(`${locale} Home initial HTML does not match the shared manifest`);
+  if(!html.includes('data-open-search')||!html.includes('aria-controls="global-search-dialog"'))throw new Error(`${locale} Home initial HTML is missing the global-search launcher`);
+  if(/(?:24181527|24467282)|Data version|Game build|업데이트 버전/.test(html))throw new Error(`${locale} Home exposes public build or data-version text`);
+}
 const builtElementHtml=await readFile(path.join(dist,"ko-KR","database","elements.html"),"utf8");
 if(!builtElementHtml.includes('class="panel element-matchup-graph"')||(builtElementHtml.match(/data-element-relation=/g)||[]).length!==9||(builtElementHtml.match(/class="element-graph-node"/g)||[]).length!==18||builtElementHtml.includes("matchup-chart.webp"))throw new Error("Built element page must contain the original responsive graph without the extracted reference image");
 
