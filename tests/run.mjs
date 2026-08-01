@@ -306,6 +306,8 @@ assert.match(questImporter,/quest-manager-defaults\.raw\.json.*ForceTrackingQues
 assert.match(questImporter,/writeJsonAtomic.*rename/s,"Quest import must publish generated data atomically");
 assert.doesNotMatch(questStyles,/--accent-strong|--text-muted/,"Quest styles must use the shared semantic theme tokens");
 assert.match(main,/databaseTabs\("quests"\).*quest-search.*quest-kind.*quest-reset/s,"Quest collection must expose localized search, type filtering, and reset controls");
+assert.match(main,/class="quest-card-description".*questDescription\(quest\)\.replace\(\/\\s\+\/g," "\).*class="button quest-card-action"/s,"Quest cards must preserve official descriptions and expose a stable bottom action hook");
+assert.match(questStyles,/\.quest-card\{display:flex;.*flex-direction:column.*\.quest-card-description\{.*-webkit-line-clamp:6.*\.quest-reward-summary\{margin-top:auto.*\.quest-card-action\{width:100%/s,"Quest cards must clamp dense summaries and align rewards and actions consistently");
 assert.match(main,/ensureQuestData\(\).*objectiveStepCount!==74.*rewardItemRelationCount!==63/s,"Quest runtime loading must enforce objective and reward coverage");
 const seoData={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData},indexableGroups=buildIndexableGroups(seoData,productionOrigin),{entries:prerenderEntries,selected:prerenderSelection,registry:publicSlugs}=buildPrerenderEntries(seoData);
 assertPublicSlugRegistry({pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills},publicSlugs);
