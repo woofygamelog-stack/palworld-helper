@@ -15,6 +15,7 @@ const data={palData,itemData,skillData,npcData,dungeonData,technologyData,health
 const expectedUrls=Object.values(groups).reduce((sum,urls)=>sum+urls.length,0),expectedHtmlDocuments=entries.length+1;
 
 for(const declaration of ['name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"','name="naver-site-verification" content="65053db0d554b68f4d1b9940f95f3ce5321a99c1"','name="google-adsense-account" content="ca-pub-1986785092914105"'])if(!index.includes(declaration))throw new Error(`Root document is missing ${declaration}`);
+if(/<script[^>]+(?:googletagmanager\.com|googlesyndication\.com|fundingchoicesmessages\.google\.com)/i.test(index))throw new Error("Prelaunch root HTML must not load Analytics, AdSense, or CMP scripts");
 if(/palworld-helper\.example|(?:24181527|24467282)|Data version|Game build/.test(index))throw new Error("Root document exposes a placeholder domain or public build information");
 if(wrangler.name!=="palworld-helper"||wrangler.assets?.directory!=="./dist"||wrangler.assets?.not_found_handling!=="single-page-application"||wrangler.assets?.html_handling!=="drop-trailing-slash")throw new Error("Cloudflare Assets must preserve the configured no-slash hybrid SPA routing");
 if(wrangler.workers_dev!==false||wrangler.preview_urls!==false||"main" in wrangler)throw new Error("Cloudflare public development hostnames must be disabled and no Worker runtime may be configured");
@@ -73,7 +74,7 @@ for(const locale of locales){
   const file=path.join(dist,`${locale}.html`),html=await readFile(file,"utf8"),copy=homeCopy[locale],escapedTitle=copy.title.replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
   if(!html.includes(escapedTitle)||(html.match(/data-home-action=/g)||[]).length!==homeQuickActions.length||(html.match(/data-home-group=/g)||[]).length!==homeCatalogGroups.length||html.includes('class="home-trust"'))throw new Error(`${locale} Home initial HTML does not match the shared manifest`);
   if(!html.includes('data-open-search')||!html.includes('aria-controls="global-search-dialog"'))throw new Error(`${locale} Home initial HTML is missing the global-search launcher`);
-  if(!html.includes('href="https://woofy.blog" target="_blank" rel="noopener noreferrer"')||!html.includes('href="https://github.com/woofygamelog-stack/woofy-community/issues" target="_blank" rel="noopener noreferrer" data-footer-contact')||!html.includes(`>${footerCopy[locale].contact}</a>`))throw new Error(`${locale} Home initial HTML is missing localized safe footer links`);
+  if(!html.includes(`href="/${locale}/privacy" data-link>${footerCopy[locale].privacy}</a>`)||!html.includes('href="https://woofy.blog" target="_blank" rel="noopener noreferrer"')||!html.includes('href="https://github.com/woofygamelog-stack/woofy-community/issues" target="_blank" rel="noopener noreferrer" data-footer-contact')||!html.includes(`>${footerCopy[locale].contact}</a>`))throw new Error(`${locale} Home initial HTML is missing localized safe footer links`);
   if(/(?:24181527|24467282)|Data version|Game build|업데이트 버전/.test(html))throw new Error(`${locale} Home exposes public build or data-version text`);
 }
 const builtElementHtml=await readFile(path.join(dist,"ko-KR","database","elements.html"),"utf8");

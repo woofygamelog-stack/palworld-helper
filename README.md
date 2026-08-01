@@ -25,6 +25,6 @@ The current data target is Palworld build `24467282`. Breeding outcomes remain s
 
 ## Operating boundaries
 
-Game facts and assets must pass reproducible verification and publication checks. The production origin, Analytics and Search Console values, and the owner-approved shared AdSense publisher, account metadata, and `ads.txt` are configured. Optional scripts still require user consent, and AdSense loads only in production when a site-specific placement slot is configured.
+Game facts and assets must pass reproducible verification and publication checks. The production origin, Analytics and Search Console values, and the owner-approved shared AdSense publisher, account metadata, and `ads.txt` are configured. Optional Google scripts require an explicit production release stage and per-integration enable flag. AdSense additionally requires a site-specific placement slot and the declared Google Privacy & messaging CMP; publisher metadata alone never activates ads or consent UI.
 
-A public support destination, owner-reviewed privacy policy, AdSense placement slot, Google product status, and every production deployment remain explicit operator gates. Capture/IV calculators and other unverified mechanics are not presented as exact features.
+A public support destination, owner-reviewed privacy policy, AdSense placement slot, Google product status, CMP publication and regional configuration, and every production deployment remain explicit operator gates. The current consent and privacy decision record is in `docs/CONSENT_AND_PRIVACY_PLAN.md`. Capture/IV calculators and other unverified mechanics are not presented as exact features.

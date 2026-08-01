@@ -37,6 +37,9 @@ if (adsTxt.trim() !== "google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa
 if (/\.example|\.invalid|localhost|127\.0\.0\.1/i.test(`${envExample}\n${config}`)) fail("placeholder or local origins remain in public configuration");
 if (!/^VITE_HUB_URL=https:\/\/woofy\.blog$/m.test(envExample)) fail("the example Hub destination must match the owner-wide destination");
 if (!/^VITE_SUPPORT_URL=https:\/\/github\.com\/woofygamelog-stack\/woofy-community\/issues$/m.test(envExample)) fail("the example support destination must match the owner-wide feedback destination");
+if (!/^VITE_ENABLE_ANALYTICS=false$/m.test(envExample) || !/^VITE_ENABLE_ADSENSE=false$/m.test(envExample)) fail("optional Google integrations must default to disabled");
+if (!/^VITE_RELEASE_STAGE=prelaunch$/m.test(envExample) || !/^VITE_GOOGLE_CMP=disabled$/m.test(envExample) || !/^VITE_CONSENT_TEST_MODE=false$/m.test(envExample)) fail("prelaunch and consent defaults must fail closed");
+if (!/releaseStage:env\.VITE_RELEASE_STAGE\|\|"prelaunch"/.test(config) || !/googleCmp:env\.VITE_GOOGLE_CMP\|\|"disabled"/.test(config)) fail("runtime integration gates must remain explicit");
 
 const files = [];
 let directoryCount = 0;

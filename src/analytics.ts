@@ -7,7 +7,7 @@ export function installGtagQueue(target:AnalyticsTarget){
 }
 
 export function createAnalyticsTracker(options:{
-  consentGranted:()=>boolean;
+  collectionEnabled:()=>boolean;
   currentPath:()=>string;
   currentLocale:()=>string;
   sender:()=>AnalyticsTarget["gtag"];
@@ -15,7 +15,7 @@ export function createAnalyticsTracker(options:{
   const trackedInteractions=new Set<string>();
   let lastTrackedPage="";
   function trackEvent(name:string,params:AnalyticsParams={}){
-    if(!options.consentGranted())return false;
+    if(!options.collectionEnabled())return false;
     const sender=options.sender();
     if(!sender)return false;
     sender("event",name,params);
@@ -28,7 +28,7 @@ export function createAnalyticsTracker(options:{
     return true;
   }
   function trackPageView(){
-    if(!options.consentGranted())return false;
+    if(!options.collectionEnabled())return false;
     const pagePath=options.currentPath();
     if(pagePath===lastTrackedPage)return false;
     if(!trackEvent("page_view",{page_path:pagePath,locale:options.currentLocale()}))return false;

@@ -6,6 +6,8 @@ import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts
 import { browserLocale,locales,resolveLocale } from "../src/config.ts";
 import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
+import {googleConsentRegions,installRegionalConsentMode,openGooglePrivacyChoices,resolveIntegrationState} from "../src/integrations.ts";
+import {privacyCopy,privacyCopyProvenance} from "../src/privacy-i18n.ts";
 import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
 import { groupItemDropSources } from "../src/drop-relations.ts";
 import { databaseItemTabLabels, itemFilterAllLabels, itemFilterAllLabelsProvenance } from "../src/ui-i18n.ts";
@@ -103,10 +105,10 @@ assert.deepEqual(importedServer.value,{players:12,pvp:true,backup:false},"server
 assert.equal(importedServer.warnings.length,1,"server INI importer must warn about unsupported keys");
 assert.match(data, /Recipe cycle/, "crafting engine must detect cycles");
 assert.match(data, /Math\.ceil\(needed\s*\/\s*recipe\.output\)/, "crafting engine must round process counts up");
-assert.match(main, /localStorage\.getItem\("pw-consent"\)!=="granted"/, "analytics and ads must require explicit consent");
+assert.doesNotMatch(main, /pw-consent/, "the obsolete global consent storage gate must be removed");
 assert.doesNotMatch(main, /class="consent"|consentBanner\(\)|data-consent/, "the global consent banner must not be rendered");
 assert.doesNotMatch(`${styles}\n${featureStyles}`, /\.consent(?:\{|\s)/, "removed consent banner styles must not remain");
-assert.match(main, /import\.meta\.env\.PROD&&site\.adsenseClient/, "AdSense must be production-only and site-configured");
+assert.match(main, /integrationState\.cmpEnabled/, "Google privacy messaging and AdSense must use the resolved release gates");
 assert.match(main, /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=/, "AdSense must use the authorized Google loader URL");
 assert.match(main, /script\.crossOrigin="anonymous"/, "AdSense loader must use anonymous cross-origin mode");
 assert.match(config, /G-FF7N186M72/, "Palworld Analytics measurement ID must be configured");
@@ -121,14 +123,33 @@ assert.match(config, /contactUrl:env\.VITE_SUPPORT_URL\|\|"https:\/\/github\.com
 assert.match(envExample, /^VITE_SITE_ORIGIN=https:\/\/palworld-helper\.woofy\.blog$/m, "the example environment must use the production origin");
 assert.match(envExample, /^VITE_HUB_URL=https:\/\/woofy\.blog$/m, "the example environment must expose the owner-wide Hub destination");
 assert.match(envExample, /^VITE_SUPPORT_URL=https:\/\/github\.com\/woofygamelog-stack\/woofy-community\/issues$/m, "the example environment must expose the owner-wide contact destination");
+assert.match(envExample, /^VITE_ENABLE_ANALYTICS=false$/m, "Analytics must be opt-in at deployment time");
+assert.match(envExample, /^VITE_ENABLE_ADSENSE=false$/m, "AdSense must be opt-in at deployment time");
+assert.match(envExample, /^VITE_RELEASE_STAGE=prelaunch$/m, "ordinary builds must default to prelaunch");
+assert.match(envExample, /^VITE_GOOGLE_CMP=disabled$/m, "the certified CMP declaration must be explicit");
+const integrationBase={isProductionBuild:false,releaseStage:"prelaunch",analyticsEnabled:true,analyticsId:"G-FF7N186M72",adsenseEnabled:true,adsenseClient:"ca-pub-1986785092914105",adsenseContentSlot:"1234567890",googleCmp:"google-privacy-messaging",consentTestMode:false};
+assert.deepEqual(resolveIntegrationState(integrationBase),{productionRelease:false,analyticsEnabled:false,adsenseEnabled:false,cmpEnabled:false,consentTestMode:false,privacyControlsAvailable:false},"development must load no optional integration or consent UI");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true}).analyticsEnabled,false,"prelaunch production builds must not load Analytics");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",adsenseEnabled:false}).analyticsEnabled,true,"production Analytics may run only with the configured regional Google CMP");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",adsenseEnabled:false,googleCmp:"disabled"}).analyticsEnabled,false,"Analytics must fail closed when the regional consent integration is not configured");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production"}).adsenseEnabled,true,"an explicitly enabled production release with slot and certified CMP may load AdSense");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",adsenseContentSlot:""}).adsenseEnabled,false,"AdSense metadata without a placement slot must remain inactive");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",googleCmp:"disabled"}).adsenseEnabled,false,"AdSense must fail closed without the certified CMP declaration");
+assert.equal(resolveIntegrationState({...integrationBase,consentTestMode:true}).cmpEnabled,true,"explicit non-production consent test mode may load only the CMP carrier");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",consentTestMode:true,analyticsEnabled:false,adsenseEnabled:false}).consentTestMode,false,"consent test mode must never override a production build");
 for(const locale of locales){
   const copy=footerCopy[locale],markup=renderFooter(locale,messages(locale).footer);
   assert.equal(copy.hub,"Woofy Hub",`${locale} must preserve the Woofy Hub product name`);
-  assert.ok(copy.utilityNavigation.trim()&&copy.contact.trim()&&footerCopyProvenance[locale],`${locale} footer copy and provenance must be complete`);
+  assert.ok(copy.utilityNavigation.trim()&&copy.contact.trim()&&copy.privacy.trim()&&footerCopyProvenance[locale],`${locale} footer copy and provenance must be complete`);
+  assert.ok(markup.includes(`href="/${locale}/privacy" data-link>${copy.privacy}</a>`),`${locale} footer must expose the localized privacy notice`);
   assert.ok(markup.includes('href="https://woofy.blog" target="_blank" rel="noopener noreferrer"'),`${locale} footer must render the safe Hub anchor`);
   assert.ok(markup.includes('href="https://github.com/woofygamelog-stack/woofy-community/issues" target="_blank" rel="noopener noreferrer" data-footer-contact'),`${locale} footer must render the safe contact anchor`);
   assert.ok(markup.includes(`aria-label="${copy.utilityNavigation}"`)&&markup.includes(`>${copy.contact}</a>`),`${locale} footer labels must be localized`);
 }
+assert.equal(Object.keys(privacyCopy).length,locales.length,"privacy copy must cover every supported locale");
+for(const locale of locales){const values=Object.values(privacyCopy[locale]);assert.equal(values.length,Object.keys(privacyCopy["en-US"]).length,`${locale} privacy copy must have field parity`);assert.ok(values.every(value=>value.trim()),`${locale} privacy copy must be complete`);assert.ok(privacyCopyProvenance[locale],`${locale} privacy provenance must be recorded`)}
+assert.match(main,/current==="\/privacy"\)return privacyPage\(\)/,"the localized privacy notice must be a real client route");
+assert.match(main,/setMeta\(copy\.title,copy\.summary,\{indexable:false\}\)/,"the privacy route must remain noindex");
 assert.match(main,/outbound_contact.*destination:"community_issues"/,"Contact clicks must use the privacy-safe outbound event");
 assert.match(styles,/\.footer-utility a\{[^}]*min-height:44px[^}]*overflow-wrap:anywhere/,"Footer actions must keep accessible targets and resist overflow");
 assert.match(seoStatic,/renderFooter\(locale,m\.footer\)/,"Prerendered pages must use the shared footer");
@@ -424,28 +445,43 @@ assert.match(main,/routeStructuredData.*BreadcrumbList.*position:1,name:m\.home.
 assert.match(main,/history\.replaceState\(\{\},"",`\$\{localizePath\(locale,location\.pathname\)\}\$\{location\.search\}\$\{location\.hash\}`\)/,"unprefixed entry routes must normalize to the selected locale without another HTML document and preserve URL state");
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
 assert.match(main, /send_page_view:false/, "SPA analytics must disable automatic page views to prevent duplicates");
-assert.match(main, /installGtagQueue\(win\)/, "Analytics must install the official command queue before loading gtag.js");
+assert.match(main, /installRegionalConsentMode\(win\)/, "Analytics must install regional Consent Mode before loading gtag.js");
 assert.doesNotMatch(main, /gtag=\(\.\.\.args\)=>/, "Analytics must not queue ordinary arrays in place of Arguments commands");
 assert.match(main, /collection_search",\s*\{\s*collection:/, "collection search may emit only a stable collection identifier");
 assert.doesNotMatch(main, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
 
-let analyticsConsent=false;
+const consentTarget={};
+installRegionalConsentMode(consentTarget);
+assert.equal(consentTarget.gtag_enable_tcf_support,true,"Google tag TCF support must be enabled for the certified CMP");
+assert.deepEqual(Array.from(consentTarget.dataLayer[0]),["consent","default",{ad_storage:"denied",analytics_storage:"denied",ad_user_data:"denied",ad_personalization:"denied",wait_for_update:500,region:[...googleConsentRegions]}],"Consent Mode must deny all v2 storage and advertising signals in the documented regions before config");
+assert.deepEqual(Array.from(consentTarget.dataLayer[1]),["consent","default",{ad_storage:"granted",analytics_storage:"granted",ad_user_data:"granted",ad_personalization:"granted"}],"visitors outside the documented regions must not inherit the European consent gate");
+assert.deepEqual(Array.from(consentTarget.dataLayer[2]),["set","ads_data_redaction",true],"denied ad storage must use ads data redaction");
+assert.ok(googleConsentRegions.includes("GB")&&googleConsentRegions.includes("CH")&&googleConsentRegions.includes("NO")&&!googleConsentRegions.includes("US"),"the consent region list must cover EEA, UK, and Switzerland without becoming global");
+const privacyTarget={googlefc:{callbackQueue:[],showRevocationMessage(){}}};
+assert.equal(openGooglePrivacyChoices(privacyTarget,true),true,"an active Google CMP must expose its revocation flow");
+assert.equal(privacyTarget.googlefc.callbackQueue.length,1,"privacy settings must queue one Google revocation request");
+assert.equal(openGooglePrivacyChoices({}),false,"an inactive integration must not fabricate privacy UI");
+const loadingPrivacyTarget={};
+assert.equal(openGooglePrivacyChoices(loadingPrivacyTarget,true),true,"a privacy choice opened before the CMP finishes loading must be retained");
+assert.equal(loadingPrivacyTarget.googlefc.callbackQueue.length,1,"the early privacy request must wait in Google's callback queue");
+
+let analyticsCollection=false;
 let analyticsPath="/en-US";
 let analyticsLocale="en-US";
 const analyticsTarget={};
 const analytics=createAnalyticsTracker({
-  consentGranted:()=>analyticsConsent,
+  collectionEnabled:()=>analyticsCollection,
   currentPath:()=>analyticsPath,
   currentLocale:()=>analyticsLocale,
   sender:()=>analyticsTarget.gtag
 });
-assert.equal(analytics.trackPageView(),false,"Analytics must not track before consent");
-analyticsConsent=true;
+assert.equal(analytics.trackPageView(),false,"Analytics must not track while the integration is disabled");
+analyticsCollection=true;
 assert.equal(analytics.trackPageView(),false,"Analytics must not consume the page before the sender is initialized");
 installGtagQueue(analyticsTarget);
 analyticsTarget.gtag("js",new Date(0));
 analyticsTarget.gtag("config","G-FF7N186M72",{send_page_view:false});
-assert.equal(analytics.trackPageView(),true,"consent initialization must emit the current page once");
+assert.equal(analytics.trackPageView(),true,"integration initialization must emit the current page once");
 assert.equal(analytics.trackPageView(),false,"same-path rerenders must not emit another page view");
 analyticsPath="/en-US/pals";
 assert.equal(analytics.trackPageView(),true,"a pathname change must emit one new page view");
@@ -713,7 +749,7 @@ assert.match(main,/palVisual\(pal,"result"\)/,"forward breeding results must ren
 assert.match(main,/\["\/map","\/database","\/calculators\/crafting"\]\.includes\(current\).*ensureItemData/,"item data must load only on routes that use it");
 assert.match(main,/isSkills=current==="\/skills"\|\|current\.startsWith\("\/skills\/"\).*isSkills.*ensurePalData/s,"Pal data must load on every public-skill route so public slugs stay deterministic");
 assert.match(main,/current==="\/map"\)ensureMapData/,"map marker data must load only on the map route");
-assert.doesNotMatch(main,/href\(\"\/privacy\"\)/,"privacy policy must not be exposed in the public UI");
+assert.match(main,/function privacyPage\(\)/,"the privacy policy must be implemented rather than exposed as a placeholder");
 
 const shellIds=shellNavigation.flatMap(item=>[item.id,...("children" in item?item.children.map(child=>child.id):[])]),implementedRoutePaths=new Set(routeFamilies.map(family=>family.path));
 assert.equal(new Set(shellIds).size,shellIds.length,"shell navigation IDs must be unique");

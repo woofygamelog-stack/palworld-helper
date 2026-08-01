@@ -713,17 +713,19 @@ tests/golden
 
 사이트 전용 GA4 property와 web stream을 사용한다. 이 프로젝트의 확정 Measurement ID는 `G-FF7N186M72`이며 Palworld 전용 공개 설정에서만 주입한다. 환경 변수로 재정의할 수 있더라도 production 빌드와 배포 설정은 이 값과 일치해야 하며, 이전 프로젝트나 폐기된 Measurement ID가 남아 있으면 출시를 중단한다.
 
+2026-08-02 동의 정책 갱신: 광고나 분석을 설정했다는 이유만으로 전 세계 공통 배너를 띄우지 않는다. 실제 production 연동과 방문자 지역에 따라 Google Privacy & messaging 및 Consent Mode v2를 적용하며, 상세 결정과 운영 게이트는 `docs/CONSENT_AND_PRIVACY_PLAN.md`를 따른다. 이 결정은 아래의 과거 전역 사전동의 가정보다 우선한다.
+
 Analytics 설정 확인·수정 작업계획:
 
 1. 소스 설정, `.env` 예시, Cloudflare Pages 환경 변수, 빌드 스크립트에서 실제 적용되는 Measurement ID를 전수 검색해 `G-FF7N186M72`로 통일한다.
 2. production 빌드 산출물에서 GA 로더 URL과 `gtag('config', ...)`가 동일한 ID를 사용하는지 확인하고, 다른 `G-` ID가 포함되지 않았는지 자동 검사한다.
-3. 사용자가 동의하기 전에는 GA 스크립트·쿠키·이벤트가 생성되지 않고, 거부 시에도 로드되지 않는지 브라우저에서 확인한다.
+3. 동의 신호가 필요한 EEA·영국·스위스에서는 저장 동의 기본값을 태그 설정 전에 `denied`로 적용하고, 허용 전 Analytics 저장소가 생성되지 않는지 확인한다. 그 밖의 방문자에게는 불필요한 배너를 표시하지 않는다.
 4. SPA 자동 page view는 끄고, 실제 경로 변경당 `page_view`가 한 번만 발생하는지와 동의 직후 현재 페이지가 최대 한 번 기록되는지 확인한다.
 5. DebugView 또는 Tag Assistant로 `page_view`, `tool_open`, `calculation_complete`, `map_layer_toggle`, `filter_apply`, `outbound_contact`의 수신 여부와 허용된 파라미터만 포함되는지 확인한다.
 6. 검색 원문, 지도 좌표·핀 이름, 서버명·IP·비밀번호·INI 내용, 보유 수량, 메모 등 자유 입력값이 이벤트·URL·로그로 전송되지 않도록 회귀 테스트를 추가한다.
 7. production 도메인의 데이터 스트림 URL이 `https://palworld-helper.woofy.blog`인지 GA 관리 화면에서 확인하고, 다른 도메인 또는 중복 태그가 연결되어 있으면 수정한다.
 
-완료 조건: production 산출물과 실제 사이트가 `G-FF7N186M72` 하나만 사용하고, 동의 전송 차단·SPA 중복 방지·민감 입력 제외가 자동 테스트와 브라우저 네트워크 검사에서 모두 통과한다.
+완료 조건: production 산출물과 실제 사이트가 `G-FF7N186M72` 하나만 사용하고, 지역별 동의 기본값·저장 제한·SPA 중복 방지·민감 입력 제외가 자동 테스트와 브라우저 네트워크 검사에서 모두 통과한다.
 
 허용 이벤트 예:
 
@@ -755,6 +757,9 @@ locale 경로 전환 시 중복 page_view가 발생하지 않도록 초기화를
 
 - 사이트 전용 publisher ID와 placement별 slot ID 사용
 - production에서만 로드
+- EEA·영국·스위스 광고 트래픽은 Google Privacy & messaging 또는 현재 Google 인증 TCF CMP가 게시된 경우에만 활성화
+- 미국 주 개인정보보호법 적용 방문자에게는 Google Privacy & messaging의 관련 주 메시지와 항상 접근 가능한 선택 변경 경로 제공
+- 자체 제작 허용/거부 배너로 인증 CMP를 대체하지 않음
 - `ads.txt`는 승인된 정확한 계정 행만 추가
 - 광고 공간을 미리 예약해 CLS 방지
 - 지도 조작, 계산 입력, 결과 버튼 주변에는 광고 배치 금지
