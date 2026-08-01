@@ -108,6 +108,7 @@
 
 ## Required verification
 
+- When running repository-scale commands such as `npm run build`, `npm run check`, `npm run release:check`, or deployment validation, configure the command runner with a timeout of at least 15 minutes (900 seconds). Static generation and validation currently cover tens of thousands of localized URLs and can legitimately exceed two minutes. A runner-level timeout without an explicit build or test assertion error is an incomplete verification result, not a build failure; rerun with a longer timeout before reporting failure.
 - Run the repository's relevant format, lint, type, unit, integration, localization, and production-build checks.
 - Inspect built output for missing locales, broken links, incorrect metadata/domains, secrets, local paths, source URLs, provenance files, logs, and unintended dynamic infrastructure.
 - Verify sitemap URL count, physical HTML count, and meaningful initial-HTML SEO coverage as separate invariants. The build must stay below the active Cloudflare asset limit with at least 20% documented growth headroom. Pal/item changes must update routing, sitemap, prerender selection, linking, and verification together.
