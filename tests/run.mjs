@@ -103,6 +103,8 @@ assert.equal(importedServer.warnings.length,1,"server INI importer must warn abo
 assert.match(data, /Recipe cycle/, "crafting engine must detect cycles");
 assert.match(data, /Math\.ceil\(needed\s*\/\s*recipe\.output\)/, "crafting engine must round process counts up");
 assert.match(main, /localStorage\.getItem\("pw-consent"\)!=="granted"/, "analytics and ads must require explicit consent");
+assert.doesNotMatch(main, /class="consent"|consentBanner\(\)|data-consent/, "the global consent banner must not be rendered");
+assert.doesNotMatch(`${styles}\n${featureStyles}`, /\.consent(?:\{|\s)/, "removed consent banner styles must not remain");
 assert.match(main, /import\.meta\.env\.PROD&&site\.adsenseClient/, "AdSense must be production-only and site-configured");
 assert.match(main, /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=/, "AdSense must use the authorized Google loader URL");
 assert.match(main, /script\.crossOrigin="anonymous"/, "AdSense loader must use anonymous cross-origin mode");
