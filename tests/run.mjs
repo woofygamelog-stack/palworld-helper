@@ -24,6 +24,8 @@ import {basePresets,baseWorkSuitabilityIds,parseBasePlannerState,requirementsFor
 import {homeCopy,homeCopyProvenance} from "../src/home-i18n.ts";
 import {homeCatalogGroups,homeQuickActions,homeTrustItems,validateHomeManifest} from "../src/home-manifest.ts";
 import {renderHomeMarkup} from "../src/home-render.ts";
+import {footerCopy,footerCopyProvenance} from "../src/footer-i18n.ts";
+import {renderFooter} from "../src/footer.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -115,9 +117,22 @@ assert.doesNotMatch(config, /G-GPSMFR1377/, "superseded Analytics measurement ID
 assert.match(config, /vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ/, "Palworld Search Console verification must be configured");
 assert.match(config, /ca-pub-1986785092914105/, "owner-approved shared AdSense publisher must be configured");
 assert.doesNotMatch(config, /support@example\.invalid|palworld-helper\.example/, "public configuration must not retain placeholder destinations");
-assert.match(config, /supportUrl:env\.VITE_SUPPORT_URL\|\|""/, "support must remain hidden until the owner supplies a destination");
+assert.match(config, /hubUrl:env\.VITE_HUB_URL\|\|"https:\/\/woofy\.blog"/, "the owner-wide Hub destination must be configured");
+assert.match(config, /contactUrl:env\.VITE_SUPPORT_URL\|\|"https:\/\/github\.com\/woofygamelog-stack\/woofy-community\/issues"/, "the owner-wide contact destination must be configured");
 assert.match(envExample, /^VITE_SITE_ORIGIN=https:\/\/palworld-helper\.woofy\.blog$/m, "the example environment must use the production origin");
-assert.match(envExample, /^VITE_SUPPORT_URL=$/m, "the example environment must not invent a support destination");
+assert.match(envExample, /^VITE_HUB_URL=https:\/\/woofy\.blog$/m, "the example environment must expose the owner-wide Hub destination");
+assert.match(envExample, /^VITE_SUPPORT_URL=https:\/\/github\.com\/woofygamelog-stack\/woofy-community\/issues$/m, "the example environment must expose the owner-wide contact destination");
+for(const locale of locales){
+  const copy=footerCopy[locale],markup=renderFooter(locale,messages(locale).footer);
+  assert.equal(copy.hub,"Woofy Hub",`${locale} must preserve the Woofy Hub product name`);
+  assert.ok(copy.utilityNavigation.trim()&&copy.contact.trim()&&footerCopyProvenance[locale],`${locale} footer copy and provenance must be complete`);
+  assert.ok(markup.includes('href="https://woofy.blog" target="_blank" rel="noopener noreferrer"'),`${locale} footer must render the safe Hub anchor`);
+  assert.ok(markup.includes('href="https://github.com/woofygamelog-stack/woofy-community/issues" target="_blank" rel="noopener noreferrer" data-footer-contact'),`${locale} footer must render the safe contact anchor`);
+  assert.ok(markup.includes(`aria-label="${copy.utilityNavigation}"`)&&markup.includes(`>${copy.contact}</a>`),`${locale} footer labels must be localized`);
+}
+assert.match(main,/outbound_contact.*destination:"community_issues"/,"Contact clicks must use the privacy-safe outbound event");
+assert.match(styles,/\.footer-utility a\{[^}]*min-height:44px[^}]*overflow-wrap:anywhere/,"Footer actions must keep accessible targets and resist overflow");
+assert.match(seoStatic,/renderFooter\(locale,m\.footer\)/,"Prerendered pages must use the shared footer");
 assert.match(packageJson.devDependencies.wrangler, /^\d+\.\d+\.\d+$/, "Wrangler must be pinned exactly for reproducible deployments");
 assert.equal(packageJson.scripts["release:check"], "npm run check && npm run deploy:dry-run", "the release check must include the full build gate and Wrangler dry run");
 assert.equal(packageJson.scripts["deploy:production"], "npm run release:check && wrangler deploy", "production deployment must run the release gate first");

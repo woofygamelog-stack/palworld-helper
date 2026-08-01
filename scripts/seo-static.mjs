@@ -20,6 +20,7 @@ import {homeCopy} from "../src/home-i18n.ts";
 import {renderHomeMarkup} from "../src/home-render.ts";
 import {homeCatalogGroups,homeQuickActions,homeTrustItems,validateHomeManifest} from "../src/home-manifest.ts";
 import {icon} from "../src/icons.ts";
+import {renderFooter} from "../src/footer.ts";
 
 export const productionOrigin="https://palworld-helper.woofy.blog";
 export const defaultLocale="en-US";
@@ -124,7 +125,7 @@ function shellRouteActive(item,route){return item.active.some(({path,exact=false
 function shellLink(item,locale,route,m){return `<a href="${href(locale,item.path)}"${shellRouteActive(item,route)?' aria-current="page"':""}>${esc(shellLabel(item,locale,m))}</a>`}
 function shell(locale,route,title,content){
   const m=messages(locale),links=shellNavigation.map(item=>item.children?`<details class="nav-group nav-group-${item.id}${shellRouteActive(item,route)?" active":""}"><summary><span>${esc(shellLabel(item,locale,m))}</span>${icon("chevronDown","nav-chevron")}</summary><div class="nav-panel">${item.children.map(child=>shellLink(child,locale,route,m)).join("")}</div></details>`:shellLink(item,locale,route,m)).join("");
-  return `<a class="skip-link" href="#main">${esc(m.skip)}</a><header class="site-header prerender-header"><a class="brand" href="${href(locale)}"><span class="brand-mark"><img src="/favicon.svg" alt="" width="34" height="34"></span><span>${siteName}</span></a><nav class="primary-nav" aria-label="${esc(shellCopy[locale].primaryNavigation)}">${links}</nav></header><main id="main" data-prerender-content>${content}</main><footer><div><strong>${siteName}</strong><p>${esc(m.footer)}</p></div></footer>`;
+  return `<a class="skip-link" href="#main">${esc(m.skip)}</a><header class="site-header prerender-header"><a class="brand" href="${href(locale)}"><span class="brand-mark"><img src="/favicon.svg" alt="" width="34" height="34"></span><span>${siteName}</span></a><nav class="primary-nav" aria-label="${esc(shellCopy[locale].primaryNavigation)}">${links}</nav></header><main id="main" data-prerender-content>${content}</main>${renderFooter(locale,m.footer)}`;
 }
 const hero=(m,title)=>`<section class="page-hero"><p class="eyebrow">${esc(m.verified)}</p><h1>${esc(title)}</h1></section>`;
 const relationLinks=links=>links.length?`<div class="relation-list entity-relation-list seo-link-list">${links.map(link=>`<a href="${esc(link.href)}">${link.image?`<img src="${esc(link.image)}" alt="" width="48" height="48" loading="lazy">`:""}<span><strong>${esc(link.label)}</strong>${link.detail?`<small>${esc(link.detail)}</small>`:""}</span></a>`).join("")}</div>`:"";

@@ -36,7 +36,8 @@ if (redirectRules.length !== 1 || redirectRules[0] !== "/ /en-US 308") fail("onl
 if (/^\/\*\s+\/index\.html\s+200\s*$/m.test(redirects)) fail("a catch-all redirect cannot coexist with Workers SPA fallback");
 if (adsTxt.trim() !== "google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0") fail("ads.txt does not match the approved publisher account");
 if (/\.example|\.invalid|localhost|127\.0\.0\.1/i.test(`${envExample}\n${config}`)) fail("placeholder or local origins remain in public configuration");
-if (!/^VITE_SUPPORT_URL=\s*$/m.test(envExample)) fail("the example support destination must stay empty until the owner supplies one");
+if (!/^VITE_HUB_URL=https:\/\/woofy\.blog$/m.test(envExample)) fail("the example Hub destination must match the owner-wide destination");
+if (!/^VITE_SUPPORT_URL=https:\/\/github\.com\/woofygamelog-stack\/woofy-community\/issues$/m.test(envExample)) fail("the example support destination must match the owner-wide feedback destination");
 
 const files = [];
 let directoryCount = 0;
