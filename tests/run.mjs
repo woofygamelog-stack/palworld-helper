@@ -6,7 +6,8 @@ import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts
 import { browserLocale,locales,resolveLocale } from "../src/config.ts";
 import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
-import {googleConsentRegions,installRegionalConsentMode,openGooglePrivacyChoices,resolveIntegrationState} from "../src/integrations.ts";
+import {googleConsentModePurposeStatus,googleConsentRegions,installRegionalConsentMode,mayLoadAds,mayLoadAnalytics,openGooglePrivacyChoices,queueGoogleConsentModeReady,resolveIntegrationState} from "../src/integrations.ts";
+import {approvedAdsenseClient,approvedAnalyticsId,productionIntegrationErrors} from "../scripts/check-production-integrations.mjs";
 import {privacyCopy,privacyCopyProvenance} from "../src/privacy-i18n.ts";
 import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
 import { groupItemDropSources } from "../src/drop-relations.ts";
@@ -108,9 +109,15 @@ assert.match(data, /Math\.ceil\(needed\s*\/\s*recipe\.output\)/, "crafting engin
 assert.doesNotMatch(main, /pw-consent/, "the obsolete global consent storage gate must be removed");
 assert.doesNotMatch(main, /class="consent"|consentBanner\(\)|data-consent/, "the global consent banner must not be rendered");
 assert.doesNotMatch(`${styles}\n${featureStyles}`, /\.consent(?:\{|\s)/, "removed consent banner styles must not remain");
+assert.match(main, /<button class="button" type="button" data-privacy-settings>/, "privacy choices must reopen through a semantic keyboard-operable button");
+assert.match(styles, /\.privacy-page \.button\{[^}]*min-height:44px/, "the privacy settings control must keep the minimum touch target");
+assert.match(styles, /@media\(max-width:700px\)[\s\S]*\.privacy-page\{padding:0 1rem\}/, "the privacy page must retain its mobile layout");
 assert.match(main, /integrationState\.cmpEnabled/, "Google privacy messaging and AdSense must use the resolved release gates");
 assert.match(main, /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=/, "AdSense must use the authorized Google loader URL");
 assert.match(main, /script\.crossOrigin="anonymous"/, "AdSense loader must use anonymous cross-origin mode");
+assert.match(main, /<ins class="adsbygoogle ad-slot"[^>]+data-ad-client=[^>]+data-ad-slot=/, "enabled AdSense must retain a real responsive site placement");
+assert.match(main, /CONSENT_MODE_DATA_READY|queueGoogleConsentModeReady/, "restricted tags must wait for Google's regional consent-mode decision");
+assert.match(indexHtml, /name="referrer" content="strict-origin-when-cross-origin"/, "Google Privacy & messaging must receive an eligible cross-origin referrer");
 assert.match(config, /G-FF7N186M72/, "Palworld Analytics measurement ID must be configured");
 assert.match(config, /https:\/\/palworld-helper\.woofy\.blog/, "production origin must be configured");
 assert.doesNotMatch(config, /palworld-helper\.example/, "placeholder production origin must not remain configured");
@@ -156,6 +163,7 @@ assert.match(seoStatic,/renderFooter\(locale,m\.footer\)/,"Prerendered pages mus
 assert.match(packageJson.devDependencies.wrangler, /^\d+\.\d+\.\d+$/, "Wrangler must be pinned exactly for reproducible deployments");
 assert.equal(packageJson.scripts["release:check"], "npm run check && npm run deploy:dry-run", "the release check must include the full build gate and Wrangler dry run");
 assert.equal(packageJson.scripts["deploy:production"], "npm run release:check && wrangler deploy", "production deployment must run the release gate first");
+assert.equal(packageJson.scripts["build:production"], "npm run build && npm run check:production-integrations", "the production build must verify that advertising and Analytics remain enabled");
 assert.match(deploymentChecker, /deploymentFileBudget\.hardLimit - deploymentFileBudget\.reservedHeadroom/, "deployment readiness must share the route manifest's file-count budget");
 assert.match(deploymentChecker, /Production upload, custom-domain state, Search Console, Analytics collection, and AdSense approval still require authorized live verification/, "local checks must not claim live integration verification");
 assert.match(routeManifest,/path:"database\/dungeons".*indexable:true/,"Dungeon collection must be an implemented indexable route");
@@ -464,6 +472,35 @@ assert.equal(openGooglePrivacyChoices({}),false,"an inactive integration must no
 const loadingPrivacyTarget={};
 assert.equal(openGooglePrivacyChoices(loadingPrivacyTarget,true),true,"a privacy choice opened before the CMP finishes loading must be retained");
 assert.equal(loadingPrivacyTarget.googlefc.callbackQueue.length,1,"the early privacy request must wait in Google's callback queue");
+
+const granted=googleConsentModePurposeStatus.granted,denied=googleConsentModePurposeStatus.denied,notApplicable=googleConsentModePurposeStatus.notApplicable,unknown=googleConsentModePurposeStatus.unknown;
+const fullGrant={adStoragePurposeConsentStatus:granted,adUserDataPurposeConsentStatus:granted,adPersonalizationPurposeConsentStatus:granted,analyticsStoragePurposeConsentStatus:granted};
+const fullDeny={adStoragePurposeConsentStatus:denied,adUserDataPurposeConsentStatus:denied,adPersonalizationPurposeConsentStatus:denied,analyticsStoragePurposeConsentStatus:denied};
+const outsideRegion={adStoragePurposeConsentStatus:notApplicable,adUserDataPurposeConsentStatus:notApplicable,adPersonalizationPurposeConsentStatus:notApplicable,analyticsStoragePurposeConsentStatus:notApplicable};
+assert.equal(mayLoadAnalytics(fullDeny),false,"Analytics must stay blocked after a regional refusal");
+assert.equal(mayLoadAds(fullDeny),false,"AdSense requests must stay blocked after a regional refusal");
+assert.equal(mayLoadAnalytics(fullGrant),true,"Analytics must be allowed after analytics consent");
+assert.equal(mayLoadAds(fullGrant),true,"AdSense requests must be allowed after storage consent");
+assert.equal(mayLoadAnalytics(outsideRegion),true,"visitors outside consent scope must retain Analytics without a banner");
+assert.equal(mayLoadAds(outsideRegion),true,"visitors outside consent scope must retain AdSense without a banner");
+assert.equal(mayLoadAnalytics({...fullGrant,analyticsStoragePurposeConsentStatus:unknown}),false,"unknown consent state must fail closed for Analytics");
+assert.equal(mayLoadAds({...fullGrant,adStoragePurposeConsentStatus:unknown}),false,"unknown consent state must fail closed for ad requests");
+assert.equal(mayLoadAds({...fullGrant,adPersonalizationPurposeConsentStatus:denied}),true,"ad personalization refusal must not disable consented non-personalized advertising");
+const consentReadyTarget={googlefc:{callbackQueue:[],getGoogleConsentModeValues:()=>fullGrant}},receivedConsentStates=[];
+queueGoogleConsentModeReady(consentReadyTarget,status=>receivedConsentStates.push(status));
+assert.equal(consentReadyTarget.googlefc.callbackQueue.length,1,"one Google consent-mode callback must be registered");
+consentReadyTarget.googlefc.callbackQueue[0].CONSENT_MODE_DATA_READY();
+assert.deepEqual(receivedConsentStates,[fullGrant],"the allow path must read Google's purpose-level decision");
+consentReadyTarget.googlefc.getGoogleConsentModeValues=()=>fullDeny;
+consentReadyTarget.googlefc.callbackQueue[0].CONSENT_MODE_DATA_READY();
+assert.deepEqual(receivedConsentStates,[fullGrant,fullDeny],"the reset/refusal path must remain observable without custom consent storage");
+
+const productionEnv={VITE_RELEASE_STAGE:"production",VITE_ENABLE_ANALYTICS:"true",VITE_GA_ID:approvedAnalyticsId,VITE_ENABLE_ADSENSE:"true",VITE_ADSENSE_CLIENT:approvedAdsenseClient,VITE_ADSENSE_CONTENT_SLOT:"1234567890",VITE_GOOGLE_CMP:"google-privacy-messaging"};
+assert.deepEqual(productionIntegrationErrors(productionEnv),[],"a fully enabled production environment must pass the integration gate");
+assert.match(productionIntegrationErrors({...productionEnv,VITE_ENABLE_ANALYTICS:"false"}).join(" "),/VITE_ENABLE_ANALYTICS/,"production Analytics cannot be disabled as a consent workaround");
+assert.match(productionIntegrationErrors({...productionEnv,VITE_ENABLE_ADSENSE:"false"}).join(" "),/VITE_ENABLE_ADSENSE/,"production AdSense cannot be disabled as a consent workaround");
+assert.match(productionIntegrationErrors({...productionEnv,VITE_ADSENSE_CONTENT_SLOT:""}).join(" "),/slot/,"production must retain the approved site-specific ad slot");
+assert.match(productionIntegrationErrors({...productionEnv,VITE_GOOGLE_CMP:"disabled"}).join(" "),/CMP/,"production must retain the certified Google CMP declaration");
 
 let analyticsCollection=false;
 let analyticsPath="/en-US";

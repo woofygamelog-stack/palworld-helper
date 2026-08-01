@@ -36,9 +36,40 @@ export function resolveIntegrationState(config:IntegrationConfig):IntegrationSta
   return {productionRelease,analyticsEnabled,adsenseEnabled,cmpEnabled,consentTestMode,privacyControlsAvailable:cmpEnabled};
 }
 
+export type GoogleConsentModeStatus={
+  adStoragePurposeConsentStatus:number;
+  adUserDataPurposeConsentStatus:number;
+  adPersonalizationPurposeConsentStatus:number;
+  analyticsStoragePurposeConsentStatus:number;
+};
+
+export const googleConsentModePurposeStatus={unknown:0,granted:1,denied:2,notApplicable:3,notConfigured:4} as const;
+const permittedConsentModeStatuses=new Set<number>([
+  googleConsentModePurposeStatus.granted,
+  googleConsentModePurposeStatus.notApplicable,
+  googleConsentModePurposeStatus.notConfigured
+]);
+
+export function mayLoadAnalytics(status:GoogleConsentModeStatus){
+  return permittedConsentModeStatuses.has(status.analyticsStoragePurposeConsentStatus);
+}
+
+export function mayLoadAds(status:GoogleConsentModeStatus){
+  return permittedConsentModeStatuses.has(status.adStoragePurposeConsentStatus);
+}
+
+type GoogleCallbackQueueEntry=Record<string,()=>void>|(()=>void);
+type GoogleCallbackQueue={push:(entry:GoogleCallbackQueueEntry)=>number};
+type GoogleFc={
+  callbackQueue?:GoogleCallbackQueue|GoogleCallbackQueueEntry[];
+  showRevocationMessage?:()=>void;
+  getGoogleConsentModeValues?:()=>GoogleConsentModeStatus;
+};
+
 export type GoogleConsentTarget=AnalyticsTarget&{
   gtag_enable_tcf_support?:boolean;
-  googlefc?:{callbackQueue?:unknown[];showRevocationMessage?:()=>void};
+  googlefc?:GoogleFc;
+  adsbygoogle?:Record<string,unknown>[];
 };
 
 export function installRegionalConsentMode(target:GoogleConsentTarget){
@@ -61,10 +92,20 @@ export function installRegionalConsentMode(target:GoogleConsentTarget){
   target.gtag!("set","ads_data_redaction",true);
 }
 
+export function queueGoogleConsentModeReady(target:GoogleConsentTarget,callback:(status:GoogleConsentModeStatus)=>void){
+  const googlefc=target.googlefc=target.googlefc||{};
+  googlefc.callbackQueue=googlefc.callbackQueue||[];
+  googlefc.callbackQueue.push({CONSENT_MODE_DATA_READY:()=>{
+    const status=googlefc.getGoogleConsentModeValues?.();
+    if(status)callback(status);
+  }});
+}
+
 export function openGooglePrivacyChoices(target:GoogleConsentTarget,enabled=false){
   if(!enabled)return false;
   const googlefc=target.googlefc=target.googlefc||{};
   googlefc.callbackQueue=googlefc.callbackQueue||[];
-  googlefc.callbackQueue.push(googlefc.showRevocationMessage||(()=>target.googlefc?.showRevocationMessage?.()));
+  if(googlefc.showRevocationMessage)googlefc.callbackQueue.push(googlefc.showRevocationMessage);
+  else googlefc.callbackQueue.push({CONSENT_API_READY:()=>googlefc.showRevocationMessage?.()});
   return true;
 }

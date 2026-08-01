@@ -5,6 +5,7 @@ import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo
 import {homeCopy} from "../src/home-i18n.ts";
 import {homeCatalogGroups,homeQuickActions} from "../src/home-manifest.ts";
 import {footerCopy} from "../src/footer-i18n.ts";
+import {auditProductionIntegrations} from "./check-production-integrations.mjs";
 
 const root=process.cwd(),dist=path.join(root,"dist"),readJson=file=>readFile(file,"utf8").then(JSON.parse);
 const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData,index,sitemapIndex,report,wrangler]=await Promise.all([
@@ -157,4 +158,5 @@ const builtPalImages=(await readdir(path.join(dist,"assets","pals"))).filter(nam
 for(const pal of palData.pals)await access(path.join(dist,"assets","pals",`${registry.byId.pals.get(pal.id)}.png`));
 for(const pal of palData.pals)for(const description of Object.values(pal.descriptions))if(/<[^>]+>|Error_Code:|\||（か）|？（を）|後（と）/.test(description))throw new Error(`${pal.id} exposes unresolved game-runtime description markup`);
 const adsTxt=await readFile(path.join(dist,"ads.txt"),"utf8");if(adsTxt.trim()!=="google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0")throw new Error("ads.txt must contain the exact authorized account entry");
+if(process.env.VITE_RELEASE_STAGE==="production")await auditProductionIntegrations({root,env:process.env});
 console.log(`Validated ${expectedUrls} indexable URLs, ${expectedHtmlDocuments} HTML documents, ${entries.length} initial-HTML routes, ${sitemapNames.length} child sitemaps, and ${allFiles.length} deployed files.`);

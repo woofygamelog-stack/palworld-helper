@@ -16,6 +16,8 @@
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
     "check:item-images": "node scripts/check-item-images.mjs",
     "check:public-disclosure": "node scripts/check-public-disclosure.mjs",
+    "check:production-integrations": "node scripts/check-production-integrations.mjs",
+    "build:production": "npm run build && npm run check:production-integrations",
     "data:import:pals": "node scripts/import-pal-data.mjs",
     "data:import:items": "node scripts/import-item-data.mjs",
     "data:import:map": "node scripts/import-map-data.mjs",
