@@ -1,4 +1,4 @@
-export type IconName="home"|"map"|"pals"|"skills"|"calculator"|"database"|"server"|"search"|"theme"|"sun"|"moon"|"system"|"more"|"close"|"reset"|"plus"|"minus"|"pin"|"fastTravel"|"inherit"|"fixed"|"surgery";
+export type IconName="home"|"map"|"pals"|"skills"|"calculator"|"database"|"server"|"search"|"theme"|"sun"|"moon"|"system"|"more"|"close"|"reset"|"plus"|"minus"|"chevronDown"|"pin"|"fastTravel"|"inherit"|"fixed"|"surgery";
 
 const paths:Record<IconName,string>={
   home:'<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/>',
@@ -18,6 +18,7 @@ const paths:Record<IconName,string>={
   reset:'<path d="M4 4v6h6"/><path d="M5.5 17a8 8 0 1 0 .5-10L4 10"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   minus:'<path d="M5 12h14"/>',
+  chevronDown:'<path d="m7 9 5 5 5-5"/>',
   pin:'<path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2.5"/>',
   fastTravel:'<path d="m13 2-8 12h7l-1 8 8-12h-7z"/>',
   inherit:'<path d="M7 20V9m0 0L3.5 12.5M7 9l3.5 3.5M17 20V5m0 0-3.5 3.5M17 5l3.5 3.5"/>',

@@ -698,6 +698,10 @@ assert.ok(shellNavigation.every(item=>!("children" in item)||item.children.every
 assert.ok(shellNavigation.flatMap(item=>[item,...("children" in item?item.children:[])]).every(item=>implementedRoutePaths.has(item.path)),"every shell destination must be an implemented route");
 assert.deepEqual([...mobilePrimaryNavigationIds],["map","pals","calculators"],"mobile primary navigation must be explicit and must not depend on the desktop array order");
 assert.match(main,/shellNavigation\.map\(desktopNavigationItem\)/,"desktop navigation must use the shared two-level shell route manifest");
+assert.match(main,/icon\("chevronDown","nav-chevron"\)/,"desktop disclosure menus must use the shared SVG chevron instead of a font glyph");
+assert.doesNotMatch(main,/nav-chevron[^\n]*⌄/,"desktop disclosure menus must not render a font-dependent chevron glyph");
+assert.match(seoStatic,/icon\("chevronDown","nav-chevron"\)/,"prerendered disclosure menus must use the same shared SVG chevron");
+assert.doesNotMatch(seoStatic,/nav-chevron[^\n]*⌄/,"prerendered disclosure menus must not render a font-dependent chevron glyph");
 assert.match(main,/shellNavigation\.map\(moreNavigationItem\)/,"compact navigation must use the shared two-level shell route manifest");
 assert.match(main,/mobilePrimaryNavigationIds\.map/,"mobile primary destinations must be selected by stable IDs");
 assert.doesNotMatch(main,/shellNavigation\.slice\(/,"mobile navigation must not change implicitly when the desktop menu order changes");
