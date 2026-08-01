@@ -713,6 +713,11 @@ assert.match(main,/ensureGlobalSearchData/,"global search must load Pal, item an
 assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,trustItems:homeTrustItems,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
 assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,trustItems:homeTrustItems\}\)/,"static Home must use the same shared pure renderer");
 assert.match(styles,/\.home-action-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\).*@media\(max-width:700px\).*\.home-action-grid,\.home-topic-grid\{grid-template-columns:1fr\}/s,"Home task and topic grids must collapse to one column on phones");
+assert.match(styles,/\.home-hero\{[^}]*min-height:520px[^}]*padding:4rem 3rem 3\.5rem[^}]*overflow:hidden\}/,"Home hero must keep its compact desktop height and contain its content");
+assert.match(styles,/\.home-hero:before\{[^}]*inset:1rem;height:auto;/,"Home hero backdrop must contain the search launcher instead of ending above it");
+assert.match(styles,/\.home-hero h1\{[^}]*font-size:clamp\(3\.25rem,5\.3vw,5\.2rem\);line-height:1\.02;/,"Home title must keep the documented desktop size and readable line height");
+assert.match(styles,/html\[lang\^="ko"\] \.home-hero h1\{line-height:1\.06;word-break:keep-all\}/,"Korean Home titles must preserve readable lines without splitting words");
+assert.match(styles,/@media\(max-width:700px\).*\.home-hero h1\{font-size:clamp\(2\.5rem,12vw,3\.2rem\);line-height:1\.08\}.*\.home-hero-art\{display:none\}/s,"Phone Home must use the compact title and omit decorative art so actions appear sooner");
 assert.match(main,/data-theme-choice/,"theme selection must expose explicit system, light and dark choices");
 assert.doesNotMatch(main,/trackEvent\([^\n]*(query|searchInput)/,"global search text must not be sent to analytics");
 assert.match(main,/meta\[name="theme-color"\]/,"theme changes must update the browser theme color");
