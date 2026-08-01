@@ -22,7 +22,7 @@ import {plannerCopy,plannerCopyProvenance} from "../src/planner-i18n.ts";
 import {basePresetCopy,basePresetCopyProvenance} from "../src/base-preset-i18n.ts";
 import {basePresets,baseWorkSuitabilityIds,parseBasePlannerState,requirementsForBaseRoles,validateBasePresets,writeBasePlannerState} from "../src/base-presets.ts";
 import {homeCopy,homeCopyProvenance} from "../src/home-i18n.ts";
-import {homeCatalogGroups,homeQuickActions,homeTrustItems,validateHomeManifest} from "../src/home-manifest.ts";
+import {homeCatalogGroups,homeQuickActions,validateHomeManifest} from "../src/home-manifest.ts";
 import {renderHomeMarkup} from "../src/home-render.ts";
 import {footerCopy,footerCopyProvenance} from "../src/footer-i18n.ts";
 import {renderFooter} from "../src/footer.ts";
@@ -86,11 +86,11 @@ for(const locale of locales){
   assert.ok(homeCopyProvenance[locale],`${locale} Home translation provenance must be recorded`);
   if(locale!=="en-US"){const changed=values.filter((value,index)=>value!==englishHomeStrings[index]).length;assert.ok(changed>=Math.floor(values.length*.8),`${locale} Home copy appears to be an accidental English fallback`)}
 }
-const koreanHomeMarkup=renderHomeMarkup({copy:homeCopy["ko-KR"],href:route=>`/ko-KR/${route}`,renderIcon:()=>"<svg></svg>",quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,trustItems:homeTrustItems});
+const koreanHomeMarkup=renderHomeMarkup({copy:homeCopy["ko-KR"],href:route=>`/ko-KR/${route}`,renderIcon:()=>"<svg></svg>",quickActions:homeQuickActions,catalogGroups:homeCatalogGroups});
 assert.equal((koreanHomeMarkup.match(/<h1(?:\s[^>]*)?>/g)||[]).length,1,"Home must contain exactly one h1");
 assert.equal((koreanHomeMarkup.match(/data-home-action=/g)||[]).length,homeQuickActions.length,"Home must render every quick action once");
 assert.equal((koreanHomeMarkup.match(/data-home-group=/g)||[]).length,homeCatalogGroups.length,"Home must render every topic group once");
-assert.equal((koreanHomeMarkup.match(/class="home-trust-icon"/g)||[]).length,homeTrustItems.length,"Home must render every trust item once");
+assert.doesNotMatch(koreanHomeMarkup,/class="home-trust"|확인된 범위를 명확하게/,"Home must omit the removed trust section");
 assert.match(koreanHomeMarkup,/data-open-search.*aria-controls="global-search-dialog"/s,"Home search launcher must reuse the global search dialog");
 assert.doesNotMatch(koreanHomeMarkup,/(?:24181527|24467282)|Data version|Game build|업데이트 버전/,"Home must not expose build or data-version labels");
 
@@ -732,8 +732,8 @@ assert.match(main,/data-shell-group.*Escape/s,"two-level disclosure navigation m
 assert.match(main,/aria-current="page"/,"the active shell destination must expose aria-current");
 assert.match(main,/id="global-search-dialog"/,"the shell must provide a global search dialog");
 assert.match(main,/ensureGlobalSearchData/,"global search must load Pal, item and skill data on demand");
-assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,trustItems:homeTrustItems,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
-assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,trustItems:homeTrustItems\}\)/,"static Home must use the same shared pure renderer");
+assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
+assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups\}\)/,"static Home must use the same shared pure renderer");
 assert.match(styles,/\.home-action-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\).*@media\(max-width:700px\).*\.home-action-grid,\.home-topic-grid\{grid-template-columns:1fr\}/s,"Home task and topic grids must collapse to one column on phones");
 assert.match(styles,/\.home-hero\{[^}]*min-height:520px[^}]*padding:4rem 3rem 3\.5rem[^}]*overflow:hidden\}/,"Home hero must keep its compact desktop height and contain its content");
 assert.match(styles,/\.home-hero:before\{[^}]*inset:1rem;height:auto;/,"Home hero backdrop must contain the search launcher instead of ending above it");

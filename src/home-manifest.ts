@@ -7,7 +7,6 @@ export type HomeTrustItemId="game-files"|"unknowns"|"locales";
 export type HomeRouteLink={id:string;path:string};
 export type HomeQuickAction=HomeRouteLink&{id:HomeQuickActionId;icon:IconName};
 export type HomeCatalogGroup={id:HomeCatalogGroupId;icon:IconName;links:readonly HomeRouteLink[]};
-export type HomeTrustItem={id:HomeTrustItemId;icon:IconName};
 
 export const homeQuickActions = [
   {id:"map",path:"map",icon:"map"},
@@ -44,12 +43,6 @@ export const homeCatalogGroups = [
     {id:"base-planner",path:"calculators/base"},
   ]},
 ] as const satisfies readonly HomeCatalogGroup[];
-
-export const homeTrustItems = [
-  {id:"game-files",icon:"database"},
-  {id:"unknowns",icon:"search"},
-  {id:"locales",icon:"theme"},
-] as const satisfies readonly HomeTrustItem[];
 
 export function validateHomeManifest(implementedRoutes:readonly string[]){
   const allowed=new Set(implementedRoutes),catalogLinks=homeCatalogGroups.reduce<HomeRouteLink[]>((all,group)=>{all.push(...group.links);return all},[]),links:HomeRouteLink[]=[...homeQuickActions,...catalogLinks];

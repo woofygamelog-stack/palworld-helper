@@ -3,7 +3,7 @@ import path from "node:path";
 import {deploymentFileBudget,seoHreflang,supportedLocales as locales} from "../src/route-manifest.ts";
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo-static.mjs";
 import {homeCopy} from "../src/home-i18n.ts";
-import {homeCatalogGroups,homeQuickActions,homeTrustItems} from "../src/home-manifest.ts";
+import {homeCatalogGroups,homeQuickActions} from "../src/home-manifest.ts";
 import {footerCopy} from "../src/footer-i18n.ts";
 
 const root=process.cwd(),dist=path.join(root,"dist"),readJson=file=>readFile(file,"utf8").then(JSON.parse);
@@ -71,7 +71,7 @@ for(const entry of representativeEntries){
 if(representativeTitles.size!==representativeEntries.length)throw new Error("Representative prerender pages must have unique localized titles");
 for(const locale of locales){
   const file=path.join(dist,`${locale}.html`),html=await readFile(file,"utf8"),copy=homeCopy[locale],escapedTitle=copy.title.replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
-  if(!html.includes(escapedTitle)||(html.match(/data-home-action=/g)||[]).length!==homeQuickActions.length||(html.match(/data-home-group=/g)||[]).length!==homeCatalogGroups.length||(html.match(/class="home-trust-icon"/g)||[]).length!==homeTrustItems.length)throw new Error(`${locale} Home initial HTML does not match the shared manifest`);
+  if(!html.includes(escapedTitle)||(html.match(/data-home-action=/g)||[]).length!==homeQuickActions.length||(html.match(/data-home-group=/g)||[]).length!==homeCatalogGroups.length||html.includes('class="home-trust"'))throw new Error(`${locale} Home initial HTML does not match the shared manifest`);
   if(!html.includes('data-open-search')||!html.includes('aria-controls="global-search-dialog"'))throw new Error(`${locale} Home initial HTML is missing the global-search launcher`);
   if(!html.includes('href="https://woofy.blog" target="_blank" rel="noopener noreferrer"')||!html.includes('href="https://github.com/woofygamelog-stack/woofy-community/issues" target="_blank" rel="noopener noreferrer" data-footer-contact')||!html.includes(`>${footerCopy[locale].contact}</a>`))throw new Error(`${locale} Home initial HTML is missing localized safe footer links`);
   if(/(?:24181527|24467282)|Data version|Game build|업데이트 버전/.test(html))throw new Error(`${locale} Home exposes public build or data-version text`);
