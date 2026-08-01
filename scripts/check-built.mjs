@@ -14,7 +14,7 @@ const [palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,
 const data={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData},groups=buildIndexableGroups(data,productionOrigin),{entries,selected,registry}=buildPrerenderEntries(data);
 const expectedUrls=Object.values(groups).reduce((sum,urls)=>sum+urls.length,0),expectedHtmlDocuments=entries.length+1;
 
-for(const declaration of ['name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"','name="google-adsense-account" content="ca-pub-1986785092914105"'])if(!index.includes(declaration))throw new Error(`Root document is missing ${declaration}`);
+for(const declaration of ['name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"','name="naver-site-verification" content="65053db0d554b68f4d1b9940f95f3ce5321a99c1"','name="google-adsense-account" content="ca-pub-1986785092914105"'])if(!index.includes(declaration))throw new Error(`Root document is missing ${declaration}`);
 if(/palworld-helper\.example|(?:24181527|24467282)|Data version|Game build/.test(index))throw new Error("Root document exposes a placeholder domain or public build information");
 if(wrangler.name!=="palworld-helper"||wrangler.assets?.directory!=="./dist"||wrangler.assets?.not_found_handling!=="single-page-application"||wrangler.assets?.html_handling!=="drop-trailing-slash")throw new Error("Cloudflare Assets must preserve the configured no-slash hybrid SPA routing");
 if(wrangler.workers_dev!==false||wrangler.preview_urls!==false||"main" in wrangler)throw new Error("Cloudflare public development hostnames must be disabled and no Worker runtime may be configured");

@@ -322,6 +322,7 @@ assert.match(expeditionStyles,/\.expedition-grid.*\.expedition-detail-grid.*\.ex
 assert.match(expeditionStyles,/\.expedition-filter-panel>summary.*@media\(max-width:700px\).*\.expedition-filter-panel>\.expedition-filters\{position:static;grid-template-columns:1fr 1fr/s,"Pal Expedition mobile filters must remain compact and avoid a full-height stacked panel");
 for(const image of new Set(expeditionData.expeditions.map(expedition=>expedition.image)))await access(`public${image}`);
 assert.match(indexHtml, /name="google-site-verification" content="vcYPQJf0I03LumjZIODPdq47ZnYMCRvD2ABcBFyBImQ"/, "Search Console verification must exist in static HTML");
+assert.match(indexHtml, /name="naver-site-verification" content="65053db0d554b68f4d1b9940f95f3ce5321a99c1"/, "Naver Search Advisor verification must exist in static HTML");
 assert.match(indexHtml, /name="google-adsense-account" content="ca-pub-1986785092914105"/, "AdSense publisher metadata must exist in static HTML");
 assert.equal(adsTxt.trim(),"google.com, pub-1986785092914105, DIRECT, f08c47fec0942fa0","ads.txt must use the exact owner-authorized account entry");
 assert.equal(wranglerConfig.name,"palworld-helper","Wrangler project name must match the GitHub/project slug");
