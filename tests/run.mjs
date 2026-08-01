@@ -368,6 +368,7 @@ assert.match(koreanElementHtml,/속성 상성.*속성 상성 흐름도.*data-ele
 const koreanPrimaryNavigation=koreanElementHtml.match(/<nav class="primary-nav"[\s\S]*?<\/nav>/)?.[0]||"";
 assert.match(koreanPrimaryNavigation,/class="nav-group nav-group-database active"/,"prerendered navigation must expose the active two-level database group");
 assert.doesNotMatch(koreanPrimaryNavigation,/href="\/ko-KR"(?:\/)?"/,"prerendered primary navigation must not contain a Home destination");
+assert.doesNotMatch(koreanPrimaryNavigation,/href="\/ko-KR\/(?:skills|calculators)"/,"prerendered dropdowns must not repeat their Skills or Calculators group landing");
 assert.match(koreanElementHtml,/<a class="brand" href="\/ko-KR">/,"the prerendered brand must retain the localized Home destination");
 assert.equal((koreanElementHtml.match(/data-element-relation=/g)||[]).length,9,"Element initial HTML must expose each verified relationship once in the accessible list");
 assert.equal((koreanElementHtml.match(/class="element-graph-node"/g)||[]).length,18,"Element initial HTML must render all nine nodes in both responsive diagrams");
@@ -717,6 +718,7 @@ const shellIds=shellNavigation.flatMap(item=>[item.id,...("children" in item?ite
 assert.equal(new Set(shellIds).size,shellIds.length,"shell navigation IDs must be unique");
 assert.ok(shellNavigation.every(item=>item.id!=="home"&&item.path!==""),"home must be removed from the navigation manifest while its route remains implemented");
 assert.ok(shellNavigation.every(item=>!("children" in item)||item.children.every(child=>!("children" in child))),"shell navigation must never exceed two levels");
+assert.ok(["skills","calculators"].every(groupId=>{const item=shellNavigation.find(entry=>entry.id===groupId);return item&&"children" in item&&item.children.every(child=>child.path!==item.path)}),"Skills and Calculators landing routes must not be repeated as redundant child destinations");
 assert.ok(shellNavigation.flatMap(item=>[item,...("children" in item?item.children:[])]).every(item=>implementedRoutePaths.has(item.path)),"every shell destination must be an implemented route");
 assert.deepEqual([...mobilePrimaryNavigationIds],["map","pals","calculators"],"mobile primary navigation must be explicit and must not depend on the desktop array order");
 assert.match(main,/shellNavigation\.map\(desktopNavigationItem\)/,"desktop navigation must use the shared two-level shell route manifest");

@@ -36,13 +36,11 @@ export const shellNavigation = [
   {id:"map",path:"map",icon:"map",active:[{path:"map"}]},
   {id:"pals",path:"pals",icon:"pals",active:[{path:"pals"}]},
   {id:"skills",path:"skills",icon:"skills",active:[{path:"skills"}],children:[
-    {id:"skills-overview",path:"skills",active:[{path:"skills",exact:true}]},
     {id:"skills-active",path:"skills/active",active:[{path:"skills/active"}]},
     {id:"skills-passive",path:"skills/passive",active:[{path:"skills/passive"}]},
     {id:"skills-partner",path:"skills/partner",active:[{path:"skills/partner"}]},
   ]},
   {id:"calculators",path:"calculators",icon:"calculator",active:[{path:"calculators"}],children:[
-    {id:"calculators-overview",path:"calculators",active:[{path:"calculators",exact:true}]},
     {id:"calculators-breeding",path:"calculators/breeding",active:[{path:"calculators/breeding"}]},
     {id:"calculators-crafting",path:"calculators/crafting",active:[{path:"calculators/crafting"}]},
     {id:"calculators-base",path:"calculators/base",active:[{path:"calculators/base"}]},
