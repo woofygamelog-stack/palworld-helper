@@ -650,6 +650,7 @@ assert.doesNotMatch(main,/Wood=10|<code>\$\{esc\(selected\.id\)/,"crafting UI mu
 assert.match(main,/function enhancePalSelect/,"breeding Pal selectors must use an image-capable searchable combobox");
 assert.equal((main.match(/<section class="section calculator-workspace">/g)||[]).length,3,"all calculator pages must use the same responsive workspace rail");
 assert.match(featureStyles,/\.calculator-workspace>\.calculator\.wide\{width:100%;max-width:none\}/,"breeding calculator must fill the same workspace width as crafting and base planners");
+assert.match(styles,/\.planner-columns>\.planner-output\{position:sticky;top:88px\}.*@media\(max-width:900px\)\{\.planner-columns\{grid-template-columns:1fr\}\.planner-columns>\.planner-output\{position:static;top:auto\}\}/s,"crafting and base planner output panels must align with the input panel before becoming sticky, then stack without an offset on narrow screens");
 assert.match(main,/class=\"pair-card\"/,"reverse breeding results must render image-capable Pal pair cards");
 assert.match(featureStyles,/\.pair-list>\.pair-card-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,20rem\),1fr\)\)/,"reverse-breeding cards must override the legacy child grid with a readable responsive minimum width");
 assert.match(featureStyles,/\.pair-card \.pal-visual small,\.pair-card \.pal-visual strong,\.pair-card>a>small\{white-space:nowrap;word-break:keep-all\}/,"reverse-breeding labels must not break into vertical text");
