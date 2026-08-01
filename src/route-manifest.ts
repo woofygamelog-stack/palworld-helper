@@ -25,15 +25,43 @@ export const routeFamilies = [
 
 export const collectionRoutes = routeFamilies.filter(route=>route.indexable).map(route=>route.path);
 
+type ShellRouteMatch={path:string;exact?:boolean};
+type ShellNavigationLeaf={id:string;path:string;active:readonly ShellRouteMatch[]};
+type ShellNavigationLink=ShellNavigationLeaf&{icon:string;children?:never};
+type ShellNavigationGroup={id:string;path:string;icon:string;active:readonly ShellRouteMatch[];children:readonly ShellNavigationLeaf[]};
+
+export type ShellNavigationItem=ShellNavigationLink|ShellNavigationGroup;
+
 export const shellNavigation = [
-  {id:"home",path:"",icon:"home"},
-  {id:"map",path:"map",icon:"map"},
-  {id:"pals",path:"pals",icon:"pals"},
-  {id:"skills",path:"skills",icon:"skills"},
-  {id:"calculators",path:"calculators/breeding",icon:"calculator"},
-  {id:"database",path:"database",icon:"database"},
-  {id:"server",path:"server-tools/settings-generator",icon:"server"},
-] as const;
+  {id:"map",path:"map",icon:"map",active:[{path:"map"}]},
+  {id:"pals",path:"pals",icon:"pals",active:[{path:"pals"}]},
+  {id:"skills",path:"skills",icon:"skills",active:[{path:"skills"}],children:[
+    {id:"skills-overview",path:"skills",active:[{path:"skills",exact:true}]},
+    {id:"skills-active",path:"skills/active",active:[{path:"skills/active"}]},
+    {id:"skills-passive",path:"skills/passive",active:[{path:"skills/passive"}]},
+    {id:"skills-partner",path:"skills/partner",active:[{path:"skills/partner"}]},
+  ]},
+  {id:"calculators",path:"calculators",icon:"calculator",active:[{path:"calculators"}],children:[
+    {id:"calculators-overview",path:"calculators",active:[{path:"calculators",exact:true}]},
+    {id:"calculators-breeding",path:"calculators/breeding",active:[{path:"calculators/breeding"}]},
+    {id:"calculators-crafting",path:"calculators/crafting",active:[{path:"calculators/crafting"}]},
+    {id:"calculators-base",path:"calculators/base",active:[{path:"calculators/base"}]},
+  ]},
+  {id:"database",path:"database",icon:"database",active:[{path:"database"},{path:"items"}],children:[
+    {id:"database-items",path:"database",active:[{path:"database",exact:true},{path:"items"}]},
+    {id:"database-quests",path:"database/quests",active:[{path:"database/quests"}]},
+    {id:"database-structures",path:"database/structures",active:[{path:"database/structures"}]},
+    {id:"database-expeditions",path:"database/expeditions",active:[{path:"database/expeditions"}]},
+    {id:"database-elements",path:"database/elements",active:[{path:"database/elements"}]},
+    {id:"database-technology",path:"database/technology",active:[{path:"database/technology"}]},
+    {id:"database-health",path:"database/health",active:[{path:"database/health"}]},
+    {id:"database-npcs",path:"database/npcs",active:[{path:"database/npcs"}]},
+    {id:"database-dungeons",path:"database/dungeons",active:[{path:"database/dungeons"}]},
+  ]},
+  {id:"server",path:"server-tools/settings-generator",icon:"server",active:[{path:"server-tools/settings-generator"}]},
+] as const satisfies readonly ShellNavigationItem[];
+
+export const mobilePrimaryNavigationIds=["map","pals","calculators"] as const;
 
 export const previewRoutes = [] as const;
 

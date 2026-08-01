@@ -15,6 +15,7 @@ import { plannerCopy, plannerCopyProvenance } from "../src/planner-i18n.ts";
 import { basePresetCopy, basePresetCopyProvenance } from "../src/base-preset-i18n.ts";
 import { basePresets } from "../src/base-presets.ts";
 import { mapSeoCopy, mapSeoTranslationProvenance } from "./seo-static.mjs";
+import { shellCopy, shellCopyProvenance } from "../src/shell-i18n.ts";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
 const expected = ["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
@@ -168,8 +169,15 @@ for(const locale of expected){
   if(locale!=="en-US"&&values.filter((value,index)=>value!==basePresetEnglish[index]).length<Math.floor(values.length*.8))throw new Error(`${locale} base preset catalog appears to be an accidental English fallback`);
 }
 if(basePresetCopyProvenance!=="gpt")throw new Error("Base preset translation provenance is incomplete");
+const shellKeys=Object.keys(shellCopy["en-US"]).sort();
+for(const locale of expected){
+  const catalog=shellCopy[locale];
+  if(JSON.stringify(Object.keys(catalog||{}).sort())!==JSON.stringify(shellKeys))throw new Error(`${locale} shell catalog key mismatch`);
+  if(Object.values(catalog).some(value=>typeof value!=="string"||!value.trim()))throw new Error(`${locale} shell catalog contains an empty value`);
+}
+if(shellCopyProvenance!=="gpt")throw new Error("Shell translation provenance is incomplete");
 if(/\$\{esc\((?:encounter|step)\.variant\)/.test(main))throw new Error("NPC internal variant is rendered directly");
 for(const text of [">Skill Fruit<",">Surgery cost<",">Breeding power<",">Size<","Server management","Import existing INI","Import and validate","INI output","Only settings documented by the official Palworld Server Guide"]){
   if(main.includes(text))throw new Error(`Hard-coded English UI copy remains in main.ts: ${text}`);
 }
-console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${elementMatchupKeys.length} element matchup, ${structureKeys.length} structure, ${expeditionKeys.length} expedition, ${questKeys.length} quest, ${plannerKeys.length} planner, and ${basePresetIds.length} base preset message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
+console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${elementMatchupKeys.length} element matchup, ${structureKeys.length} structure, ${expeditionKeys.length} expedition, ${questKeys.length} quest, ${plannerKeys.length} planner, ${shellKeys.length} shell, and ${basePresetIds.length} base preset message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);

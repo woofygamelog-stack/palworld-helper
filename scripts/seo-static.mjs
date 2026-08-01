@@ -14,6 +14,8 @@ import {partnerLabel,passiveUiLabels,skillLabels} from "../src/skill-i18n.ts";
 import {plannerCopy} from "../src/planner-i18n.ts";
 import {collectionRoutes,entityRouteFamilies,routeFamilies,seoHreflang,shellNavigation,supportedLocales} from "../src/route-manifest.ts";
 import {activeSkillOwner,assertPublicSlugRegistry,createPublicSlugRegistry,publicSlug} from "../src/public-slugs.ts";
+import {databaseItemTabLabels} from "../src/ui-i18n.ts";
+import {shellCopy} from "../src/shell-i18n.ts";
 
 export const productionOrigin="https://palworld-helper.woofy.blog";
 export const defaultLocale="en-US";
@@ -112,10 +114,12 @@ export function buildPrerenderEntries(data){
   return {entries,selected,registry};
 }
 
-function shellLabel(item,locale,m){return item.id==="home"?m.home:item.id==="map"?m.map:item.id==="pals"?m.pals:item.id==="skills"?skillLabels[locale].title:item.id==="calculators"?m.calculators:item.id==="database"?m.database:m.server}
+function shellLabel(item,locale,m){const id=item.id,skills=skillLabels[locale];return id==="map"?m.map:id==="pals"?m.pals:id==="skills"||id==="skills-overview"?skills.title:id==="skills-active"?skills.active:id==="skills-passive"?skills.passive:id==="skills-partner"?partnerLabel[locale]:id==="calculators"||id==="calculators-overview"?m.calculators:id==="calculators-breeding"?m.breeding:id==="calculators-crafting"?m.crafting:id==="calculators-base"?plannerCopy[locale].baseTitle:id==="database"?m.database:id==="database-items"?databaseItemTabLabels[locale]:id==="database-quests"?questCopy[locale].title:id==="database-structures"?structureCopy[locale].title:id==="database-expeditions"?expeditionCopy[locale].title:id==="database-elements"?elementCopy[locale].title:id==="database-technology"?technologyCopy[locale].title:id==="database-health"?healthCopy[locale].title:id==="database-npcs"?npcCopy[locale].catalogTitle:id==="database-dungeons"?dungeonCopy[locale].title:m.server}
+function shellRouteActive(item,route){return item.active.some(({path,exact=false})=>route===path||!exact&&route.startsWith(`${path}/`))}
+function shellLink(item,locale,route,m){return `<a href="${href(locale,item.path)}"${shellRouteActive(item,route)?' aria-current="page"':""}>${esc(shellLabel(item,locale,m))}</a>`}
 function shell(locale,route,title,content){
-  const m=messages(locale),links=shellNavigation.map(item=>`<a href="${href(locale,item.path)}"${route===item.path||item.path&&route.startsWith(`${item.path}/`)?' aria-current="page"':""}>${esc(shellLabel(item,locale,m))}</a>`).join("");
-  return `<a class="skip-link" href="#main">${esc(m.skip)}</a><header class="site-header prerender-header"><a class="brand" href="${href(locale)}"><span class="brand-mark"><img src="/favicon.svg" alt="" width="34" height="34"></span><span>${siteName}</span></a><nav class="primary-nav" aria-label="${esc(m.home)}">${links}</nav></header><main id="main" data-prerender-content>${content}</main><footer><div><strong>${siteName}</strong><p>${esc(m.footer)}</p></div></footer>`;
+  const m=messages(locale),links=shellNavigation.map(item=>item.children?`<details class="nav-group nav-group-${item.id}${shellRouteActive(item,route)?" active":""}"><summary><span>${esc(shellLabel(item,locale,m))}</span><span class="nav-chevron" aria-hidden="true">⌄</span></summary><div class="nav-panel">${item.children.map(child=>shellLink(child,locale,route,m)).join("")}</div></details>`:shellLink(item,locale,route,m)).join("");
+  return `<a class="skip-link" href="#main">${esc(m.skip)}</a><header class="site-header prerender-header"><a class="brand" href="${href(locale)}"><span class="brand-mark"><img src="/favicon.svg" alt="" width="34" height="34"></span><span>${siteName}</span></a><nav class="primary-nav" aria-label="${esc(shellCopy[locale].primaryNavigation)}">${links}</nav></header><main id="main" data-prerender-content>${content}</main><footer><div><strong>${siteName}</strong><p>${esc(m.footer)}</p></div></footer>`;
 }
 const hero=(m,title)=>`<section class="page-hero"><p class="eyebrow">${esc(m.verified)}</p><h1>${esc(title)}</h1></section>`;
 const relationLinks=links=>links.length?`<div class="relation-list entity-relation-list seo-link-list">${links.map(link=>`<a href="${esc(link.href)}">${link.image?`<img src="${esc(link.image)}" alt="" width="48" height="48" loading="lazy">`:""}<span><strong>${esc(link.label)}</strong>${link.detail?`<small>${esc(link.detail)}</small>`:""}</span></a>`).join("")}</div>`:"";
