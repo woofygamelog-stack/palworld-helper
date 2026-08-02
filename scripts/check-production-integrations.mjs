@@ -47,6 +47,7 @@ export async function auditProductionIntegrations({root=process.cwd(),env=proces
   const consentDefaults=mainSource.indexOf("installRegionalConsentMode(win);"),analyticsStart=mainSource.indexOf("initializeAnalytics();"),cmpGate=mainSource.indexOf("queueConsentModeGate(win);");
   if(consentDefaults<0||analyticsStart<0||cmpGate<0||!(consentDefaults<analyticsStart&&analyticsStart<cmpGate))throw new Error("Production integration audit failed: Advanced Consent Mode must start Analytics after regional defaults without waiting for the CMP callback");
   if(/analyticsCollectionAllowed|mayLoadAnalytics/.test(mainSource))throw new Error("Production integration audit failed: obsolete Analytics consent callback gate remains");
+  if(/trackPageView/.test(mainSource)||!bundle.includes("send_page_view")||!bundle.includes("allow_google_signals"))throw new Error("Production integration audit failed: GA Enhanced Measurement must own SPA page views without an app-managed duplicate sender");
   if(bundle.includes("data-palworld-cmp")||bundle.includes("data-palworld-ga")||bundle.includes("palworldCmp")||bundle.includes("palworldGa"))throw new Error("Production integration audit failed: Google vendor loaders must not contain custom tracking attributes");
   if(bundle.includes("pw-consent"))throw new Error("Production integration audit failed: obsolete global consent storage returned");
   const analyticsIds=new Set(bundle.match(/G-[A-Z0-9]{6,}/g)||[]),publisherIds=new Set(bundle.match(/ca-pub-\d+/g)||[]);

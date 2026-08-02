@@ -457,6 +457,7 @@ assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics mus
 assert.match(main, /installRegionalConsentMode\(win\)/, "Analytics must install regional Consent Mode before loading gtag.js");
 assert.match(main, /installRegionalConsentMode\(win\);\s*initializeAnalytics\(\);\s*queueConsentModeGate\(win\)/, "Advanced Consent Mode must start Analytics after regional defaults without waiting for a CMP callback");
 assert.doesNotMatch(main, /analyticsCollectionAllowed|mayLoadAnalytics/, "Analytics must not be disabled while Advanced Consent Mode applies regional storage controls");
+assert.doesNotMatch(main, /trackPageView/, "GA Enhanced Measurement must own SPA page views so browser-history changes cannot be double counted");
 assert.doesNotMatch(main, /gtag=\(\.\.\.args\)=>/, "Analytics must not queue ordinary arrays in place of Arguments commands");
 assert.match(main, /collection_search",\s*\{\s*collection:/, "collection search may emit only a stable collection identifier");
 assert.doesNotMatch(main, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
@@ -493,7 +494,7 @@ assert.equal(queueAnalyticsInitialization(advancedAnalyticsTarget,"G-FF7N186M72"
 assert.deepEqual(advancedAnalyticsTarget.dataLayer.map(command=>Array.from(command).slice(0,2)),[
   ["consent","default"],["consent","default"],["set","ads_data_redaction"],["js",advancedAnalyticsTarget.dataLayer[3][1]],["config","G-FF7N186M72"]
 ],"Consent Mode defaults must precede every Analytics initialization command");
-assert.equal(advancedAnalyticsTarget.dataLayer[4][2].send_page_view,false,"manual SPA page views must remain enabled without automatic duplicates");
+assert.equal(advancedAnalyticsTarget.dataLayer[4][2].send_page_view,true,"GA Enhanced Measurement must own initial and browser-history page views");
 const consentReadyTarget={googlefc:{callbackQueue:[],getGoogleConsentModeValues:()=>fullGrant}},receivedConsentStates=[];
 queueGoogleConsentModeReady(consentReadyTarget,status=>receivedConsentStates.push(status));
 assert.equal(consentReadyTarget.googlefc.callbackQueue.length,1,"one Google consent-mode callback must be registered");
@@ -512,30 +513,20 @@ assert.match(productionIntegrationErrors({...productionEnv,VITE_ADSENSE_CONTENT_
 assert.match(productionIntegrationErrors({...productionEnv,VITE_GOOGLE_CMP:"disabled"}).join(" "),/CMP/,"production must retain the certified Google CMP declaration");
 
 let analyticsCollection=false;
-let analyticsPath="/en-US";
-let analyticsLocale="en-US";
 const analyticsTarget={};
 const analytics=createAnalyticsTracker({
   collectionEnabled:()=>analyticsCollection,
-  currentPath:()=>analyticsPath,
-  currentLocale:()=>analyticsLocale,
   sender:()=>analyticsTarget.gtag
 });
-assert.equal(analytics.trackPageView(),false,"Analytics must not track while the integration is disabled");
 analyticsCollection=true;
-assert.equal(analytics.trackPageView(),false,"Analytics must not consume the page before the sender is initialized");
 installGtagQueue(analyticsTarget);
 analyticsTarget.gtag("js",new Date(0));
-analyticsTarget.gtag("config","G-FF7N186M72",{send_page_view:false});
-assert.equal(analytics.trackPageView(),true,"integration initialization must emit the current page once");
-assert.equal(analytics.trackPageView(),false,"same-path rerenders must not emit another page view");
-analyticsPath="/en-US/pals";
-assert.equal(analytics.trackPageView(),true,"a pathname change must emit one new page view");
+analyticsTarget.gtag("config","G-FF7N186M72",{send_page_view:true});
+assert.equal(analytics.trackEvent("map_layer_change",{layer:"boss"}),true,"stable interaction events must remain available beside automatic page views");
 assert.deepEqual(analyticsTarget.dataLayer.map(command=>Object.prototype.toString.call(command)),[
-  "[object Arguments]","[object Arguments]","[object Arguments]","[object Arguments]"
+  "[object Arguments]","[object Arguments]","[object Arguments]"
 ],"every Google tag command must use an Arguments object");
-assert.deepEqual(Array.from(analyticsTarget.dataLayer[2]),["event","page_view",{page_path:"/en-US",locale:"en-US"}],"the first consented page view must be queued with sanitized fields");
-assert.deepEqual(Array.from(analyticsTarget.dataLayer[3]),["event","page_view",{page_path:"/en-US/pals",locale:"en-US"}],"SPA navigation must queue exactly one new page view");
+assert.deepEqual(Array.from(analyticsTarget.dataLayer[2]),["event","map_layer_change",{layer:"boss"}],"stable events must retain sanitized fields");
 assert.match(main, /fetch\("\/data\/pals\.json"\)/, "verified static Pal data must load from the same origin");
 assert.equal(palData.meta.palCount, 299, "verified Pal count must remain stable for this game build");
 assert.equal(palData.meta.palPortraitCount, palData.meta.palCount, "every published Pal must have a verified portrait");

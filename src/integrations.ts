@@ -57,7 +57,7 @@ export function queueAnalyticsInitialization(target:GoogleConsentTarget,analytic
   if(!/^G-[A-Z0-9]+$/.test(analyticsId))return false;
   installGtagQueue(target);
   target.gtag!("js",new Date());
-  target.gtag!("config",analyticsId,{send_page_view:false,allow_google_signals:false,allow_ad_personalization_signals:false});
+  target.gtag!("config",analyticsId,{send_page_view:true,allow_google_signals:false,allow_ad_personalization_signals:false});
   return true;
 }
 
