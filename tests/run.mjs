@@ -6,7 +6,7 @@ import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts
 import { browserLocale,locales,resolveLocale } from "../src/config.ts";
 import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
-import {googleConsentModePurposeStatus,googleConsentRegions,installRegionalConsentMode,mayLoadAds,mayLoadAnalytics,openGooglePrivacyChoices,queueGoogleConsentModeReady,resolveIntegrationState} from "../src/integrations.ts";
+import {googleConsentModePurposeStatus,googleConsentRegions,installRegionalConsentMode,mayLoadAds,openGooglePrivacyChoices,queueAnalyticsInitialization,queueGoogleConsentModeReady,resolveIntegrationState} from "../src/integrations.ts";
 import {approvedAdsenseClient,approvedAnalyticsId,productionIntegrationErrors} from "../scripts/check-production-integrations.mjs";
 import {privacyCopy,privacyCopyProvenance} from "../src/privacy-i18n.ts";
 import { itemCategories, itemCategoryFieldLabels, itemCategoryLabel, itemCategoryProvenance } from "../src/item-categories.ts";
@@ -454,8 +454,9 @@ assert.match(main,/el\.hreflang=seoHreflang\(loc\)/,"runtime locale alternates m
 assert.match(main,/routeStructuredData.*BreadcrumbList.*position:1,name:m\.home.*position:2,name:detail\[2\].*position:3,name:title/s,"runtime safe-detail breadcrumbs must preserve home, collection, and entity hierarchy");
 assert.match(main,/history\.replaceState\(\{\},"",`\$\{localizePath\(locale,location\.pathname\)\}\$\{location\.search\}\$\{location\.hash\}`\)/,"unprefixed entry routes must normalize to the selected locale without another HTML document and preserve URL state");
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
-assert.match(main, /send_page_view:false/, "SPA analytics must disable automatic page views to prevent duplicates");
 assert.match(main, /installRegionalConsentMode\(win\)/, "Analytics must install regional Consent Mode before loading gtag.js");
+assert.match(main, /installRegionalConsentMode\(win\);\s*initializeAnalytics\(\);\s*queueConsentModeGate\(win\)/, "Advanced Consent Mode must start Analytics after regional defaults without waiting for a CMP callback");
+assert.doesNotMatch(main, /analyticsCollectionAllowed|mayLoadAnalytics/, "Analytics must not be disabled while Advanced Consent Mode applies regional storage controls");
 assert.doesNotMatch(main, /gtag=\(\.\.\.args\)=>/, "Analytics must not queue ordinary arrays in place of Arguments commands");
 assert.match(main, /collection_search",\s*\{\s*collection:/, "collection search may emit only a stable collection identifier");
 assert.doesNotMatch(main, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
@@ -480,15 +481,19 @@ const granted=googleConsentModePurposeStatus.granted,denied=googleConsentModePur
 const fullGrant={adStoragePurposeConsentStatus:granted,adUserDataPurposeConsentStatus:granted,adPersonalizationPurposeConsentStatus:granted,analyticsStoragePurposeConsentStatus:granted};
 const fullDeny={adStoragePurposeConsentStatus:denied,adUserDataPurposeConsentStatus:denied,adPersonalizationPurposeConsentStatus:denied,analyticsStoragePurposeConsentStatus:denied};
 const outsideRegion={adStoragePurposeConsentStatus:notApplicable,adUserDataPurposeConsentStatus:notApplicable,adPersonalizationPurposeConsentStatus:notApplicable,analyticsStoragePurposeConsentStatus:notApplicable};
-assert.equal(mayLoadAnalytics(fullDeny),false,"Analytics must stay blocked after a regional refusal");
 assert.equal(mayLoadAds(fullDeny),false,"AdSense requests must stay blocked after a regional refusal");
-assert.equal(mayLoadAnalytics(fullGrant),true,"Analytics must be allowed after analytics consent");
 assert.equal(mayLoadAds(fullGrant),true,"AdSense requests must be allowed after storage consent");
-assert.equal(mayLoadAnalytics(outsideRegion),true,"visitors outside consent scope must retain Analytics without a banner");
 assert.equal(mayLoadAds(outsideRegion),true,"visitors outside consent scope must retain AdSense without a banner");
-assert.equal(mayLoadAnalytics({...fullGrant,analyticsStoragePurposeConsentStatus:unknown}),false,"unknown consent state must fail closed for Analytics");
 assert.equal(mayLoadAds({...fullGrant,adStoragePurposeConsentStatus:unknown}),false,"unknown consent state must fail closed for ad requests");
+assert.equal(mayLoadAds({...fullGrant,adStoragePurposeConsentStatus:googleConsentModePurposeStatus.notConfigured}),false,"an unconfigured ad-storage purpose must fail closed for ad requests");
 assert.equal(mayLoadAds({...fullGrant,adPersonalizationPurposeConsentStatus:denied}),true,"ad personalization refusal must not disable consented non-personalized advertising");
+const advancedAnalyticsTarget={};
+installRegionalConsentMode(advancedAnalyticsTarget);
+assert.equal(queueAnalyticsInitialization(advancedAnalyticsTarget,"G-FF7N186M72"),true,"production Analytics must initialize without waiting for a regional CMP callback");
+assert.deepEqual(advancedAnalyticsTarget.dataLayer.map(command=>Array.from(command).slice(0,2)),[
+  ["consent","default"],["consent","default"],["set","ads_data_redaction"],["js",advancedAnalyticsTarget.dataLayer[3][1]],["config","G-FF7N186M72"]
+],"Consent Mode defaults must precede every Analytics initialization command");
+assert.equal(advancedAnalyticsTarget.dataLayer[4][2].send_page_view,false,"manual SPA page views must remain enabled without automatic duplicates");
 const consentReadyTarget={googlefc:{callbackQueue:[],getGoogleConsentModeValues:()=>fullGrant}},receivedConsentStates=[];
 queueGoogleConsentModeReady(consentReadyTarget,status=>receivedConsentStates.push(status));
 assert.equal(consentReadyTarget.googlefc.callbackQueue.length,1,"one Google consent-mode callback must be registered");

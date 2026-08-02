@@ -46,16 +46,19 @@ export type GoogleConsentModeStatus={
 export const googleConsentModePurposeStatus={unknown:0,granted:1,denied:2,notApplicable:3,notConfigured:4} as const;
 const permittedConsentModeStatuses=new Set<number>([
   googleConsentModePurposeStatus.granted,
-  googleConsentModePurposeStatus.notApplicable,
-  googleConsentModePurposeStatus.notConfigured
+  googleConsentModePurposeStatus.notApplicable
 ]);
-
-export function mayLoadAnalytics(status:GoogleConsentModeStatus){
-  return permittedConsentModeStatuses.has(status.analyticsStoragePurposeConsentStatus);
-}
 
 export function mayLoadAds(status:GoogleConsentModeStatus){
   return permittedConsentModeStatuses.has(status.adStoragePurposeConsentStatus);
+}
+
+export function queueAnalyticsInitialization(target:GoogleConsentTarget,analyticsId:string){
+  if(!/^G-[A-Z0-9]+$/.test(analyticsId))return false;
+  installGtagQueue(target);
+  target.gtag!("js",new Date());
+  target.gtag!("config",analyticsId,{send_page_view:false,allow_google_signals:false,allow_ad_personalization_signals:false});
+  return true;
 }
 
 type GoogleCallbackQueueEntry=Record<string,()=>void>|(()=>void);

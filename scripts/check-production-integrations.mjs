@@ -30,10 +30,11 @@ async function collectJavaScript(directory,files=[]){
 export async function auditProductionIntegrations({root=process.cwd(),env=process.env}={}){
   const errors=productionIntegrationErrors(env);
   if(errors.length)throw new Error(`Production integration audit failed: ${errors.join("; ")}`);
-  const dist=path.join(root,"dist"),[index,adsTxt,jsFiles]=await Promise.all([
+  const dist=path.join(root,"dist"),[index,adsTxt,jsFiles,mainSource]=await Promise.all([
     readFile(path.join(dist,"index.html"),"utf8"),
     readFile(path.join(dist,"ads.txt"),"utf8"),
-    collectJavaScript(path.join(dist,"assets"))
+    collectJavaScript(path.join(dist,"assets")),
+    readFile(path.join(root,"src","main.ts"),"utf8")
   ]);
   const bundle=(await Promise.all(jsFiles.map(file=>readFile(file,"utf8")))).join("\n");
   const slot=env.VITE_ADSENSE_CONTENT_SLOT||"";
@@ -43,6 +44,9 @@ export async function auditProductionIntegrations({root=process.cwd(),env=proces
   if(!bundle.includes(approvedAdsenseClient)||!bundle.includes(`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=`))throw new Error("Production integration audit failed: AdSense publisher or Auto ads loader is missing");
   if(slot&&!bundle.includes(slot))throw new Error("Production integration audit failed: configured AdSense site slot is missing");
   if(!bundle.includes("CONSENT_MODE_DATA_READY")||!bundle.includes("getGoogleConsentModeValues"))throw new Error("Production integration audit failed: regional Google CMP gating is missing");
+  const consentDefaults=mainSource.indexOf("installRegionalConsentMode(win);"),analyticsStart=mainSource.indexOf("initializeAnalytics();"),cmpGate=mainSource.indexOf("queueConsentModeGate(win);");
+  if(consentDefaults<0||analyticsStart<0||cmpGate<0||!(consentDefaults<analyticsStart&&analyticsStart<cmpGate))throw new Error("Production integration audit failed: Advanced Consent Mode must start Analytics after regional defaults without waiting for the CMP callback");
+  if(/analyticsCollectionAllowed|mayLoadAnalytics/.test(mainSource))throw new Error("Production integration audit failed: obsolete Analytics consent callback gate remains");
   if(bundle.includes("data-palworld-cmp")||bundle.includes("data-palworld-ga")||bundle.includes("palworldCmp")||bundle.includes("palworldGa"))throw new Error("Production integration audit failed: Google vendor loaders must not contain custom tracking attributes");
   if(bundle.includes("pw-consent"))throw new Error("Production integration audit failed: obsolete global consent storage returned");
   const analyticsIds=new Set(bundle.match(/G-[A-Z0-9]{6,}/g)||[]),publisherIds=new Set(bundle.match(/ca-pub-\d+/g)||[]);

@@ -10,7 +10,7 @@ import {activeSkillOwner,createPublicSlugRegistry,publicSlug,resolvePublicSlug,t
 import { icon, type IconName } from "./icons";
 import { mapLayerLabels } from "./map-labels";
 import { createAnalyticsTracker, type AnalyticsParams, type AnalyticsTarget } from "./analytics";
-import {installRegionalConsentMode,mayLoadAds,mayLoadAnalytics,openGooglePrivacyChoices,queueGoogleConsentModeReady,resolveIntegrationState,type GoogleConsentTarget} from "./integrations";
+import {installRegionalConsentMode,mayLoadAds,openGooglePrivacyChoices,queueAnalyticsInitialization,queueGoogleConsentModeReady,resolveIntegrationState,type GoogleConsentTarget} from "./integrations";
 import {privacyCopy} from "./privacy-i18n";
 import { itemCategoryFieldLabels, itemCategoryLabel } from "./item-categories";
 import { groupItemDropSources } from "./drop-relations";
@@ -108,13 +108,13 @@ type Quest={slug:string;kind:"main"|"side";order:number;parallel:boolean;names:R
 type QuestData={meta:{schema:number;gameBuild:string;verification:string;localeCount:number;questCount:number;mainCount:number;sideCount:number;objectiveQuestCount:number;objectiveStepCount:number;rewardQuestCount:number;rewardItemRelationCount:number;unavailableAdditionalRewardQuestCount:number};quests:Quest[]};
 const app=document.querySelector<HTMLDivElement>("#app")!;
 const integrationState=resolveIntegrationState({isProductionBuild:import.meta.env.PROD,releaseStage:site.releaseStage,analyticsEnabled:site.analyticsEnabled,analyticsId:site.analyticsId,adsenseEnabled:site.adsenseEnabled,adsenseClient:site.adsenseClient,adsenseContentSlot:site.adsenseContentSlot,googleCmp:site.googleCmp,consentTestMode:site.consentTestMode});
-let analyticsCollectionAllowed=false,adRequestsAllowed=false;
+let adRequestsAllowed=false;
 let preservingPrerender=app.hasAttribute("data-prerender-route");
 let locale=resolveLocale(location.pathname),m=messages(locale),data:PalData|null=null,itemData:ItemData|null=null,mapData:MapData|null=null,skillData:SkillData|null=null,npcData:NpcData|null=null,dungeonData:DungeonData|null=null,technologyData:TechnologyData|null=null,healthData:HealthData|null=null,elementData:ElementData|null=null,structureData:StructureData|null=null,expeditionData:ExpeditionData|null=null,questData:QuestData|null=null,itemLoading=false,palLoading=false,mapLoading=false,skillLoading=false,npcLoading=false,dungeonLoading=false,technologyLoading=false,healthLoading=false,elementLoading=false,structureLoading=false,expeditionLoading=false,questLoading=false,dungeonLoadError=false,technologyLoadError=false,healthLoadError=false,elementLoadError=false,structureLoadError=false,expeditionLoadError=false,questLoadError=false;
 const mapView={scale:1,x:0,y:0};
 if(!locales.includes(location.pathname.split("/").filter(Boolean)[0] as Locale))history.replaceState({},"",`${localizePath(locale,location.pathname)}${location.search}${location.hash}`);
 const analyticsTracker=createAnalyticsTracker({
-  collectionEnabled:()=>integrationState.analyticsEnabled&&analyticsCollectionAllowed,
+  collectionEnabled:()=>integrationState.analyticsEnabled,
   currentPath:()=>location.pathname,
   currentLocale:()=>locale,
   sender:()=>((window as Window&AnalyticsTarget).gtag)
@@ -483,7 +483,7 @@ function bind(){
   document.querySelectorAll<HTMLDetailsElement>("[data-shell-group]").forEach(group=>group.addEventListener("toggle",()=>{if(!group.open)return;document.querySelectorAll<HTMLDetailsElement>("[data-shell-group][open]").forEach(other=>{if(other!==group)other.open=false})}));
   document.querySelectorAll<HTMLAnchorElement>("a[data-link]").forEach(a=>a.onclick=e=>{e.preventDefault();history.pushState({},"",a.href);render();scrollTo(0,0)});
   document.querySelector<HTMLAnchorElement>("[data-footer-contact]")?.addEventListener("click",()=>trackEvent("outbound_contact",{destination:"community_issues"}));
-  document.querySelector<HTMLButtonElement>("[data-privacy-settings]")?.addEventListener("click",()=>{analyticsCollectionAllowed=false;adRequestsAllowed=false;const win=window as Window&GoogleConsentTarget;if(openGooglePrivacyChoices(win,integrationState.cmpEnabled))queueConsentModeGate(win)});
+  document.querySelector<HTMLButtonElement>("[data-privacy-settings]")?.addEventListener("click",()=>{adRequestsAllowed=false;const win=window as Window&GoogleConsentTarget;if(openGooglePrivacyChoices(win,integrationState.cmpEnabled))queueConsentModeGate(win)});
   document.querySelector<HTMLSelectElement>("#locale")?.addEventListener("change",e=>{const next=(e.target as HTMLSelectElement).value as Locale,source=new URLSearchParams(location.search),preserved=new URLSearchParams();for(const key of ["layers","dungeon","world","pal","npc","travel","kind","category","type","level","power","condition","attack","defend","q","variant","difficulty","element","preset","roles","limit","night"]){const value=source.get(key);if(value!==null)preserved.set(key,value)}trackEvent("language_change",{locale:next});localStorage.setItem("pw-locale",next);location.href=`${localizePath(next,route())}${preserved.size?`?${preserved}`:""}`});
   document.querySelectorAll<HTMLButtonElement>("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>applyThemeChoice(button.dataset.themeChoice||"system")));
   const searchDialog=document.querySelector<HTMLDialogElement>("#global-search-dialog"),searchInput=document.querySelector<HTMLInputElement>("#global-search-input"),openSearch=async()=>{searchDialog?.showModal();await ensureGlobalSearchData();searchInput?.focus();if(searchInput?.value)renderAllGlobalSearch(searchInput.value)};document.querySelectorAll<HTMLButtonElement>("[data-open-search]").forEach(button=>button.addEventListener("click",openSearch));document.onkeydown=event=>{const target=event.target as HTMLElement;if(event.key==="Escape"){const openGroup=document.querySelector<HTMLDetailsElement>("[data-shell-group][open]");if(openGroup){event.preventDefault();openGroup.open=false;openGroup.querySelector<HTMLElement>("summary")?.focus();return}}if(event.key==="/"&&!event.ctrlKey&&!event.metaKey&&!/INPUT|TEXTAREA|SELECT/.test(target.tagName)){event.preventDefault();openSearch()}};searchInput?.addEventListener("input",()=>renderAllGlobalSearch(searchInput.value));document.querySelector("[data-clear-global-search]")?.addEventListener("click",()=>{if(!searchInput)return;searchInput.value="";renderAllGlobalSearch("");searchInput.focus()});document.querySelector("#global-search-results")?.addEventListener("click",event=>{const link=(event.target as HTMLElement).closest<HTMLAnchorElement>("a[data-global-result]");if(!link)return;event.preventDefault();searchDialog?.close();history.pushState({},"",link.href);render();scrollTo(0,0)});
@@ -655,8 +655,7 @@ function initializeAnalytics(){
   const loaderUrl=`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(site.analyticsId)}`;
   if(!integrationState.analyticsEnabled||[...document.scripts].some(script=>script.src===loaderUrl))return;
   const win=window as Window&GoogleConsentTarget;
-  win.gtag!("js",new Date());
-  win.gtag!("config",site.analyticsId,{send_page_view:false});
+  if(!queueAnalyticsInitialization(win,site.analyticsId))return;
   const script=document.createElement("script");script.async=true;script.src=loaderUrl;document.head.append(script);trackPageView();
 }
 function requestEligibleAd(){
@@ -668,10 +667,8 @@ function requestEligibleAd(){
 }
 function applyConsentModeStatus(win:Window&GoogleConsentTarget){
   const status=win.googlefc?.getGoogleConsentModeValues?.();
-  if(!status){analyticsCollectionAllowed=false;adRequestsAllowed=false;return}
-  analyticsCollectionAllowed=integrationState.analyticsEnabled&&mayLoadAnalytics(status);
+  if(!status){adRequestsAllowed=false;return}
   adRequestsAllowed=integrationState.adsenseEnabled&&mayLoadAds(status);
-  if(analyticsCollectionAllowed)initializeAnalytics();
   if(adRequestsAllowed)requestEligibleAd();
 }
 function queueConsentModeGate(win:Window&GoogleConsentTarget){queueGoogleConsentModeReady(win,()=>applyConsentModeStatus(win))}
@@ -679,6 +676,7 @@ function initIntegrations(){
   if(!integrationState.cmpEnabled)return;
   const win=window as Window&GoogleConsentTarget;
   installRegionalConsentMode(win);
+  initializeAnalytics();
   queueConsentModeGate(win);
   const loaderUrl=`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(site.adsenseClient)}`;
   if(![...document.scripts].some(script=>script.src===loaderUrl)){
