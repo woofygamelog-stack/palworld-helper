@@ -53,7 +53,10 @@ export async function auditProductionIntegrations({root=process.cwd(),env=proces
   const analyticsIds=new Set(bundle.match(/G-[A-Z0-9]{6,}/g)||[]),publisherIds=new Set(bundle.match(/ca-pub-\d+/g)||[]);
   if(analyticsIds.size!==1||!analyticsIds.has(approvedAnalyticsId))throw new Error(`Production integration audit failed: unexpected Analytics IDs: ${[...analyticsIds].join(", ")}`);
   if(publisherIds.size!==1||!publisherIds.has(approvedAdsenseClient))throw new Error(`Production integration audit failed: unexpected AdSense publishers: ${[...publisherIds].join(", ")}`);
-  console.log(`Production integrations verified: Analytics ${approvedAnalyticsId}, AdSense ${approvedAdsenseClient}, ${slot?`slot ${slot}`:"Auto ads"}, Google Privacy & messaging.`);
+  for(const required of ["fundingchoicesmessages.google.com/i/pub-1986785092914105?ers=1","google-ad-blocking-measurement-loader","googlefcPresent"]){
+    if(!bundle.includes(required))throw new Error(`Production integration audit failed: missing ad-blocking measurement value ${required}`);
+  }
+  console.log(`Production integrations verified: Analytics ${approvedAnalyticsId}, AdSense ${approvedAdsenseClient}, ${slot?`slot ${slot}`:"Auto ads"}, Google Privacy & messaging, ad-blocking measurement (recovery message unpublished; Offerwall disabled).`);
 }
 
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url)await auditProductionIntegrations();

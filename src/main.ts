@@ -669,6 +669,16 @@ function applyConsentModeStatus(win:Window&GoogleConsentTarget){
   if(adRequestsAllowed)requestEligibleAd();
 }
 function queueConsentModeGate(win:Window&GoogleConsentTarget){queueGoogleConsentModeReady(win,()=>applyConsentModeStatus(win))}
+function initializeAdBlockingMeasurement(){
+  if(!integrationState.adsenseEnabled||location.origin!==site.origin)return;
+  if(!document.querySelector('iframe[name="googlefcPresent"]')){
+    const iframe=document.createElement("iframe");iframe.name="googlefcPresent";iframe.hidden=true;iframe.style.cssText="width:0;height:0;border:0;position:absolute;left:-1000px;top:-1000px";document.body.append(iframe);
+  }
+  const loaderUrl="https://fundingchoicesmessages.google.com/i/pub-1986785092914105?ers=1";
+  if(![...document.scripts].some(script=>script.src===loaderUrl)){
+    const script=document.createElement("script");script.id="google-ad-blocking-measurement-loader";script.async=true;script.src=loaderUrl;document.head.append(script);
+  }
+}
 function initIntegrations(){
   if(!integrationState.cmpEnabled)return;
   const win=window as Window&GoogleConsentTarget;
@@ -679,6 +689,7 @@ function initIntegrations(){
   if(![...document.scripts].some(script=>script.src===loaderUrl)){
     const script=document.createElement("script");script.async=true;script.crossOrigin="anonymous";script.src=loaderUrl;document.head.append(script);
   }
+  initializeAdBlockingMeasurement();
 }
 function ensureItemData(){if(itemData||itemLoading)return;itemLoading=true;fetch("/data/items.json").then(r=>{if(!r.ok)throw new Error(`Item data load ${r.status}`);return r.json()}).then((loaded:ItemData)=>{if(loaded.meta.gameBuild!==site.gameBuild||loaded.meta.localeCount!==locales.length||loaded.meta.itemCount!==loaded.items.length||loaded.meta.recipeCount!==loaded.recipes.length)throw new Error("Item dataset verification mismatch");itemData=loaded;render()}).catch(error=>console.error(error)).finally(()=>{itemLoading=false})}
 function ensurePalData(){if(data||palLoading)return;palLoading=true;fetch("/data/pals.json").then(r=>{if(!r.ok)throw new Error(`Data load ${r.status}`);return r.json()}).then((loaded:PalData)=>{if(loaded.meta.gameBuild!==site.gameBuild||loaded.meta.localIdMatchCount!==loaded.meta.palCount)throw new Error("Dataset verification mismatch");data=loaded;render()}).catch(error=>console.error(error)).finally(()=>{palLoading=false})}

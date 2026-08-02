@@ -787,6 +787,9 @@ assert.match(main,/\["\/map","\/database","\/calculators\/crafting"\]\.includes\
 assert.match(main,/isSkills=current==="\/skills"\|\|current\.startsWith\("\/skills\/"\).*isSkills.*ensurePalData/s,"Pal data must load on every public-skill route so public slugs stay deterministic");
 assert.match(main,/current==="\/map"\)ensureMapData/,"map marker data must load only on the map route");
 assert.match(main,/function privacyPage\(\)/,"the privacy policy must be implemented rather than exposed as a placeholder");
+assert.match(main,/fundingchoicesmessages\.google\.com\/i\/pub-1986785092914105\?ers=1/,"production must include Google ad-blocking measurement");
+assert.match(main,/location\.origin!==site\.origin/,"ad-blocking measurement must stay on the exact production origin");
+assert.match(main,/iframe\[name=\"googlefcPresent\"\]/,"ad-blocking measurement must deduplicate the Google presence iframe");
 
 const shellIds=shellNavigation.flatMap(item=>[item.id,...("children" in item?item.children.map(child=>child.id):[])]),implementedRoutePaths=new Set(routeFamilies.map(family=>family.path));
 assert.equal(new Set(shellIds).size,shellIds.length,"shell navigation IDs must be unique");
