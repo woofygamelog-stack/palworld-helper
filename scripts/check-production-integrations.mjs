@@ -43,6 +43,7 @@ export async function auditProductionIntegrations({root=process.cwd(),env=proces
   if(!bundle.includes(approvedAdsenseClient)||!bundle.includes(`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=`))throw new Error("Production integration audit failed: AdSense publisher or Auto ads loader is missing");
   if(slot&&!bundle.includes(slot))throw new Error("Production integration audit failed: configured AdSense site slot is missing");
   if(!bundle.includes("CONSENT_MODE_DATA_READY")||!bundle.includes("getGoogleConsentModeValues"))throw new Error("Production integration audit failed: regional Google CMP gating is missing");
+  if(bundle.includes("data-palworld-cmp")||bundle.includes("data-palworld-ga")||bundle.includes("palworldCmp")||bundle.includes("palworldGa"))throw new Error("Production integration audit failed: Google vendor loaders must not contain custom tracking attributes");
   if(bundle.includes("pw-consent"))throw new Error("Production integration audit failed: obsolete global consent storage returned");
   const analyticsIds=new Set(bundle.match(/G-[A-Z0-9]{6,}/g)||[]),publisherIds=new Set(bundle.match(/ca-pub-\d+/g)||[]);
   if(analyticsIds.size!==1||!analyticsIds.has(approvedAnalyticsId))throw new Error(`Production integration audit failed: unexpected Analytics IDs: ${[...analyticsIds].join(", ")}`);

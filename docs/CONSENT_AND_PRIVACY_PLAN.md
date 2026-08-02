@@ -2,7 +2,7 @@
 
 Reviewed: 2026-08-02
 Audience: global
-Status: regional code baseline implemented; production build configuration and the European CMP message are configured; the US-state message and post-deployment live verification remain release gates
+Status: regional code baseline implemented; production build configuration and the European CMP message are configured; the US-state message is configured but blocked on the required site logo; post-deployment live verification remains a release gate
 
 ## Current integration inventory
 
@@ -24,7 +24,9 @@ The obsolete `pw-consent` all-or-nothing local-storage gate is removed. Theme an
 - AdSense Auto ads remains enabled for `woofy.blog`; the implementation does not require a manual slot merely to load the account-managed Auto ads code.
 - The European regulations message `Palworld Helper - European privacy` is published for `woofy.blog`. It shows Consent, Do not consent, and Manage options on the first layer; the rejection option is enabled for every EEA/UK/Swiss target country; message optimization is disabled; English plus the ten additional languages supported by that Google editor are configured. The site name and privacy URL are set, and the optional CMP logo is hidden.
 - Both advertising-purpose and Analytics-purpose Consent Mode settings are enabled and saved in European regulations settings.
-- The US-state message is not yet active. The Google editor was configured for `woofy.blog`, all current and future supported states, the opt-out link, English, Spanish, and Latin-American Spanish, but its publish request was not retained and the editor logged an internal event-bus error. Keep AdSense and Analytics enabled. Complete this in a normal signed-in browser at **AdSense > Privacy & messaging > US state regulations > Create** using the same scope, publish it, and confirm the overview reports one active US-state message.
+- Google publisher and Analytics loaders use only their documented loader attributes. Application deduplication compares their approved URLs and does not add custom `data-*` attributes to vendor tags.
+- Cloudflare Web Analytics automatic script injection is disabled for `woofy.blog`, removing the unrelated `static.cloudflareinsights.com/beacon.min.js` tag while leaving Google Analytics enabled. A fresh production-origin page load confirmed that the Cloudflare beacon was no longer injected.
+- The US-state message `Palworld Helper - US privacy` is configured for `woofy.blog`, all current and future supported states, the opt-out link, English, Spanish, and Latin-American Spanish. Google currently blocks publication because the AdSense site record has no logo. Keep AdSense and Analytics enabled. In **AdSense > Privacy & messaging > US state regulations**, add a PNG/JPG logo under 150 KB to the `woofy.blog` site record, reopen the configured message, publish it, and confirm the overview reports one active US-state message. Google notes that propagation may take up to one hour.
 - No deployment was initiated. The live origin therefore continues to serve its previous build until an authorized connected-Git build occurs.
 
 ## Regional decision
@@ -34,7 +36,7 @@ The obsolete `pw-consent` all-or-nothing local-storage gate is removed. Theme an
 - All other regions: do not show the European or US-state message merely because a Google integration is configured. Google returns consent-mode values as not applicable, so production Analytics and AdSense continue without a site-made banner. Provide the privacy notice and Google privacy-policy link. This is a product/vendor-policy baseline, not a substitute for jurisdiction-specific legal advice.
 - Development and prelaunch: load no Analytics, AdSense, or CMP scripts. An explicit non-production `VITE_CONSENT_TEST_MODE=true` may load the configured Google CMP for local message testing; it does not enable analytics or ad placements.
 
-## Required Google account configuration before AdSense activation
+## Required Google account configuration and release gates
 
 1. Add and verify `https://palworld-helper.woofy.blog` in the owner-approved AdSense account.
 2. Publish a European regulations message for the EEA, UK, and Switzerland in Privacy & messaging. Keep “Do not consent” on the first page and as easy and prominent as acceptance, disable consent-message optimization if it would remove that equality, enable purpose/vendor choices, and confirm the Google CMP emits TCF v2.3 strings.

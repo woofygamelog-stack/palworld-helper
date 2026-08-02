@@ -115,6 +115,8 @@ assert.match(styles, /@media\(max-width:700px\)[\s\S]*\.privacy-page\{padding:0 
 assert.match(main, /integrationState\.cmpEnabled/, "Google privacy messaging and AdSense must use the resolved release gates");
 assert.match(main, /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=/, "AdSense must use the authorized Google loader URL");
 assert.match(main, /script\.crossOrigin="anonymous"/, "AdSense loader must use anonymous cross-origin mode");
+assert.doesNotMatch(main, /data-palworld-(?:cmp|ga)|dataset\.palworld(?:Cmp|Ga)/, "Google vendor loaders must not receive unsupported custom tracking attributes");
+assert.match(main, /\[\.\.\.document\.scripts\]\.some\(script=>script\.src===loaderUrl\)/, "Google vendor loaders must be deduplicated by their approved URL without changing tag semantics");
 assert.match(main, /<ins class="adsbygoogle ad-slot"[^>]+data-ad-client=[^>]+data-ad-slot=/, "enabled AdSense must retain a real responsive site placement");
 assert.match(main, /CONSENT_MODE_DATA_READY|queueGoogleConsentModeReady/, "restricted tags must wait for Google's regional consent-mode decision");
 assert.match(indexHtml, /name="referrer" content="strict-origin-when-cross-origin"/, "Google Privacy & messaging must receive an eligible cross-origin referrer");
@@ -468,6 +470,7 @@ assert.ok(googleConsentRegions.includes("GB")&&googleConsentRegions.includes("CH
 const privacyTarget={googlefc:{callbackQueue:[],showRevocationMessage(){}}};
 assert.equal(openGooglePrivacyChoices(privacyTarget,true),true,"an active Google CMP must expose its revocation flow");
 assert.equal(privacyTarget.googlefc.callbackQueue.length,1,"privacy settings must queue one Google revocation request");
+assert.deepEqual(Object.keys(privacyTarget.googlefc.callbackQueue[0]),["CONSENT_API_READY"],"privacy revocation must wait for Google's supported consent API callback");
 assert.equal(openGooglePrivacyChoices({}),false,"an inactive integration must not fabricate privacy UI");
 const loadingPrivacyTarget={};
 assert.equal(openGooglePrivacyChoices(loadingPrivacyTarget,true),true,"a privacy choice opened before the CMP finishes loading must be retained");

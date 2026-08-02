@@ -652,11 +652,12 @@ function bind(){
   document.querySelector("#copy-ini")?.addEventListener("click",()=>{navigator.clipboard.writeText(document.querySelector<HTMLTextAreaElement>("#ini-output")!.value);trackEvent("tool_action",{tool:"server_settings",action:"copy"})});
 }
 function initializeAnalytics(){
-  if(!integrationState.analyticsEnabled||document.querySelector("script[data-palworld-ga]"))return;
+  const loaderUrl=`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(site.analyticsId)}`;
+  if(!integrationState.analyticsEnabled||[...document.scripts].some(script=>script.src===loaderUrl))return;
   const win=window as Window&GoogleConsentTarget;
   win.gtag!("js",new Date());
   win.gtag!("config",site.analyticsId,{send_page_view:false});
-  const script=document.createElement("script");script.async=true;script.src=`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(site.analyticsId)}`;script.dataset.palworldGa="true";document.head.append(script);trackPageView();
+  const script=document.createElement("script");script.async=true;script.src=loaderUrl;document.head.append(script);trackPageView();
 }
 function requestEligibleAd(){
   if(!integrationState.adsenseEnabled||!adRequestsAllowed)return;
@@ -679,8 +680,9 @@ function initIntegrations(){
   const win=window as Window&GoogleConsentTarget;
   installRegionalConsentMode(win);
   queueConsentModeGate(win);
-  if(!document.querySelector("script[data-palworld-cmp]")){
-    const script=document.createElement("script");script.async=true;script.crossOrigin="anonymous";script.src=`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(site.adsenseClient)}`;script.dataset.palworldCmp="true";document.head.append(script);
+  const loaderUrl=`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(site.adsenseClient)}`;
+  if(![...document.scripts].some(script=>script.src===loaderUrl)){
+    const script=document.createElement("script");script.async=true;script.crossOrigin="anonymous";script.src=loaderUrl;document.head.append(script);
   }
 }
 function ensureItemData(){if(itemData||itemLoading)return;itemLoading=true;fetch("/data/items.json").then(r=>{if(!r.ok)throw new Error(`Item data load ${r.status}`);return r.json()}).then((loaded:ItemData)=>{if(loaded.meta.gameBuild!==site.gameBuild||loaded.meta.localeCount!==locales.length||loaded.meta.itemCount!==loaded.items.length||loaded.meta.recipeCount!==loaded.recipes.length)throw new Error("Item dataset verification mismatch");itemData=loaded;render()}).catch(error=>console.error(error)).finally(()=>{itemLoading=false})}

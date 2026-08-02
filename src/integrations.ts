@@ -105,7 +105,6 @@ export function openGooglePrivacyChoices(target:GoogleConsentTarget,enabled=fals
   if(!enabled)return false;
   const googlefc=target.googlefc=target.googlefc||{};
   googlefc.callbackQueue=googlefc.callbackQueue||[];
-  if(googlefc.showRevocationMessage)googlefc.callbackQueue.push(googlefc.showRevocationMessage);
-  else googlefc.callbackQueue.push({CONSENT_API_READY:()=>googlefc.showRevocationMessage?.()});
+  googlefc.callbackQueue.push({CONSENT_API_READY:()=>googlefc.showRevocationMessage?.()});
   return true;
 }
