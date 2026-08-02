@@ -139,8 +139,8 @@ assert.deepEqual(resolveIntegrationState(integrationBase),{productionRelease:fal
 assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true}).analyticsEnabled,false,"prelaunch production builds must not load Analytics");
 assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",adsenseEnabled:false}).analyticsEnabled,true,"production Analytics may run only with the configured regional Google CMP");
 assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",adsenseEnabled:false,googleCmp:"disabled"}).analyticsEnabled,false,"Analytics must fail closed when the regional consent integration is not configured");
-assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production"}).adsenseEnabled,true,"an explicitly enabled production release with slot and certified CMP may load AdSense");
-assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",adsenseContentSlot:""}).adsenseEnabled,false,"AdSense metadata without a placement slot must remain inactive");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production"}).adsenseEnabled,true,"an explicitly enabled production release with the certified CMP may load AdSense");
+assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",adsenseContentSlot:""}).adsenseEnabled,true,"production Auto ads must remain active without a manual placement slot");
 assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",googleCmp:"disabled"}).adsenseEnabled,false,"AdSense must fail closed without the certified CMP declaration");
 assert.equal(resolveIntegrationState({...integrationBase,consentTestMode:true}).cmpEnabled,true,"explicit non-production consent test mode may load only the CMP carrier");
 assert.equal(resolveIntegrationState({...integrationBase,isProductionBuild:true,releaseStage:"production",consentTestMode:true,analyticsEnabled:false,adsenseEnabled:false}).consentTestMode,false,"consent test mode must never override a production build");
@@ -499,7 +499,8 @@ const productionEnv={VITE_RELEASE_STAGE:"production",VITE_ENABLE_ANALYTICS:"true
 assert.deepEqual(productionIntegrationErrors(productionEnv),[],"a fully enabled production environment must pass the integration gate");
 assert.match(productionIntegrationErrors({...productionEnv,VITE_ENABLE_ANALYTICS:"false"}).join(" "),/VITE_ENABLE_ANALYTICS/,"production Analytics cannot be disabled as a consent workaround");
 assert.match(productionIntegrationErrors({...productionEnv,VITE_ENABLE_ADSENSE:"false"}).join(" "),/VITE_ENABLE_ADSENSE/,"production AdSense cannot be disabled as a consent workaround");
-assert.match(productionIntegrationErrors({...productionEnv,VITE_ADSENSE_CONTENT_SLOT:""}).join(" "),/slot/,"production must retain the approved site-specific ad slot");
+assert.deepEqual(productionIntegrationErrors({...productionEnv,VITE_ADSENSE_CONTENT_SLOT:""}),[],"production Auto ads must pass without a manual placement slot");
+assert.match(productionIntegrationErrors({...productionEnv,VITE_ADSENSE_CONTENT_SLOT:"not-a-slot"}).join(" "),/slot/,"an explicitly configured manual placement must use a numeric slot");
 assert.match(productionIntegrationErrors({...productionEnv,VITE_GOOGLE_CMP:"disabled"}).join(" "),/CMP/,"production must retain the certified Google CMP declaration");
 
 let analyticsCollection=false;

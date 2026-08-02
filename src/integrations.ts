@@ -31,7 +31,7 @@ export function resolveIntegrationState(config:IntegrationConfig):IntegrationSta
   const consentTestMode=!config.isProductionBuild&&config.consentTestMode;
   const cmpConfigured=config.googleCmp==="google-privacy-messaging";
   const analyticsEnabled=productionRelease&&config.analyticsEnabled&&cmpConfigured&&/^G-[A-Z0-9]+$/.test(config.analyticsId);
-  const adsenseEnabled=productionRelease&&config.adsenseEnabled&&cmpConfigured&&/^ca-pub-\d+$/.test(config.adsenseClient)&&/^\d+$/.test(config.adsenseContentSlot);
+  const adsenseEnabled=productionRelease&&config.adsenseEnabled&&cmpConfigured&&/^ca-pub-\d+$/.test(config.adsenseClient);
   const cmpEnabled=analyticsEnabled||adsenseEnabled||consentTestMode&&cmpConfigured&&/^ca-pub-\d+$/.test(config.adsenseClient);
   return {productionRelease,analyticsEnabled,adsenseEnabled,cmpEnabled,consentTestMode,privacyControlsAvailable:cmpEnabled};
 }

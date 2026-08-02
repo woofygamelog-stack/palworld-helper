@@ -13,7 +13,7 @@ export function productionIntegrationErrors(env=process.env){
   if(env.VITE_GA_ID!==approvedAnalyticsId)errors.push(`VITE_GA_ID must be ${approvedAnalyticsId}`);
   if(env.VITE_ENABLE_ADSENSE!=="true")errors.push("VITE_ENABLE_ADSENSE must remain true");
   if(env.VITE_ADSENSE_CLIENT!==approvedAdsenseClient)errors.push(`VITE_ADSENSE_CLIENT must be ${approvedAdsenseClient}`);
-  if(!/^\d+$/.test(env.VITE_ADSENSE_CONTENT_SLOT||""))errors.push("VITE_ADSENSE_CONTENT_SLOT must contain the approved numeric site slot");
+  if(env.VITE_ADSENSE_CONTENT_SLOT&&!/^\d+$/.test(env.VITE_ADSENSE_CONTENT_SLOT))errors.push("VITE_ADSENSE_CONTENT_SLOT must be empty for Auto ads or contain an approved numeric site slot");
   if(env.VITE_GOOGLE_CMP!=="google-privacy-messaging")errors.push("VITE_GOOGLE_CMP must be google-privacy-messaging");
   return errors;
 }
@@ -36,17 +36,18 @@ export async function auditProductionIntegrations({root=process.cwd(),env=proces
     collectJavaScript(path.join(dist,"assets"))
   ]);
   const bundle=(await Promise.all(jsFiles.map(file=>readFile(file,"utf8")))).join("\n");
-  const slot=env.VITE_ADSENSE_CONTENT_SLOT;
+  const slot=env.VITE_ADSENSE_CONTENT_SLOT||"";
   if(!index.includes(`name="google-adsense-account" content="${approvedAdsenseClient}"`))throw new Error("Production integration audit failed: AdSense account meta tag is missing");
   if(adsTxt.trim()!==approvedAdsTxt)throw new Error("Production integration audit failed: ads.txt does not match the approved publisher");
   if(!bundle.includes(approvedAnalyticsId)||!bundle.includes(`https://www.googletagmanager.com/gtag/js?id=`))throw new Error("Production integration audit failed: Analytics ID or loader is missing");
-  if(!bundle.includes(approvedAdsenseClient)||!bundle.includes(`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=`)||!bundle.includes(slot))throw new Error("Production integration audit failed: AdSense publisher, loader, or site slot is missing");
+  if(!bundle.includes(approvedAdsenseClient)||!bundle.includes(`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=`))throw new Error("Production integration audit failed: AdSense publisher or Auto ads loader is missing");
+  if(slot&&!bundle.includes(slot))throw new Error("Production integration audit failed: configured AdSense site slot is missing");
   if(!bundle.includes("CONSENT_MODE_DATA_READY")||!bundle.includes("getGoogleConsentModeValues"))throw new Error("Production integration audit failed: regional Google CMP gating is missing");
   if(bundle.includes("pw-consent"))throw new Error("Production integration audit failed: obsolete global consent storage returned");
   const analyticsIds=new Set(bundle.match(/G-[A-Z0-9]{6,}/g)||[]),publisherIds=new Set(bundle.match(/ca-pub-\d+/g)||[]);
   if(analyticsIds.size!==1||!analyticsIds.has(approvedAnalyticsId))throw new Error(`Production integration audit failed: unexpected Analytics IDs: ${[...analyticsIds].join(", ")}`);
   if(publisherIds.size!==1||!publisherIds.has(approvedAdsenseClient))throw new Error(`Production integration audit failed: unexpected AdSense publishers: ${[...publisherIds].join(", ")}`);
-  console.log(`Production integrations verified: Analytics ${approvedAnalyticsId}, AdSense ${approvedAdsenseClient}, slot ${slot}, Google Privacy & messaging.`);
+  console.log(`Production integrations verified: Analytics ${approvedAnalyticsId}, AdSense ${approvedAdsenseClient}, ${slot?`slot ${slot}`:"Auto ads"}, Google Privacy & messaging.`);
 }
 
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url)await auditProductionIntegrations();
