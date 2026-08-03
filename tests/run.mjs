@@ -869,7 +869,9 @@ assert.match(seoStatic,/icon\("chevronDown","nav-chevron"\)/,"prerendered disclo
 assert.doesNotMatch(seoStatic,/nav-chevron[^\n]*⌄/,"prerendered disclosure menus must not render a font-dependent chevron glyph");
 assert.doesNotMatch(main,/shellNavigation\.slice\(/,"mobile navigation must not change implicitly when the desktop menu order changes");
 assert.match(main,/ensureGlobalSearchData/,"global search must load Pal, item and skill data on demand");
-assert.match(main,/renderPrimaryGlobalSearch/,"the application bootstrap must delegate primary global search rendering to the feature module");
+assert.match(main,/import\("\.\/features\/global-search"\)/,"global search must load through a dynamic feature boundary");
+assert.doesNotMatch(main,/^import .*features\/global-search/m,"global search must not remain in the initial application import graph");
+assert.match(main,/globalSearchFeature\?\.renderPrimaryGlobalSearch/,"the application bootstrap must delegate primary global search rendering after the feature loads");
 assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
 assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups\}\)/,"static Home must use the same shared pure renderer");
 assert.match(styles,/\.home-action-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\).*@media\(max-width:700px\).*\.home-action-grid,\.home-topic-grid\{grid-template-columns:1fr\}/s,"Home task and topic grids must collapse to one column on phones");

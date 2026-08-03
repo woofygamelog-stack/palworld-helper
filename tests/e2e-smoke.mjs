@@ -26,7 +26,11 @@ try{
   };
 
   await run("home-search",async()=>{
+    const searchChunkRequests=[];
+    const recordSearchChunk=request=>{if(/\/global-search-[^/]+\.js$/.test(new URL(request.url()).pathname))searchChunkRequests.push(request.url())};
+    page.on("request",recordSearchChunk);
     await visit("/ko-KR");
+    assert.equal(searchChunkRequests.length,0,"global search code must stay out of the initial Home request graph");
     const calculatorMenu=page.locator(".nav-group-calculators"),calculatorTrigger=calculatorMenu.locator("summary");
     await calculatorTrigger.click();
     assert.equal(await calculatorMenu.getAttribute("open"),"","desktop disclosure menu must open");
@@ -45,6 +49,8 @@ try{
     const englishNameMatch=page.locator('#global-search-results a[href*="/ko-KR/pals/"]').first();
     await englishNameMatch.waitFor({state:"visible"});
     assert.ok((await englishNameMatch.textContent())?.trim(),"an official English Pal name must find a localized Pal result");
+    assert.equal(searchChunkRequests.length,1,"global search code must load exactly once when search is first opened");
+    page.off("request",recordSearchChunk);
   });
 
   await run("pal-collection",async()=>{
