@@ -96,10 +96,26 @@ try{
     assert.equal(await page.locator("#base-plan-output").count(),1,"base planner output must render once");
   });
 
-  await run("map",async()=>{
-    await visit("/en-US/map");
+  await run("home-map-back",async()=>{
+    const mapChunkRequests=[];
+    const recordMapChunk=request=>{if(/\/map-[^/]+\.js$/.test(new URL(request.url()).pathname))mapChunkRequests.push(request.url())};
+    page.on("request",recordMapChunk);
+    await visit("/en-US");
+    assert.equal(mapChunkRequests.length,0,"map code must stay out of the initial Home request graph");
+    await page.locator('[data-home-action="map"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/map");
     await page.locator(".map-viewport").waitFor({state:"visible"});
+    await page.waitForFunction(()=>Number(document.querySelector("#map-result-count")?.textContent)>0);
     assert.ok(Number(await page.locator("#map-result-count").textContent())>0,"map must expose a non-empty result count");
+    assert.equal(mapChunkRequests.length,1,"map code must load exactly once on first map navigation");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await page.locator('[data-home-action="map"]').waitFor({state:"visible"});
+    await page.locator('[data-home-action="map"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/map");
+    await page.locator(".map-viewport").waitFor({state:"visible"});
+    assert.equal(mapChunkRequests.length,1,"repeat map navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordMapChunk);
   });
 
   await run("server-settings",async()=>{
