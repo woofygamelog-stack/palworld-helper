@@ -224,6 +224,34 @@ try{
     page.off("request",recordExpeditionChunk);
   });
 
+  await run("home-quests-detail-back",async()=>{
+    const questChunkRequests=[];
+    const recordQuestChunk=request=>{if(/\/quests-[^/]+\.js$/.test(new URL(request.url()).pathname))questChunkRequests.push(request.url())};
+    page.on("request",recordQuestChunk);
+    await visit("/en-US");
+    assert.equal(questChunkRequests.length,0,"quest page code must stay out of the initial Home request graph");
+    const questLink=page.locator('[data-home-group="items-and-progression"] a[href="/en-US/database/quests"]');
+    await questLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/quests");
+    await page.locator("#quest-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".quest-card").count()>0,"the quest collection must render verified entries");
+    assert.equal(questChunkRequests.length,1,"quest page code must load exactly once on first route entry");
+    await page.locator(".quest-card h2 a[data-link]").first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/quests/"));
+    await page.locator(".quest-detail").waitFor({state:"visible"});
+    assert.equal(questChunkRequests.length,1,"quest details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database/quests");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await questLink.waitFor({state:"visible"});
+    await questLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/quests");
+    await page.locator("#quest-search").waitFor({state:"visible"});
+    assert.equal(questChunkRequests.length,1,"repeat quest navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordQuestChunk);
+  });
+
   await run("server-settings",async()=>{
     const serverChunkRequests=[];
     const recordServerChunk=request=>{if(/\/server-settings-[^/]+\.js$/.test(new URL(request.url()).pathname))serverChunkRequests.push(request.url())};
@@ -276,7 +304,7 @@ try{
   });
 
   await context.close();
-  assert.ok(passed.length>=14,"the Phase 1 browser baseline must cover at least fourteen workflows");
+  assert.ok(passed.length>=15,"the Phase 1 browser baseline must cover at least fifteen workflows");
   console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();
