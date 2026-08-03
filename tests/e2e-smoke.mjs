@@ -118,6 +118,28 @@ try{
     page.off("request",recordMapChunk);
   });
 
+  await run("home-elements-back",async()=>{
+    const elementChunkRequests=[];
+    const recordElementChunk=request=>{if(/\/elements-[^/]+\.js$/.test(new URL(request.url()).pathname))elementChunkRequests.push(request.url())};
+    page.on("request",recordElementChunk);
+    await visit("/en-US");
+    assert.equal(elementChunkRequests.length,0,"element comparison code must stay out of the initial Home request graph");
+    const elementLink=page.locator('[data-home-group="combat-and-management"] a[href="/en-US/database/elements"]');
+    await elementLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/elements");
+    await page.locator("#element-attacker").waitFor({state:"visible"});
+    assert.equal(await page.locator(".element-matchup-graph").count(),1,"the element route must retain its verified matchup graph");
+    assert.equal(elementChunkRequests.length,1,"element comparison code must load exactly once on first route entry");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await elementLink.waitFor({state:"visible"});
+    await elementLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/elements");
+    await page.locator("#element-attacker").waitFor({state:"visible"});
+    assert.equal(elementChunkRequests.length,1,"repeat element navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordElementChunk);
+  });
+
   await run("server-settings",async()=>{
     const serverChunkRequests=[];
     const recordServerChunk=request=>{if(/\/server-settings-[^/]+\.js$/.test(new URL(request.url()).pathname))serverChunkRequests.push(request.url())};
@@ -170,7 +192,7 @@ try{
   });
 
   await context.close();
-  assert.ok(passed.length>=10,"the Phase 1 browser baseline must cover at least ten workflows");
+  assert.ok(passed.length>=11,"the Phase 1 browser baseline must cover at least eleven workflows");
   console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();
