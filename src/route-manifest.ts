@@ -65,7 +65,7 @@ export const previewRoutes = [] as const;
 
 export const entityRouteFamilies = [
   {prefix:"pals",dataset:"pals",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"pals",searchIntent:"pal-detail"},
-  {prefix:"items",dataset:"items",mode:"hybrid",prerender:"priority",priorityLimit:100,sitemap:"items",searchIntent:"item-detail"},
+  {prefix:"items",dataset:"items",mode:"hybrid",prerender:"priority",priorityLimit:75,sitemap:"items",searchIntent:"item-detail"},
   {prefix:"skills/active",dataset:"activeSkills",mode:"hybrid",prerender:"priority",priorityLimit:40,sitemap:"skills-active",searchIntent:"active-skill-detail"},
   {prefix:"skills/passive",dataset:"passiveSkills",mode:"hybrid",prerender:"priority",priorityLimit:30,sitemap:"skills-passive",searchIntent:"passive-skill-detail"},
   {prefix:"skills/partner",dataset:"partnerSkills",mode:"hybrid",prerender:"priority",priorityLimit:30,sitemap:"skills-partner",searchIntent:"partner-skill-detail"},

@@ -10,7 +10,8 @@ import {activeSkillOwner,createPublicSlugRegistry,publicSlug,resolvePublicSlug,t
 import { icon, type IconName } from "./icons";
 import { mapLayerLabels } from "./map-labels";
 import { createAnalyticsTracker, type AnalyticsParams, type AnalyticsTarget } from "./analytics";
-import {installRegionalConsentMode,mayLoadAds,openGooglePrivacyChoices,queueAnalyticsInitialization,queueGoogleConsentModeReady,resolveIntegrationState,type GoogleConsentTarget} from "./integrations";
+import {openGooglePrivacyChoices,resolveIntegrationState,type GoogleConsentTarget} from "./integrations";
+import {createIntegrationRuntime} from "./integration-runtime";
 import {privacyCopy} from "./privacy-i18n";
 import { itemCategoryFieldLabels, itemCategoryLabel } from "./item-categories";
 import { groupItemDropSources } from "./drop-relations";
@@ -108,7 +109,7 @@ type Quest={slug:string;kind:"main"|"side";order:number;parallel:boolean;names:R
 type QuestData={meta:{schema:number;gameBuild:string;verification:string;localeCount:number;questCount:number;mainCount:number;sideCount:number;objectiveQuestCount:number;objectiveStepCount:number;rewardQuestCount:number;rewardItemRelationCount:number;unavailableAdditionalRewardQuestCount:number};quests:Quest[]};
 const app=document.querySelector<HTMLDivElement>("#app")!;
 const integrationState=resolveIntegrationState({isProductionBuild:import.meta.env.PROD,releaseStage:site.releaseStage,analyticsEnabled:site.analyticsEnabled,analyticsId:site.analyticsId,adsenseEnabled:site.adsenseEnabled,adsenseClient:site.adsenseClient,adsenseContentSlot:site.adsenseContentSlot,googleCmp:site.googleCmp,consentTestMode:site.consentTestMode});
-let adRequestsAllowed=false;
+const integrationRuntime=createIntegrationRuntime({target:window as Window&GoogleConsentTarget,document,origin:location.origin,site,state:integrationState});
 let preservingPrerender=app.hasAttribute("data-prerender-route");
 let locale=resolveLocale(location.pathname),m=messages(locale),data:PalData|null=null,itemData:ItemData|null=null,mapData:MapData|null=null,skillData:SkillData|null=null,npcData:NpcData|null=null,dungeonData:DungeonData|null=null,technologyData:TechnologyData|null=null,healthData:HealthData|null=null,elementData:ElementData|null=null,structureData:StructureData|null=null,expeditionData:ExpeditionData|null=null,questData:QuestData|null=null,itemLoading=false,palLoading=false,mapLoading=false,skillLoading=false,npcLoading=false,dungeonLoading=false,technologyLoading=false,healthLoading=false,elementLoading=false,structureLoading=false,expeditionLoading=false,questLoading=false,dungeonLoadError=false,technologyLoadError=false,healthLoadError=false,elementLoadError=false,structureLoadError=false,expeditionLoadError=false,questLoadError=false;
 const mapView={scale:1,x:0,y:0};
@@ -480,7 +481,7 @@ function bind(){
   document.querySelectorAll<HTMLDetailsElement>("[data-shell-group]").forEach(group=>group.addEventListener("toggle",()=>{if(!group.open)return;document.querySelectorAll<HTMLDetailsElement>("[data-shell-group][open]").forEach(other=>{if(other!==group)other.open=false})}));
   document.querySelectorAll<HTMLAnchorElement>("a[data-link]").forEach(a=>a.onclick=e=>{e.preventDefault();history.pushState({},"",a.href);render();scrollTo(0,0)});
   document.querySelector<HTMLAnchorElement>("[data-footer-contact]")?.addEventListener("click",()=>trackEvent("outbound_contact",{destination:"community_issues"}));
-  document.querySelector<HTMLButtonElement>("[data-privacy-settings]")?.addEventListener("click",()=>{adRequestsAllowed=false;const win=window as Window&GoogleConsentTarget;if(openGooglePrivacyChoices(win,integrationState.cmpEnabled))queueConsentModeGate(win)});
+  document.querySelector<HTMLButtonElement>("[data-privacy-settings]")?.addEventListener("click",()=>{integrationRuntime.revokeAdRequests();const win=window as Window&GoogleConsentTarget;if(openGooglePrivacyChoices(win,integrationState.cmpEnabled))integrationRuntime.queueConsentModeGate()});
   document.querySelector<HTMLSelectElement>("#locale")?.addEventListener("change",e=>{const next=(e.target as HTMLSelectElement).value as Locale,source=new URLSearchParams(location.search),preserved=new URLSearchParams();for(const key of ["layers","dungeon","world","pal","npc","travel","kind","category","type","level","power","condition","attack","defend","q","variant","difficulty","element","preset","roles","limit","night"]){const value=source.get(key);if(value!==null)preserved.set(key,value)}trackEvent("language_change",{locale:next});localStorage.setItem("pw-locale",next);location.href=`${localizePath(next,route())}${preserved.size?`?${preserved}`:""}`});
   document.querySelectorAll<HTMLButtonElement>("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>applyThemeChoice(button.dataset.themeChoice||"system")));
   const searchDialog=document.querySelector<HTMLDialogElement>("#global-search-dialog"),searchInput=document.querySelector<HTMLInputElement>("#global-search-input"),openSearch=async()=>{searchDialog?.showModal();await ensureGlobalSearchData();searchInput?.focus();if(searchInput?.value)renderAllGlobalSearch(searchInput.value)};document.querySelectorAll<HTMLButtonElement>("[data-open-search]").forEach(button=>button.addEventListener("click",openSearch));document.onkeydown=event=>{const target=event.target as HTMLElement;if(event.key==="Escape"){const openGroup=document.querySelector<HTMLDetailsElement>("[data-shell-group][open]");if(openGroup){event.preventDefault();openGroup.open=false;openGroup.querySelector<HTMLElement>("summary")?.focus();return}}if(event.key==="/"&&!event.ctrlKey&&!event.metaKey&&!/INPUT|TEXTAREA|SELECT/.test(target.tagName)){event.preventDefault();openSearch()}};searchInput?.addEventListener("input",()=>renderAllGlobalSearch(searchInput.value));document.querySelector("[data-clear-global-search]")?.addEventListener("click",()=>{if(!searchInput)return;searchInput.value="";renderAllGlobalSearch("");searchInput.focus()});document.querySelector("#global-search-results")?.addEventListener("click",event=>{const link=(event.target as HTMLElement).closest<HTMLAnchorElement>("a[data-global-result]");if(!link)return;event.preventDefault();searchDialog?.close();history.pushState({},"",link.href);render();scrollTo(0,0)});
@@ -648,49 +649,6 @@ function bind(){
   document.querySelector("#import-ini")?.addEventListener("click",()=>{if(!form)return;const parsed=parseServerIni(document.querySelector<HTMLTextAreaElement>("#ini-import")?.value||""),warnings=document.querySelector<HTMLElement>("#ini-warnings")!;form.querySelectorAll<HTMLInputElement|HTMLSelectElement>("[data-server-key]").forEach(input=>{const value=parsed.values[input.name];if(input instanceof HTMLInputElement&&input.type==="checkbox")input.checked=value===true;else input.value=value===undefined?"":String(value)});warnings.hidden=parsed.warnings.length===0;warnings.textContent=parsed.warnings.map(warning=>formatUiCopy(uiCopy[locale][warning.code==="unsupportedKey"?"warningUnsupportedKey":warning.code==="boolean"?"warningBoolean":warning.code==="number"?"warningNumber":"warningRange"],{key:warning.key})).join(" ");document.querySelector<HTMLTextAreaElement>("#ini-output")!.value=buildServerIni(parsed.values)});
   document.querySelector("#copy-ini")?.addEventListener("click",()=>{navigator.clipboard.writeText(document.querySelector<HTMLTextAreaElement>("#ini-output")!.value);trackEvent("tool_action",{tool:"server_settings",action:"copy"})});
 }
-function initializeAnalytics(){
-  const loaderUrl=`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(site.analyticsId)}`;
-  if(!integrationState.analyticsEnabled||[...document.scripts].some(script=>script.src===loaderUrl))return;
-  const win=window as Window&GoogleConsentTarget;
-  if(!queueAnalyticsInitialization(win,site.analyticsId))return;
-  const script=document.createElement("script");script.async=true;script.src=loaderUrl;document.head.append(script);
-}
-function requestEligibleAd(){
-  if(!integrationState.adsenseEnabled||!adRequestsAllowed)return;
-  const win=window as Window&GoogleConsentTarget,slot=document.querySelector<HTMLElement>("ins.adsbygoogle:not([data-ad-requested])");
-  if(!slot)return;
-  slot.dataset.adRequested="true";
-  (win.adsbygoogle=win.adsbygoogle||[]).push({});
-}
-function applyConsentModeStatus(win:Window&GoogleConsentTarget){
-  const status=win.googlefc?.getGoogleConsentModeValues?.();
-  if(!status){adRequestsAllowed=false;return}
-  adRequestsAllowed=integrationState.adsenseEnabled&&mayLoadAds(status);
-  if(adRequestsAllowed)requestEligibleAd();
-}
-function queueConsentModeGate(win:Window&GoogleConsentTarget){queueGoogleConsentModeReady(win,()=>applyConsentModeStatus(win))}
-function initializeAdBlockingMeasurement(){
-  if(!integrationState.adsenseEnabled||location.origin!==site.origin)return;
-  if(!document.querySelector('iframe[name="googlefcPresent"]')){
-    const iframe=document.createElement("iframe");iframe.name="googlefcPresent";iframe.hidden=true;iframe.style.cssText="width:0;height:0;border:0;position:absolute;left:-1000px;top:-1000px";document.body.append(iframe);
-  }
-  const loaderUrl="https://fundingchoicesmessages.google.com/i/pub-1986785092914105?ers=1";
-  if(![...document.scripts].some(script=>script.src===loaderUrl)){
-    const script=document.createElement("script");script.id="google-ad-blocking-measurement-loader";script.async=true;script.src=loaderUrl;document.head.append(script);
-  }
-}
-function initIntegrations(){
-  if(!integrationState.cmpEnabled)return;
-  const win=window as Window&GoogleConsentTarget;
-  installRegionalConsentMode(win);
-  initializeAnalytics();
-  queueConsentModeGate(win);
-  const loaderUrl=`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(site.adsenseClient)}`;
-  if(![...document.scripts].some(script=>script.src===loaderUrl)){
-    const script=document.createElement("script");script.async=true;script.crossOrigin="anonymous";script.src=loaderUrl;document.head.append(script);
-  }
-  initializeAdBlockingMeasurement();
-}
 function ensureItemData(){if(itemData||itemLoading)return;itemLoading=true;fetch("/data/items.json").then(r=>{if(!r.ok)throw new Error(`Item data load ${r.status}`);return r.json()}).then((loaded:ItemData)=>{if(loaded.meta.gameBuild!==site.gameBuild||loaded.meta.localeCount!==locales.length||loaded.meta.itemCount!==loaded.items.length||loaded.meta.recipeCount!==loaded.recipes.length)throw new Error("Item dataset verification mismatch");itemData=loaded;render()}).catch(error=>console.error(error)).finally(()=>{itemLoading=false})}
 function ensurePalData(){if(data||palLoading)return;palLoading=true;fetch("/data/pals.json").then(r=>{if(!r.ok)throw new Error(`Data load ${r.status}`);return r.json()}).then((loaded:PalData)=>{if(loaded.meta.gameBuild!==site.gameBuild||loaded.meta.localIdMatchCount!==loaded.meta.palCount)throw new Error("Dataset verification mismatch");data=loaded;render()}).catch(error=>console.error(error)).finally(()=>{palLoading=false})}
 function ensureMapData(){if(mapData||mapLoading)return;mapLoading=true;Promise.all([fetch("/data/map-markers.json"),fetch("/data/map-points.json")]).then(async([markerResponse,pointResponse])=>{if(!markerResponse.ok||!pointResponse.ok)throw new Error("Map data load failed");const loaded=await markerResponse.json() as MapData,pointData=await pointResponse.json() as {counts:Record<string,number>;points:MapPointMarker[]};loaded.points=pointData.points;loaded.pointCounts=pointData.counts;return loaded}).then((loaded:MapData)=>{const fastTravel=loaded.fastTravel||[],points=loaded.points||[],worldIds=new Set(loaded.worlds.map(world=>world.id)),unknownWorld=[...loaded.bosses,...loaded.habitats,...fastTravel,...points].some(marker=>!worldIds.has(marker.worldId));if(loaded.meta.gameBuild!==site.gameBuild||loaded.meta.bossCount!==loaded.bosses.length||loaded.meta.habitatCount!==loaded.habitats.length||loaded.meta.fastTravelCount!==fastTravel.length||loaded.worlds.length!==2||unknownWorld)throw new Error("Map dataset verification mismatch");loaded.fastTravel=fastTravel;mapData=loaded;render()}).catch(error=>console.error(error)).finally(()=>{mapLoading=false})}
@@ -737,7 +695,7 @@ function routeDataReady(){
   if(current==="/calculators/crafting")return Boolean(itemData);
   return true;
 }
-function render(){locale=resolveLocale(location.pathname);m=messages(locale);ensureRouteData();if(route()==="/database/health"||route().startsWith("/database/health/"))ensureHealthData();if(preservingPrerender&&!routeDataReady())return;preservingPrerender=false;app.removeAttribute("data-prerender-route");app.innerHTML=publicAssetHtml(`<a class="skip-link" href="#main">${m.skip}</a>${header()}${mobileShell()}${shellDialogs()}<main id="main">${content()}</main>${footer()}`);document.querySelector("style[data-prerender-style]")?.remove();bind();requestEligibleAd();ensureRouteData()}
+function render(){locale=resolveLocale(location.pathname);m=messages(locale);ensureRouteData();if(route()==="/database/health"||route().startsWith("/database/health/"))ensureHealthData();if(preservingPrerender&&!routeDataReady())return;preservingPrerender=false;app.removeAttribute("data-prerender-route");app.innerHTML=publicAssetHtml(`<a class="skip-link" href="#main">${m.skip}</a>${header()}${mobileShell()}${shellDialogs()}<main id="main">${content()}</main>${footer()}`);document.querySelector("style[data-prerender-style]")?.remove();bind();integrationRuntime.requestEligibleAd();ensureRouteData()}
 function ensureHealthData(){if(healthData||healthLoading)return;healthLoading=true;healthLoadError=false;fetch("/data/health.json").then(response=>{if(!response.ok)throw new Error(`Health data load ${response.status}`);return response.json()}).then((loaded:HealthData)=>{const validEvents=loaded.san.behaviors.every(event=>Number.isInteger(event.sanValue)&&event.sourceValueVerified===true&&event.triggerSelectionVerified===false&&Object.keys(event.names).length===locales.length),validConditions=loaded.conditions.every(condition=>condition.effects.sourceValuesVerified===true&&condition.effects.runtimeApplicationVerified===false&&[condition.effects.workSpeed,condition.effects.moveSpeed,condition.effects.satietyDecrease,condition.effects.palBoxRecovery].every(Number.isFinite)),validMedicines=loaded.medicines.every(medicine=>medicine.itemId&&medicine.cures.length>0&&Object.keys(medicine.descriptions).length===locales.length);if(loaded.meta.schema!==2||loaded.meta.gameBuild!==site.gameBuild||loaded.meta.verification!=="verified"||loaded.meta.localeCount!==locales.length||loaded.meta.behaviorCount!==7||loaded.meta.conditionCount!==7||loaded.meta.medicineCount!==3||loaded.meta.excludedSpecialConditionCount!==1||loaded.meta.sourceValuesVerified!==true||loaded.meta.runtimeApplicationVerified!==false||loaded.san.behaviors.length!==7||loaded.conditions.length!==7||loaded.medicines.length!==3||!validEvents||!validConditions||!validMedicines)throw new Error("Health dataset verification mismatch");healthData=loaded;render()}).catch(error=>{healthLoadError=true;console.error(error);render()}).finally(()=>{healthLoading=false})}
 window.addEventListener("popstate",render);render();if(route()==="/database/health"||route().startsWith("/database/health/"))ensureHealthData();
-initIntegrations();
+integrationRuntime.initialize();
