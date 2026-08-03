@@ -32,6 +32,7 @@ import {footerCopy,footerCopyProvenance} from "../src/footer-i18n.ts";
 import {renderFooter} from "../src/footer.ts";
 import {effectiveTheme,readThemePreference,themeIconName} from "../src/app/theme.ts";
 import {hasSupportedLocale,navigateSpa,normalizedLocaleUrl,routeFromPathname} from "../src/app/router.ts";
+import {buildPageMetadata,seoSummary} from "../src/app/page-context.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -86,6 +87,19 @@ const elementRuntimeValidation = await readFile("scripts/element-damage-runtime-
 const elementRunner = await readFile("scripts/run-element-damage-verification.ps1", "utf8");
 const e2eSmoke = await readFile("tests/e2e-smoke.mjs", "utf8");
 const coverageReporter = await readFile("scripts/report-coverage.mjs", "utf8");
+
+const pageMetadata=buildPageMetadata({locale:"ko-KR",locales:["en-US","ko-KR"],defaultLocale:"en-US",route:"/pals/lamball",siteName:"Palworld Helper",origin:"https://palworld-helper.woofy.blog",resolved:{title:"램볼",description:"  검증된   팰 정보  "},localizePath:(locale,path)=>`/${locale}${path}`,hreflang:locale=>locale==="en-US"?"en":locale,structuredData:{"@type":"WebPage"}});
+assert.equal(pageMetadata.documentTitle,"램볼 · Palworld Helper","page context must build the localized document title");
+assert.equal(pageMetadata.description,"검증된 팰 정보 · 램볼","page context must normalize the localized SEO summary");
+assert.equal(pageMetadata.canonical,"https://palworld-helper.woofy.blog/ko-KR/pals/lamball","page context must build the localized canonical URL");
+assert.deepEqual(pageMetadata.nodes.filter(node=>node.attributes.property==="og:image"||node.attributes.name==="twitter:card"||node.attributes.name==="twitter:image").map(node=>node.attributes),[{property:"og:image",content:"https://palworld-helper.woofy.blog/og-image.png"},{name:"twitter:card",content:"summary_large_image"},{name:"twitter:image",content:"https://palworld-helper.woofy.blog/og-image.png"}],"page context must refresh Open Graph and Twitter image metadata together");
+assert.deepEqual(pageMetadata.nodes.filter(node=>node.attributes.rel==="alternate").map(node=>[node.attributes.hreflang,node.attributes.href]),[["en","https://palworld-helper.woofy.blog/en-US/pals/lamball"],["ko-KR","https://palworld-helper.woofy.blog/ko-KR/pals/lamball"],["x-default","https://palworld-helper.woofy.blog/en-US/pals/lamball"]],"page context must build every locale alternate and the English x-default");
+assert.deepEqual(pageMetadata.structuredData,{"@type":"WebPage"},"indexable page context must retain route structured data");
+const privateMetadata=buildPageMetadata({locale:"ko-KR",locales:["en-US","ko-KR"],defaultLocale:"en-US",route:"/privacy",siteName:"Palworld Helper",origin:"https://palworld-helper.woofy.blog",resolved:{title:"개인정보 처리방침",description:"설명"},indexable:false,localizePath:(locale,path)=>`/${locale}${path}`,hreflang:locale=>locale,structuredData:{"@type":"WebPage"}});
+assert.deepEqual(privateMetadata.nodes.filter(node=>node.attributes.name==="robots").map(node=>node.attributes.content),["noindex, follow"],"non-indexable page context must emit the robots directive");
+assert.equal(privateMetadata.nodes.some(node=>node.attributes.rel==="alternate"),false,"non-indexable page context must omit locale alternates");
+assert.equal(privateMetadata.structuredData,null,"non-indexable page context must omit structured data");
+assert.equal(seoSummary("a".repeat(250),["fact"]).length,187,"SEO summaries must bound the lead before appending concise facts");
 
 assert.equal(Object.keys(homeCopy).length,locales.length,"Home copy must cover every supported locale");
 assert.ok(validateHomeManifest(routeFamilies.map(route=>route.path)),"Home destinations must stay inside the implemented route allowlist");
@@ -464,8 +478,6 @@ assert.match(main,/resolveEntitySegment.*resolved\.legacy.*history\.replaceState
 assert.match(main,/function publicAssetUrl.*const publicAssetHtml/s,"runtime HTML must translate internal asset filenames to public image slugs");
 assert.match(staticGenerator,/assetMoves.*registry\.byId\.pals.*registry\.byId\.items.*rename\(from,to\)/s,"production assets must be renamed to public Pal and item slugs without increasing the file count");
 assert.match(main,/app\.removeAttribute\("data-prerender-route"\)/,"hydration must explicitly retire the prerender marker");
-assert.match(main,/property:"og:image".*name:"twitter:card".*name:"twitter:image"/s,"runtime navigation must refresh Open Graph and Twitter metadata");
-assert.match(main,/el\.hreflang=seoHreflang\(loc\)/,"runtime locale alternates must use the search-supported hreflang mapping");
 assert.match(main,/routeStructuredData.*BreadcrumbList.*position:1,name:m\.home.*position:2,name:detail\[2\].*position:3,name:title/s,"runtime safe-detail breadcrumbs must preserve home, collection, and entity hierarchy");
 assert.match(main,/normalizedLocaleUrl\(\{pathname:location\.pathname,search:location\.search,hash:location\.hash,locale,supportedLocales:locales/s,"unprefixed entry routes must normalize through the tested router boundary without another HTML document");
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
