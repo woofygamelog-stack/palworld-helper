@@ -83,10 +83,17 @@ try{
 
   await run("theme-change",async()=>{
     await visit("/en-US");
-    await page.locator(".theme-menu summary").click();
+    if(!await page.locator(".theme-menu").evaluate(menu=>(menu).open))await page.locator(".theme-menu summary").click();
     await page.locator('[data-theme-choice="dark"]').click();
     assert.equal(await page.locator("html").getAttribute("data-theme"),"dark","dark theme must apply immediately");
     assert.equal(await page.evaluate(()=>localStorage.getItem("pw-theme")),"dark","explicit theme choice must persist");
+    if(!await page.locator(".theme-menu").evaluate(menu=>(menu).open))await page.locator(".theme-menu summary").click();
+    await page.locator('[data-theme-choice="system"]').click();
+    assert.equal(await page.evaluate(()=>localStorage.getItem("pw-theme")),null,"system theme must clear the explicit override");
+    await page.emulateMedia({colorScheme:"dark"});
+    assert.equal(await page.locator('meta[name="theme-color"]').getAttribute("content"),"#071a31","system theme must react to a dark OS preference");
+    await page.emulateMedia({colorScheme:"light"});
+    assert.equal(await page.locator('meta[name="theme-color"]').getAttribute("content"),"#edf7f5","system theme must react to a light OS preference");
   });
 
   await run("not-found",async()=>{

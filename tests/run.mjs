@@ -30,6 +30,7 @@ import {homeCatalogGroups,homeQuickActions,validateHomeManifest} from "../src/ho
 import {renderHomeMarkup} from "../src/home-render.ts";
 import {footerCopy,footerCopyProvenance} from "../src/footer-i18n.ts";
 import {renderFooter} from "../src/footer.ts";
+import {effectiveTheme,readThemePreference,themeIconName} from "../src/app/theme.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -843,6 +844,12 @@ assert.match(styles,/html\[lang\^="ko"\] \.home-hero h1\{line-height:1\.06;word-
 assert.match(styles,/@media\(max-width:700px\).*\.home-hero h1\{font-size:clamp\(2\.5rem,12vw,3\.2rem\);line-height:1\.08\}.*\.home-hero-art\{display:none\}/s,"Phone Home must use the compact title and omit decorative art so actions appear sooner");
 assert.match(main,/data-theme-choice/,"theme selection must expose explicit system, light and dark choices");
 assert.doesNotMatch(main,/trackEvent\([^\n]*(query|searchInput)/,"global search text must not be sent to analytics");
-assert.match(main,/meta\[name="theme-color"\]/,"theme changes must update the browser theme color");
+assert.equal(readThemePreference({getItem:()=>"dark"}),"dark","an explicit dark preference must be retained");
+assert.equal(readThemePreference({getItem:()=>"invalid"}),"system","an invalid stored preference must fail closed to system");
+assert.equal(themeIconName("system"),"system","the system preference must use the monitor icon");
+assert.equal(themeIconName("light"),"sun","the light preference must use the sun icon");
+assert.equal(themeIconName("dark"),"moon","the dark preference must use the moon icon");
+assert.equal(effectiveTheme("system",true),"dark","system mode must follow a dark OS preference");
+assert.equal(effectiveTheme("system",false),"light","system mode must follow a light OS preference");
 
 console.log("Passed core SEO, safety, provenance, localization, shell, search, loading, data, map and calculator assertions.");
