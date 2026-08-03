@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import { findBreedingResult, findParentPairs } from "../src/breeding.ts";
 import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts";
-import { browserLocale,locales,resolveLocale } from "../src/config.ts";
+import { browserLocale,locales,localizePath,resolveLocale } from "../src/config.ts";
 import { expandRecipe, parseServerIni } from "../src/data.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
 import {googleConsentModePurposeStatus,googleConsentRegions,installRegionalConsentMode,mayLoadAds,openGooglePrivacyChoices,queueAnalyticsInitialization,queueGoogleConsentModeReady,resolveIntegrationState} from "../src/integrations.ts";
@@ -31,6 +31,7 @@ import {renderHomeMarkup} from "../src/home-render.ts";
 import {footerCopy,footerCopyProvenance} from "../src/footer-i18n.ts";
 import {renderFooter} from "../src/footer.ts";
 import {effectiveTheme,readThemePreference,themeIconName} from "../src/app/theme.ts";
+import {hasSupportedLocale,navigateSpa,normalizedLocaleUrl,routeFromPathname} from "../src/app/router.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -466,7 +467,7 @@ assert.match(main,/app\.removeAttribute\("data-prerender-route"\)/,"hydration mu
 assert.match(main,/property:"og:image".*name:"twitter:card".*name:"twitter:image"/s,"runtime navigation must refresh Open Graph and Twitter metadata");
 assert.match(main,/el\.hreflang=seoHreflang\(loc\)/,"runtime locale alternates must use the search-supported hreflang mapping");
 assert.match(main,/routeStructuredData.*BreadcrumbList.*position:1,name:m\.home.*position:2,name:detail\[2\].*position:3,name:title/s,"runtime safe-detail breadcrumbs must preserve home, collection, and entity hierarchy");
-assert.match(main,/history\.replaceState\(\{\},"",`\$\{localizePath\(locale,location\.pathname\)\}\$\{location\.search\}\$\{location\.hash\}`\)/,"unprefixed entry routes must normalize to the selected locale without another HTML document and preserve URL state");
+assert.match(main,/normalizedLocaleUrl\(\{pathname:location\.pathname,search:location\.search,hash:location\.hash,locale,supportedLocales:locales/s,"unprefixed entry routes must normalize through the tested router boundary without another HTML document");
 assert.doesNotMatch(main, /gtag\([^\n]*(search|pin|server|ini)/i, "analytics must not receive search, pin, or server free-form data");
 assert.match(integrationRuntimeSource, /installRegionalConsentMode\(target\);\s*initializeAnalytics\(\);\s*queueConsentModeGate\(\)/, "Advanced Consent Mode must install regional defaults before Analytics and the CMP callback gate");
 assert.doesNotMatch(main, /analyticsCollectionAllowed|mayLoadAnalytics/, "Analytics must not be disabled while Advanced Consent Mode applies regional storage controls");
@@ -851,5 +852,14 @@ assert.equal(themeIconName("light"),"sun","the light preference must use the sun
 assert.equal(themeIconName("dark"),"moon","the dark preference must use the moon icon");
 assert.equal(effectiveTheme("system",true),"dark","system mode must follow a dark OS preference");
 assert.equal(effectiveTheme("system",false),"light","system mode must follow a light OS preference");
+assert.equal(hasSupportedLocale("/ko-KR/pals",locales),true,"a supported locale prefix must be recognized");
+assert.equal(hasSupportedLocale("/xx-XX/pals",locales),false,"an unsupported locale prefix must be rejected");
+assert.equal(routeFromPathname("/ko-KR/pals/",locales),"/pals","localized routes must normalize to one internal path");
+assert.equal(routeFromPathname("/en-US",locales),"/","a localized home route must normalize to root");
+assert.equal(routeFromPathname("/unsupported/pals",locales),"/","unsupported locale paths must fail closed to root");
+assert.equal(normalizedLocaleUrl({pathname:"/pals",search:"?q=one",hash:"#two",locale:"ko-KR",supportedLocales:locales,localizePath}),"/ko-KR/pals?q=one#two","initial locale normalization must preserve search and hash state");
+assert.equal(normalizedLocaleUrl({pathname:"/ja-JP/pals",search:"",hash:"",locale:"ko-KR",supportedLocales:locales,localizePath}),null,"a valid URL locale must not be overwritten");
+const navigationSteps=[];navigateSpa("/ko-KR/pals",{history:{pushState:(_state,_unused,url)=>navigationSteps.push(`push:${url}`)},render:()=>navigationSteps.push("render"),scrollToTop:()=>navigationSteps.push("scroll")});
+assert.deepEqual(navigationSteps,["push:/ko-KR/pals","render","scroll"],"SPA navigation must update history before rendering and scroll only after render");
 
 console.log("Passed core SEO, safety, provenance, localization, shell, search, loading, data, map and calculator assertions.");

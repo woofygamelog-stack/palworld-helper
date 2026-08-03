@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import {mkdir} from "node:fs/promises";
 import path from "node:path";
-import {preview} from "vite";
 import {chromium} from "playwright-core";
-import {findChromiumExecutable} from "./browser-runtime.mjs";
+import {findChromiumExecutable,startPreviewServer} from "./browser-runtime.mjs";
 
 const executablePath=await findChromiumExecutable();
-const origin="http://127.0.0.1:4174",server=await preview({configFile:false,preview:{host:"127.0.0.1",port:4174,strictPort:true}}),browser=await chromium.launch({executablePath,headless:true}),failures=path.resolve("private","e2e-failures"),passed=[];
+const {origin,server}=await startPreviewServer(),browser=await chromium.launch({executablePath,headless:true}),failures=path.resolve("private","e2e-failures"),passed=[];
 
 try{
   const context=await browser.newContext({viewport:{width:1365,height:900},locale:"ko-KR"}),page=await context.newPage(),consoleErrors=[];
@@ -91,8 +90,10 @@ try{
     await page.locator('[data-theme-choice="system"]').click();
     assert.equal(await page.evaluate(()=>localStorage.getItem("pw-theme")),null,"system theme must clear the explicit override");
     await page.emulateMedia({colorScheme:"dark"});
+    await page.waitForFunction(()=>document.querySelector('meta[name="theme-color"]')?.getAttribute("content")==="#071a31");
     assert.equal(await page.locator('meta[name="theme-color"]').getAttribute("content"),"#071a31","system theme must react to a dark OS preference");
     await page.emulateMedia({colorScheme:"light"});
+    await page.waitForFunction(()=>document.querySelector('meta[name="theme-color"]')?.getAttribute("content")==="#edf7f5");
     assert.equal(await page.locator('meta[name="theme-color"]').getAttribute("content"),"#edf7f5","system theme must react to a light OS preference");
   });
 

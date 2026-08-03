@@ -3,11 +3,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
 import sharp from "sharp";
-import { preview } from "vite";
-import { findChromiumExecutable } from "./browser-runtime.mjs";
+import { findChromiumExecutable, startPreviewServer } from "./browser-runtime.mjs";
 
 const update = process.argv.includes("--update");
-const origin = "http://127.0.0.1:4175";
 const baselineDirectory = path.resolve("tests", "visual-baselines");
 const failureDirectory = path.resolve("private", "visual-failures");
 const scenarios = [
@@ -37,7 +35,7 @@ async function compareImages(actualBuffer, baselineBuffer, name) {
 }
 
 const executablePath = await findChromiumExecutable();
-const server = await preview({ configFile: false, preview: { host: "127.0.0.1", port: 4175, strictPort: true } });
+const { origin, server } = await startPreviewServer();
 const browser = await chromium.launch({ executablePath, headless: true });
 const passed = [];
 

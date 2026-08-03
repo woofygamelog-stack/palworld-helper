@@ -1,4 +1,6 @@
 import { access } from "node:fs/promises";
+import { createServer } from "node:net";
+import { preview } from "vite";
 
 const browserCandidates = [
   process.env.PLAYWRIGHT_BROWSER_PATH,
@@ -18,4 +20,19 @@ export async function findChromiumExecutable() {
     } catch {}
   }
   throw new Error("No supported local Chromium browser was found. Set PLAYWRIGHT_BROWSER_PATH.");
+}
+
+async function availablePort(){
+  const probe=createServer();
+  await new Promise((resolve,reject)=>{probe.once("error",reject);probe.listen(0,"127.0.0.1",resolve)});
+  const address=probe.address(),port=typeof address==="object"&&address?address.port:0;
+  await new Promise((resolve,reject)=>probe.close(error=>error?reject(error):resolve()));
+  if(!port)throw new Error("Unable to reserve a local preview port.");
+  return port;
+}
+
+export async function startPreviewServer(){
+  const port=await availablePort();
+  const server=await preview({configFile:false,preview:{host:"127.0.0.1",port,strictPort:true}});
+  return {server,origin:`http://127.0.0.1:${port}`};
 }
