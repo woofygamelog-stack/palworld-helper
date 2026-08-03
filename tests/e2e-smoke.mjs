@@ -196,6 +196,34 @@ try{
     page.off("request",recordStructureChunk);
   });
 
+  await run("home-npcs-detail-back",async()=>{
+    const npcChunkRequests=[];
+    const recordNpcChunk=request=>{if(/\/npc-[^/]+\.js$/.test(new URL(request.url()).pathname))npcChunkRequests.push(request.url())};
+    page.on("request",recordNpcChunk);
+    await visit("/en-US");
+    assert.equal(npcChunkRequests.length,0,"NPC page code must stay out of the initial Home request graph");
+    const npcLink=page.locator('[data-home-group="exploration"] a[href="/en-US/database/npcs"]');
+    await npcLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/npcs");
+    await page.locator("#npc-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".npc-card").count()>0,"the NPC collection must render verified entries");
+    assert.equal(npcChunkRequests.length,1,"NPC page code must load exactly once on first route entry");
+    await page.locator(".npc-card h2 a[data-link]").first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/npcs/"));
+    await page.locator(".npc-detail").waitFor({state:"visible"});
+    assert.equal(npcChunkRequests.length,1,"NPC details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database/npcs");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await npcLink.waitFor({state:"visible"});
+    await npcLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/npcs");
+    await page.locator("#npc-search").waitFor({state:"visible"});
+    assert.equal(npcChunkRequests.length,1,"repeat NPC navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordNpcChunk);
+  });
+
   await run("home-expeditions-detail-back",async()=>{
     const expeditionChunkRequests=[];
     const recordExpeditionChunk=request=>{if(/\/expeditions-[^/]+\.js$/.test(new URL(request.url()).pathname))expeditionChunkRequests.push(request.url())};
@@ -332,7 +360,7 @@ try{
   });
 
   await context.close();
-  assert.ok(passed.length>=16,"the Phase 1 browser baseline must cover at least sixteen workflows");
+  assert.ok(passed.length>=17,"the Phase 1 browser baseline must cover at least seventeen workflows");
   console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();
