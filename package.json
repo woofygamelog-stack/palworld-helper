@@ -20,6 +20,9 @@
     "check:route-budget": "node --experimental-strip-types scripts/report-route-budget.mjs --planned-localized-routes=7 --planned-assets=32",
     "check:coverage": "node --experimental-strip-types scripts/report-coverage.mjs",
     "test:e2e": "node tests/e2e-smoke.mjs",
+    "test:visual": "node tests/visual-regression.mjs",
+    "test:visual:update": "node tests/visual-regression.mjs --update",
+    "check:determinism": "npm run build && node scripts/check-deterministic-output.mjs --record && npm run build && node scripts/check-deterministic-output.mjs --verify",
     "build:production": "npm run build && npm run check:production-integrations",
     "data:import:pals": "node scripts/import-pal-data.mjs",
     "data:import:items": "node scripts/import-item-data.mjs",
@@ -38,10 +41,10 @@
     "data:plan:element-damage-runtime": "node scripts/generate-element-damage-test-plan.mjs",
     "data:verify:element-damage-runtime": "node scripts/validate-element-damage-runtime.mjs",
     "data:verify:element-damage": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-element-damage-verification.ps1",
-    "check": "npm run typecheck && npm run check:i18n && npm run check:item-images && npm test && npm run check:coverage && npm run build && npm run check:route-budget && npm run test:e2e",
+    "check": "npm run typecheck && npm run check:i18n && npm run check:item-images && npm test && npm run check:coverage && npm run build && npm run check:route-budget && npm run test:e2e && npm run test:visual",
     "check:deployment": "node --experimental-strip-types scripts/check-deployment.mjs",
     "deploy:dry-run": "npm run check:deployment && wrangler deploy --dry-run",
-    "release:check": "npm run check && npm run deploy:dry-run",
+    "release:check": "npm run check && npm run check:determinism && npm run deploy:dry-run",
     "deploy:production": "npm run release:check && wrangler deploy"
   },
   "devDependencies": {

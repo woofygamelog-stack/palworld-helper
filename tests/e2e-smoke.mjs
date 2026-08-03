@@ -1,25 +1,11 @@
 import assert from "node:assert/strict";
-import {access,mkdir} from "node:fs/promises";
+import {mkdir} from "node:fs/promises";
 import path from "node:path";
 import {preview} from "vite";
 import {chromium} from "playwright-core";
+import {findChromiumExecutable} from "./browser-runtime.mjs";
 
-const browserCandidates=[
-  process.env.PLAYWRIGHT_BROWSER_PATH,
-  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  "/usr/bin/google-chrome",
-  "/usr/bin/microsoft-edge",
-  "/usr/bin/chromium",
-].filter(Boolean);
-
-let executablePath="";
-for(const candidate of browserCandidates){
-  try{await access(candidate);executablePath=candidate;break}catch{}
-}
-if(!executablePath)throw new Error("No supported local Chromium browser was found. Set PLAYWRIGHT_BROWSER_PATH.");
-
+const executablePath=await findChromiumExecutable();
 const origin="http://127.0.0.1:4174",server=await preview({configFile:false,preview:{host:"127.0.0.1",port:4174,strictPort:true}}),browser=await chromium.launch({executablePath,headless:true}),failures=path.resolve("private","e2e-failures"),passed=[];
 
 try{

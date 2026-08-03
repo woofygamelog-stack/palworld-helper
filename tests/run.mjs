@@ -174,7 +174,9 @@ assert.match(main,/outbound_contact.*destination:"community_issues"/,"Contact cl
 assert.match(styles,/\.footer-utility a\{[^}]*min-height:44px[^}]*overflow-wrap:anywhere/,"Footer actions must keep accessible targets and resist overflow");
 assert.match(seoStatic,/renderFooter\(locale,m\.footer\)/,"Prerendered pages must use the shared footer");
 assert.match(packageJson.devDependencies.wrangler, /^\d+\.\d+\.\d+$/, "Wrangler must be pinned exactly for reproducible deployments");
-assert.equal(packageJson.scripts["release:check"], "npm run check && npm run deploy:dry-run", "the release check must include the full build gate and Wrangler dry run");
+assert.equal(packageJson.scripts["release:check"], "npm run check && npm run check:determinism && npm run deploy:dry-run", "the release check must include the full build, deterministic-output, and Wrangler dry-run gates");
+assert.equal(packageJson.scripts["test:visual"], "node tests/visual-regression.mjs", "the standard check must expose the visual regression suite");
+assert.match(packageJson.scripts["check:determinism"], /--record.*--verify/, "determinism verification must compare two consecutive production builds");
 assert.equal(packageJson.scripts["deploy:production"], "npm run release:check && wrangler deploy", "production deployment must run the release gate first");
 assert.equal(packageJson.scripts["build:production"], "npm run build && npm run check:production-integrations", "the production build must verify that advertising and Analytics remain enabled");
 assert.match(deploymentChecker, /deploymentFileBudget\.hardLimit - deploymentFileBudget\.reservedHeadroom/, "deployment readiness must share the route manifest's file-count budget");
