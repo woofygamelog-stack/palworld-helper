@@ -39,6 +39,7 @@ import {preservedLocaleSearch,shouldOpenGlobalSearchShortcut,themeModeFromChoice
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
 const integrationRuntimeSource = await readFile("src/integration-runtime.ts", "utf8");
+const productionIntegrationAuditSource = await readFile("scripts/check-production-integrations.mjs", "utf8");
 const planning = await readFile("src/planning.ts", "utf8");
 const featureStyles = await readFile("src/features.css", "utf8");
 const styles = await readFile("src/styles.css", "utf8");
@@ -148,6 +149,7 @@ assert.doesNotMatch(`${main}\n${integrationRuntimeSource}`, /data-palworld-(?:cm
 assert.match(integrationRuntimeSource, /\[\.\.\.document\.scripts\]\.some\(script=>script\.src===loaderUrl\)/, "Google vendor loaders must be deduplicated by their approved URL without changing tag semantics");
 assert.match(main, /<ins class="adsbygoogle ad-slot"[^>]+data-ad-client=[^>]+data-ad-slot=/, "enabled AdSense must retain a real responsive site placement");
 assert.match(integrationRuntimeSource, /queueGoogleConsentModeReady/, "restricted tags must wait for Google's regional consent-mode decision");
+assert.match(productionIntegrationAuditSource, /readFile\(path\.join\(root,"src","integration-runtime\.ts"\),"utf8"\)/, "the production integration audit must inspect the extracted integration runtime");
 assert.match(indexHtml, /name="referrer" content="strict-origin-when-cross-origin"/, "Google Privacy & messaging must receive an eligible cross-origin referrer");
 assert.match(config, /G-FF7N186M72/, "Palworld Analytics measurement ID must be configured");
 assert.match(config, /https:\/\/palworld-helper\.woofy\.blog/, "production origin must be configured");
