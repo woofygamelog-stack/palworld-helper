@@ -27,9 +27,20 @@ try{
 
   await run("home-search",async()=>{
     await visit("/ko-KR");
+    const calculatorMenu=page.locator(".nav-group-calculators"),calculatorTrigger=calculatorMenu.locator("summary");
+    await calculatorTrigger.click();
+    assert.equal(await calculatorMenu.getAttribute("open"),"","desktop disclosure menu must open");
+    await page.keyboard.press("Escape");
+    assert.equal(await calculatorMenu.getAttribute("open"),null,"Escape must close the desktop disclosure menu");
+    assert.equal(await calculatorTrigger.evaluate(node=>node===document.activeElement),true,"closing a disclosure menu with Escape must return focus");
     await page.locator("header [data-open-search]").click();
     await page.locator("#global-search-dialog").waitFor({state:"visible"});
     assert.equal(await page.locator("#global-search-input").evaluate(node=>node===document.activeElement),true,"global search must receive focus");
+    await page.keyboard.press("Escape");
+    await page.locator("#global-search-dialog").waitFor({state:"hidden"});
+    await page.keyboard.press("/");
+    await page.locator("#global-search-dialog").waitFor({state:"visible"});
+    assert.equal(await page.locator("#global-search-input").evaluate(node=>node===document.activeElement),true,"the slash shortcut must reopen and focus global search");
   });
 
   await run("pal-collection",async()=>{

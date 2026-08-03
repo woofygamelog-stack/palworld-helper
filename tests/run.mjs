@@ -34,6 +34,7 @@ import {effectiveTheme,readThemePreference,themeIconName} from "../src/app/theme
 import {hasSupportedLocale,navigateSpa,normalizedLocaleUrl,routeFromPathname} from "../src/app/router.ts";
 import {buildPageMetadata,seoSummary} from "../src/app/page-context.ts";
 import {renderApplicationShell,shellRouteIsActive} from "../src/app/shell.ts";
+import {preservedLocaleSearch,shouldOpenGlobalSearchShortcut,themeModeFromChoice} from "../src/app/shell-controller.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -800,7 +801,7 @@ assert.doesNotMatch(main,/const basePresets:Record<string,string\[\]>/,"base pla
 assert.match(main,/<optgroup label=.*basePresets\.filter\(preset=>preset\.group===group\)/s,"base planner preset choices must be grouped from the typed manifest");
 assert.match(main,/baseGoal\.value="custom";calculateBasePlan\(\);syncBasePlannerUrl\(\)/,"manual role changes must switch the planner to custom state and update the share URL");
 assert.match(main,/filter:"base_preset",value:preset\.id/,"base preset analytics must contain only the stable preset identifier");
-assert.match(main,/"preset","roles","limit","night"/,"locale changes must preserve base planner URL state");
+assert.equal(preservedLocaleSearch("?preset=mining&roles=Mining%3A2&limit=12&night=1&debug=1"),"preset=mining&roles=Mining%3A2&limit=12&night=1","locale changes must preserve base planner URL state without unrelated parameters");
 const productRecipeCounts=new Map();
 for(const recipe of itemData.recipes)productRecipeCounts.set(recipe.productId,(productRecipeCounts.get(recipe.productId)||0)+1);
 const selectedMega=itemData.recipes.find(recipe=>recipe.id==="PalSphere_Mega");
@@ -846,10 +847,15 @@ assert.doesNotMatch(renderedShell.mobile,/server-tools|skills\/active|database\/
 assert.match(renderedShell.dialogs,/id="global-search-dialog"[\s\S]*id="more-dialog"/,"the shell must provide the global search and compact navigation dialogs");
 assert.equal(shellRouteIsActive({active:[{path:"database",exact:true}]},"/database/items"),false,"exact shell route matches must reject deeper paths");
 assert.equal(shellRouteIsActive({active:[{path:"database"}]},"/database/items"),true,"group shell route matches must include deeper paths");
+assert.equal(preservedLocaleSearch("?layers=boss&world=tree&debug=1&q=fox"),"layers=boss&world=tree&q=fox","locale changes must retain only allowlisted shareable state");
+assert.equal(shouldOpenGlobalSearchShortcut({key:"/",targetTagName:"BODY"}),true,"the global search shortcut must open from ordinary page content");
+assert.equal(shouldOpenGlobalSearchShortcut({key:"/",targetTagName:"INPUT"}),false,"the global search shortcut must not steal editable input");
+assert.equal(shouldOpenGlobalSearchShortcut({key:"/",ctrlKey:true,targetTagName:"BODY"}),false,"modified slash shortcuts must remain available to the browser");
+assert.equal(themeModeFromChoice("dark"),"dark","explicit theme choices must remain valid");
+assert.equal(themeModeFromChoice("invalid"),"system","invalid theme choices must fail closed to system");
 assert.match(seoStatic,/icon\("chevronDown","nav-chevron"\)/,"prerendered disclosure menus must use the same shared SVG chevron");
 assert.doesNotMatch(seoStatic,/nav-chevron[^\n]*⌄/,"prerendered disclosure menus must not render a font-dependent chevron glyph");
 assert.doesNotMatch(main,/shellNavigation\.slice\(/,"mobile navigation must not change implicitly when the desktop menu order changes");
-assert.match(main,/data-shell-group.*Escape/s,"two-level disclosure navigation must close with Escape");
 assert.match(main,/ensureGlobalSearchData/,"global search must load Pal, item and skill data on demand");
 assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
 assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups\}\)/,"static Home must use the same shared pure renderer");
@@ -859,7 +865,6 @@ assert.match(styles,/\.home-hero:before\{[^}]*inset:1rem;height:auto;/,"Home her
 assert.match(styles,/\.home-hero h1\{[^}]*font-size:clamp\(3\.25rem,5\.3vw,5\.2rem\);line-height:1\.02;/,"Home title must keep the documented desktop size and readable line height");
 assert.match(styles,/html\[lang\^="ko"\] \.home-hero h1\{line-height:1\.06;word-break:keep-all\}/,"Korean Home titles must preserve readable lines without splitting words");
 assert.match(styles,/@media\(max-width:700px\).*\.home-hero h1\{font-size:clamp\(2\.5rem,12vw,3\.2rem\);line-height:1\.08\}.*\.home-hero-art\{display:none\}/s,"Phone Home must use the compact title and omit decorative art so actions appear sooner");
-assert.match(main,/data-theme-choice/,"theme selection must expose explicit system, light and dark choices");
 assert.doesNotMatch(main,/trackEvent\([^\n]*(query|searchInput)/,"global search text must not be sent to analytics");
 assert.equal(readThemePreference({getItem:()=>"dark"}),"dark","an explicit dark preference must be retained");
 assert.equal(readThemePreference({getItem:()=>"invalid"}),"system","an invalid stored preference must fail closed to system");
