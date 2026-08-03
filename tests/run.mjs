@@ -41,6 +41,7 @@ const config = await readFile("src/config.ts", "utf8");
 const envExample = await readFile(".env.example", "utf8");
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 const routeManifest = await readFile("src/route-manifest.ts", "utf8");
+const viteConfig = await readFile("vite.config.ts", "utf8");
 const seoStatic = await readFile("scripts/seo-static.mjs", "utf8");
 const staticGenerator = await readFile("scripts/generate-static.mjs", "utf8");
 const builtChecker = await readFile("scripts/check-built.mjs", "utf8");
@@ -82,6 +83,7 @@ const elementRuntimeValidator = await readFile("scripts/validate-element-damage-
 const elementRuntimeValidation = await readFile("scripts/element-damage-runtime-validation.mjs", "utf8");
 const elementRunner = await readFile("scripts/run-element-damage-verification.ps1", "utf8");
 const e2eSmoke = await readFile("tests/e2e-smoke.mjs", "utf8");
+const coverageReporter = await readFile("scripts/report-coverage.mjs", "utf8");
 
 assert.equal(Object.keys(homeCopy).length,locales.length,"Home copy must cover every supported locale");
 assert.ok(validateHomeManifest(routeFamilies.map(route=>route.path)),"Home destinations must stay inside the implemented route allowlist");
@@ -112,6 +114,10 @@ assert.match(data, /Math\.ceil\(needed\s*\/\s*recipe\.output\)/, "crafting engin
 assert.doesNotMatch(main, /pw-consent/, "the obsolete global consent storage gate must be removed");
 assert.match(packageJson.scripts.check,/npm run build && npm run check:route-budget && npm run test:e2e/,"the full check must validate the built route budget and browser smoke flow");
 assert.match(e2eSmoke,/data-home-action="breeding".*goBack.*data-home-action="breeding"/s,"the browser smoke test must cover home to breeding and browser-back restoration");
+assert.match(viteConfig,/manualChunks.*(?:i18n\|\[\^\/\]\+-i18n\|map-labels).*return "localization"/s,"localization modules must remain in a dedicated deterministic bundle chunk");
+assert.match(builtChecker,/JavaScript chunks exceed 500 KB/,"the production artifact must fail when a JavaScript chunk crosses the Phase 1 size gate");
+for(const field of ["sourceCount","eligibleCount","normalizedCount","localizedNameCount","localizedNameTarget","localizedDescriptionCount","localizedDescriptionTarget","imageCount","imageTarget","relationshipCount","searchCovered","collectionRoute","detailRouteFamily","detailIndexableUrls","detailPrerenderedUrls","duplicateCount","orphanCount","invalidSlugCount","exceptions"])assert.ok(coverageReporter.includes(field),`coverage reports must retain ${field}`);
+assert.match(packageJson.scripts.check,/npm run check:coverage.*npm run build/s,"the full check must validate domain coverage before building");
 assert.doesNotMatch(main, /class="consent"|consentBanner\(\)|data-consent/, "the global consent banner must not be rendered");
 assert.doesNotMatch(`${styles}\n${featureStyles}`, /\.consent(?:\{|\s)/, "removed consent banner styles must not remain");
 assert.match(main, /<button class="button" type="button" data-privacy-settings>/, "privacy choices must reopen through a semantic keyboard-operable button");

@@ -25,6 +25,8 @@ const allFiles=[],htmlFiles=[];
 async function collect(directory){for(const entry of await readdir(directory,{withFileTypes:true})){const target=path.join(directory,entry.name);if(entry.isDirectory())await collect(target);else{allFiles.push(target);if(entry.name.endsWith(".html"))htmlFiles.push(target)}}}
 await collect(dist);
 const normalized=file=>path.relative(dist,file).replaceAll("\\","/"),htmlSet=new Set(htmlFiles.map(normalized));
+const javascriptFiles=allFiles.filter(file=>file.endsWith(".js")),javascriptSizes=await Promise.all(javascriptFiles.map(async file=>({file:normalized(file),bytes:(await stat(file)).size}))),oversizedJavascript=javascriptSizes.filter(entry=>entry.bytes>500_000);
+if(oversizedJavascript.length)throw new Error(`JavaScript chunks exceed 500 KB: ${oversizedJavascript.map(entry=>`${entry.file}=${entry.bytes}`).join(", ")}`);
 const expectedHtmlSet=new Set(["index.html",...entries.map(entry=>entry.route?`${entry.locale}/${entry.route}.html`:`${entry.locale}.html`)]);
 if(htmlSet.size!==expectedHtmlSet.size||[...expectedHtmlSet].some(file=>!htmlSet.has(file)))throw new Error(`Built HTML routes drifted: expected ${expectedHtmlSet.size}, found ${htmlSet.size}`);
 if(allFiles.length>deploymentFileBudget.hardLimit-deploymentFileBudget.reservedHeadroom)throw new Error(`Deployment contains ${allFiles.length} files and violates the ${deploymentFileBudget.reservedHeadroom}-file growth reserve`);

@@ -20,17 +20,41 @@ for(const candidate of browserCandidates){
 }
 if(!executablePath)throw new Error("No supported local Chromium browser was found. Set PLAYWRIGHT_BROWSER_PATH.");
 
-const server=await preview({configFile:false,preview:{host:"127.0.0.1",port:4174,strictPort:true}});
-const browser=await chromium.launch({executablePath,headless:true});
-const failures=path.resolve("private","e2e-failures");
+const origin="http://127.0.0.1:4174",server=await preview({configFile:false,preview:{host:"127.0.0.1",port:4174,strictPort:true}}),browser=await chromium.launch({executablePath,headless:true}),failures=path.resolve("private","e2e-failures"),passed=[];
 
 try{
-  const context=await browser.newContext({viewport:{width:1365,height:900},locale:"ko-KR"});
-  const page=await context.newPage(),consoleErrors=[];
+  const context=await browser.newContext({viewport:{width:1365,height:900},locale:"ko-KR"}),page=await context.newPage(),consoleErrors=[];
   page.on("console",message=>{if(message.type()==="error")consoleErrors.push(message.text())});
   page.on("pageerror",error=>consoleErrors.push(error.message));
-  try{
-    await page.goto("http://127.0.0.1:4174/ko-KR",{waitUntil:"networkidle"});
+  const visit=route=>page.goto(`${origin}${route}`,{waitUntil:"networkidle"});
+  const run=async(name,check)=>{
+    const errorStart=consoleErrors.length;
+    try{
+      await check();
+      assert.deepEqual(consoleErrors.slice(errorStart),[],`${name} browser console errors: ${consoleErrors.slice(errorStart).join(" | ")}`);
+      passed.push(name);
+    }catch(error){
+      await mkdir(failures,{recursive:true});
+      await page.screenshot({path:path.join(failures,`${name}.png`),fullPage:true}).catch(()=>{});
+      throw error;
+    }
+  };
+
+  await run("home-search",async()=>{
+    await visit("/ko-KR");
+    await page.locator("header [data-open-search]").click();
+    await page.locator("#global-search-dialog").waitFor({state:"visible"});
+    assert.equal(await page.locator("#global-search-input").evaluate(node=>node===document.activeElement),true,"global search must receive focus");
+  });
+
+  await run("pal-collection",async()=>{
+    await visit("/en-US/pals");
+    await page.locator("#pal-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".pal-grid .pal-card").count()>0,"Pal collection must render cards");
+  });
+
+  await run("home-breeding-back",async()=>{
+    await visit("/ko-KR");
     await page.locator('[data-home-action="breeding"]').click();
     await page.waitForURL(url=>url.pathname==="/ko-KR/calculators/breeding");
     await page.locator("#parent-a").waitFor({state:"attached"});
@@ -38,16 +62,56 @@ try{
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/ko-KR");
     await page.locator('[data-home-action="breeding"]').waitFor({state:"visible"});
-    assert.equal(await page.locator("main h1").count(),1,"the restored home route must retain one main heading");
-    assert.deepEqual(consoleErrors,[],`browser console errors: ${consoleErrors.join(" | ")}`);
-  }catch(error){
-    await mkdir(failures,{recursive:true});
-    await page.screenshot({path:path.join(failures,"home-breeding-back.png"),fullPage:true}).catch(()=>{});
-    throw error;
-  }finally{
-    await context.close();
-  }
-  console.log(`Passed browser smoke: ko-KR home → breeding → browser back (${path.basename(executablePath)}).`);
+  });
+
+  await run("crafting",async()=>{
+    await visit("/en-US/calculators/crafting");
+    await page.locator("[data-craft-recipe]").waitFor({state:"attached"});
+    assert.equal(await page.locator("#craft-output").count(),1,"crafting output must render once");
+  });
+
+  await run("base-planner",async()=>{
+    await visit("/en-US/calculators/base");
+    await page.locator("#base-planner-form").waitFor({state:"visible"});
+    assert.equal(await page.locator("#base-plan-output").count(),1,"base planner output must render once");
+  });
+
+  await run("map",async()=>{
+    await visit("/en-US/map");
+    await page.locator(".map-viewport").waitFor({state:"visible"});
+    assert.ok(Number(await page.locator("#map-result-count").textContent())>0,"map must expose a non-empty result count");
+  });
+
+  await run("server-settings",async()=>{
+    await visit("/en-US/server-tools/settings-generator");
+    await page.locator("#server-form").waitFor({state:"visible"});
+    assert.equal(await page.locator("#ini-output").count(),1,"server output must render once");
+  });
+
+  await run("locale-change",async()=>{
+    await visit("/en-US");
+    await page.locator("#locale").selectOption("ko-KR");
+    await page.waitForURL(url=>url.pathname==="/ko-KR");
+    assert.equal(await page.locator("#locale").inputValue(),"ko-KR","locale choice must survive navigation");
+  });
+
+  await run("theme-change",async()=>{
+    await visit("/en-US");
+    await page.locator(".theme-menu summary").click();
+    await page.locator('[data-theme-choice="dark"]').click();
+    assert.equal(await page.locator("html").getAttribute("data-theme"),"dark","dark theme must apply immediately");
+    assert.equal(await page.evaluate(()=>localStorage.getItem("pw-theme")),"dark","explicit theme choice must persist");
+  });
+
+  await run("not-found",async()=>{
+    await visit("/en-US/definitely-missing");
+    assert.equal((await page.locator("main h1").textContent())?.trim(),"404","unknown routes must render a real not-found heading");
+    assert.match(await page.locator('meta[name="robots"]').getAttribute("content")||"",/noindex/,"unknown routes must be noindex");
+  });
+
+  await context.close();
+  assert.ok(passed.length>=10,"the Phase 1 browser baseline must cover at least ten workflows");
+  console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();
   await server.close();
