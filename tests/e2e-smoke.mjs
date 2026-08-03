@@ -252,6 +252,34 @@ try{
     page.off("request",recordQuestChunk);
   });
 
+  await run("home-health-detail-back",async()=>{
+    const healthChunkRequests=[];
+    const recordHealthChunk=request=>{if(/\/health-[^/]+\.js$/.test(new URL(request.url()).pathname))healthChunkRequests.push(request.url())};
+    page.on("request",recordHealthChunk);
+    await visit("/en-US");
+    assert.equal(healthChunkRequests.length,0,"Health page code must stay out of the initial Home request graph");
+    const healthLink=page.locator('[data-home-group="combat-and-management"] a[href="/en-US/database/health"]');
+    await healthLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/health");
+    await page.locator("#health-search").waitFor({state:"visible"});
+    assert.ok(await page.locator("[data-health-entry]").count()>0,"the Health collection must render verified entries");
+    assert.equal(healthChunkRequests.length,1,"Health page code must load exactly once on first route entry");
+    await page.locator(".health-card h3 a[data-link]").first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/health/conditions/"));
+    await page.locator(".health-condition-detail").waitFor({state:"visible"});
+    assert.equal(healthChunkRequests.length,1,"Health details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database/health");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await healthLink.waitFor({state:"visible"});
+    await healthLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/health");
+    await page.locator("#health-search").waitFor({state:"visible"});
+    assert.equal(healthChunkRequests.length,1,"repeat Health navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordHealthChunk);
+  });
+
   await run("server-settings",async()=>{
     const serverChunkRequests=[];
     const recordServerChunk=request=>{if(/\/server-settings-[^/]+\.js$/.test(new URL(request.url()).pathname))serverChunkRequests.push(request.url())};
@@ -304,7 +332,7 @@ try{
   });
 
   await context.close();
-  assert.ok(passed.length>=15,"the Phase 1 browser baseline must cover at least fifteen workflows");
+  assert.ok(passed.length>=16,"the Phase 1 browser baseline must cover at least sixteen workflows");
   console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();
