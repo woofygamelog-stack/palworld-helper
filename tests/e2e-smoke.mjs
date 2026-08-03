@@ -60,14 +60,28 @@ try{
   });
 
   await run("home-breeding-back",async()=>{
+    const calculatorChunkRequests=[];
+    const recordCalculatorChunk=request=>{if(/\/calculators-[^/]+\.js$/.test(new URL(request.url()).pathname))calculatorChunkRequests.push(request.url())};
+    page.on("request",recordCalculatorChunk);
     await visit("/ko-KR");
+    assert.equal(calculatorChunkRequests.length,0,"calculator code must stay out of the initial Home request graph");
     await page.locator('[data-home-action="breeding"]').click();
     await page.waitForURL(url=>url.pathname==="/ko-KR/calculators/breeding");
     await page.locator("#parent-a").waitFor({state:"attached"});
     assert.equal(await page.locator("main h1").count(),1,"the breeding route must retain one main heading");
+    const firstPalValue=await page.locator('#parent-a option:not([value=""])').first().getAttribute("value");
+    assert.ok(firstPalValue,"the breeding route must expose Pal choices");
+    await page.locator("#parent-a").selectOption(firstPalValue,{force:true});
+    assert.ok((await page.locator('#parent-a + .pal-combobox .pal-combobox-button').textContent())?.trim(),"the lazy calculator module must bind the visible Pal selector");
+    assert.equal(calculatorChunkRequests.length,1,"calculator code must load exactly once on first calculator navigation");
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/ko-KR");
     await page.locator('[data-home-action="breeding"]').waitFor({state:"visible"});
+    await page.locator('[data-home-action="breeding"]').click();
+    await page.waitForURL(url=>url.pathname==="/ko-KR/calculators/breeding");
+    await page.locator('#parent-a + .pal-combobox .pal-combobox-button').waitFor({state:"visible"});
+    assert.equal(calculatorChunkRequests.length,1,"repeat calculator navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordCalculatorChunk);
   });
 
   await run("crafting",async()=>{

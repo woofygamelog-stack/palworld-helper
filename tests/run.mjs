@@ -38,10 +38,12 @@ import {preservedLocaleSearch,shouldOpenGlobalSearchShortcut,themeModeFromChoice
 import {findGlobalSearchResults} from "../src/features/global-search.ts";
 import {createLazyModule} from "../src/app/lazy-module.ts";
 import {renderServerSettingsPage} from "../src/pages/server-settings.ts";
+import {renderCalculatorPage} from "../src/pages/calculators.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
 const globalSearchSource = await readFile("src/features/global-search.ts", "utf8");
+const calculatorsSource = await readFile("src/pages/calculators.ts", "utf8");
 const integrationRuntimeSource = await readFile("src/integration-runtime.ts", "utf8");
 const productionIntegrationAuditSource = await readFile("scripts/check-production-integrations.mjs", "utf8");
 const planning = await readFile("src/planning.ts", "utf8");
@@ -781,7 +783,7 @@ assert.deepEqual(expandRecipe("A",1,convergingRecipes,{A:1}),{},"owned target pr
 assert.throws(()=>expandRecipe("A",1,{A:{id:"A",output:1,ingredients:{B:1}},B:{id:"B",output:1,ingredients:{A:1}}}),/Recipe cycle/,"recipe cycles must fail closed");
 assert.throws(()=>expandRecipe("A",0,convergingRecipes),/Invalid recipe target or quantity/,"zero target quantity must be rejected");
 assert.throws(()=>expandRecipe("A",1,{A:{id:"A",output:0,ingredients:{E:1}}}),/Invalid recipe output/,"non-positive recipe output must be rejected");
-assert.match(main,/totals\.get\(recipe\.productId\).*number.*totals\.get\(recipe\.productId\)/,"recipe selector must distinguish multiple recipe rows without exposing recipe IDs");
+assert.match(calculatorsSource,/totals\.get\(recipe\.productId\).*number.*totals\.get\(recipe\.productId\)/,"recipe selector must distinguish multiple recipe rows without exposing recipe IDs");
 const multiRecipes=[
   {id:"a",productId:"A",output:1,workAmount:5,ingredients:[{itemId:"B",count:1},{itemId:"C",count:1}]},
   {id:"b",productId:"B",output:1,workAmount:3,ingredients:[{itemId:"D",count:1}]},
@@ -826,10 +828,10 @@ assert.ok(Object.values(plannerCopy).every(copy=>Object.values(copy).every(value
 assert.equal(basePresetCopyProvenance,"gpt","base preset translations must record their provenance");
 assert.deepEqual(Object.keys(basePresetCopy).sort(),[...supportedLocales].sort(),"base preset copy must cover every official interface locale");
 assert.ok(Object.values(basePresetCopy).every(copy=>[copy.custom,copy.selectedRoles,copy.noRoles,...Object.values(copy.groups),...Object.values(copy.presets)].every(value=>value.trim())),"base preset copy must not contain empty localized strings");
-assert.doesNotMatch(main,/const basePresets:Record<string,string\[\]>/,"base planner UI must consume the typed preset manifest instead of a local duplicate");
-assert.match(main,/<optgroup label=.*basePresets\.filter\(preset=>preset\.group===group\)/s,"base planner preset choices must be grouped from the typed manifest");
-assert.match(main,/baseGoal\.value="custom";calculateBasePlan\(\);syncBasePlannerUrl\(\)/,"manual role changes must switch the planner to custom state and update the share URL");
-assert.match(main,/filter:"base_preset",value:preset\.id/,"base preset analytics must contain only the stable preset identifier");
+assert.doesNotMatch(calculatorsSource,/const basePresets:Record<string,string\[\]>/,"base planner UI must consume the typed preset manifest instead of a local duplicate");
+assert.match(calculatorsSource,/<optgroup label=.*basePresets\.filter\(preset=>preset\.group===group\)/s,"base planner preset choices must be grouped from the typed manifest");
+assert.match(calculatorsSource,/baseGoal\.value="custom";calculate\(\);syncUrl\(\)/,"manual role changes must switch the planner to custom state and update the share URL");
+assert.match(calculatorsSource,/filter:"base_preset",value:preset\.id/,"base preset analytics must contain only the stable preset identifier");
 assert.equal(preservedLocaleSearch("?preset=mining&roles=Mining%3A2&limit=12&night=1&debug=1"),"preset=mining&roles=Mining%3A2&limit=12&night=1","locale changes must preserve base planner URL state without unrelated parameters");
 const productRecipeCounts=new Map();
 for(const recipe of itemData.recipes)productRecipeCounts.set(recipe.productId,(productRecipeCounts.get(recipe.productId)||0)+1);
@@ -839,17 +841,17 @@ unambiguousRecipes[selectedMega.productId]={id:selectedMega.id,output:selectedMe
 assert.deepEqual(expandRecipe("PalSphere_Mega",1,unambiguousRecipes),{CopperOre:2,Pal_crystal_S:1,Stone:3,Wood:3},"Mega Sphere expanded BOM must match verified recipes while stopping at ambiguous recipe boundaries");
 assert.deepEqual(expandRecipe("PalSphere_Mega",10,unambiguousRecipes,{Wood:10,Stone:10,CopperIngot:2}),{CopperOre:16,Pal_crystal_S:10,Stone:20,Wood:20},"Mega Sphere owned-material golden case must consume stock once and expand the remainder");
 assert.match(planning,/if\(list\.length===1&&!selected\.has\(productId\)\)/,"recursive crafting must not guess among ambiguous intermediate recipes");
-assert.match(main,/data-owned-item.*allItemOptions/s,"owned inventory must use localized item choices instead of raw internal-ID entry");
-assert.doesNotMatch(main,/Wood=10|<code>\$\{esc\(selected\.id\)/,"crafting UI must not expose raw recipe or item IDs");
-assert.match(main,/function enhancePalSelect/,"breeding Pal selectors must use an image-capable searchable combobox");
-assert.equal((main.match(/<section class="section calculator-workspace">/g)||[]).length,3,"all calculator pages must use the same responsive workspace rail");
+assert.match(calculatorsSource,/data-owned-item>\$\{itemOptions\(context\)\}/,"owned inventory must use localized item choices instead of raw internal-ID entry");
+assert.doesNotMatch(calculatorsSource,/Wood=10|<code>\$\{esc\(selected\.id\)/,"crafting UI must not expose raw recipe or item IDs");
+assert.match(calculatorsSource,/function enhanceBreedingControls/,"breeding Pal selectors must use an image-capable searchable combobox");
+assert.equal((calculatorsSource.match(/<section class="section calculator-workspace">/g)||[]).length,3,"all calculator pages must use the same responsive workspace rail");
 assert.match(featureStyles,/\.calculator-workspace>\.calculator\.wide\{width:100%;max-width:none\}/,"breeding calculator must fill the same workspace width as crafting and base planners");
 assert.match(styles,/\.planner-columns>\.planner-output\{position:sticky;top:88px\}.*@media\(max-width:900px\)\{\.planner-columns\{grid-template-columns:1fr\}\.planner-columns>\.planner-output\{position:static;top:auto\}\}/s,"crafting and base planner output panels must align with the input panel before becoming sticky, then stack without an offset on narrow screens");
-assert.match(main,/class=\"pair-card\"/,"reverse breeding results must render image-capable Pal pair cards");
+assert.match(calculatorsSource,/class=\"pair-card\"/,"reverse breeding results must render image-capable Pal pair cards");
 assert.match(featureStyles,/\.pair-list>\.pair-card-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,20rem\),1fr\)\)/,"reverse-breeding cards must override the legacy child grid with a readable responsive minimum width");
 assert.match(featureStyles,/\.pair-card \.pal-visual small,\.pair-card \.pal-visual strong,\.pair-card>a>small\{white-space:nowrap;word-break:keep-all\}/,"reverse-breeding labels must not break into vertical text");
-assert.match(main,/data-dynamic-link/,"dynamically rendered breeding results must support client-side detail navigation");
-assert.match(main,/palVisual\(pal,"result"\)/,"forward breeding results must render a Pal image card");
+assert.match(calculatorsSource,/data-dynamic-link/,"dynamically rendered breeding results must support client-side detail navigation");
+assert.match(calculatorsSource,/palVisual\(pal,context,"result"\)/,"forward breeding results must render a Pal image card");
 assert.match(main,/\["\/map","\/database","\/calculators\/crafting"\]\.includes\(current\).*ensureItemData/,"item data must load only on routes that use it");
 assert.match(main,/isSkills=current==="\/skills"\|\|current\.startsWith\("\/skills\/"\).*isSkills.*ensurePalData/s,"Pal data must load on every public-skill route so public slugs stay deterministic");
 assert.match(main,/current==="\/map"\)ensureMapData/,"map marker data must load only on the map route");
@@ -891,6 +893,13 @@ assert.doesNotMatch(main,/^import .*features\/global-search/m,"global search mus
 assert.match(main,/globalSearchFeature\.value\?\.renderPrimaryGlobalSearch/,"the application bootstrap must delegate primary global search rendering after the feature loads");
 assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/server-settings"\)/,"the server settings route must load through the shared dynamic module boundary");
 assert.doesNotMatch(main,/^import .*buildServerIni|^import .*officialServerSettings|^import .*parseServerIni/m,"server settings implementation must stay out of the initial application import graph");
+assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/calculators"\)/,"calculator routes must load through the shared dynamic module boundary");
+assert.doesNotMatch(main,/^import .*findBreedingResult|^import .*findParentPairs|^import .*buildCraftPlan|^import .*planBaseTeam|^import .*base-presets/m,"calculator implementation must stay out of the initial application import graph");
+assert.match(calculatorsSource,/export function renderCalculatorPage/,'the calculator module must expose a route renderer');
+const calculatorRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:{pals:[{i:0,id:"TestPal",dex:1,variant:false,names:{"en-US":"Test Pal"},nocturnal:false,work:{Kindling:1},image:true}],workSuitabilities:[{id:"Kindling",names:{"en-US":"Kindling"},icon:"/kindling.svg"}],pairs:[[0,0,0,"WILDCARD","WILDCARD"]]},itemData:{items:[{id:"TestItem",names:{"en-US":"Test Item"},image:true}],recipes:[{id:"TestRecipe",productId:"TestItem",output:1,workAmount:1,ingredients:[]}]},href:path=>`/en-US${path}`,escape:value=>value,setMeta:()=>{},hero:title=>`<header><h1>${title}</h1></header>`};
+assert.match(renderCalculatorPage("breeding",calculatorRenderContext),/id="parent-a"[\s\S]*id="target-pal"/,"the lazy calculator renderer must produce the breeding workflow");
+assert.match(renderCalculatorPage("crafting",calculatorRenderContext),/id="craft-targets"[\s\S]*id="craft-output"/,"the lazy calculator renderer must produce the crafting workflow");
+assert.match(renderCalculatorPage("base",calculatorRenderContext),/id="base-planner-form"[\s\S]*id="base-plan-output"/,"the lazy calculator renderer must produce the base workflow");
 assert.match(main,/!routeModuleReady\(\).*preservingPrerender/s,"route rendering must preserve existing content until a lazy page module is ready");
 assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
 assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups\}\)/,"static Home must use the same shared pure renderer");
