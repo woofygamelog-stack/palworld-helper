@@ -140,6 +140,34 @@ try{
     page.off("request",recordElementChunk);
   });
 
+  await run("home-technology-detail-back",async()=>{
+    const technologyChunkRequests=[];
+    const recordTechnologyChunk=request=>{if(/\/technology-[^/]+\.js$/.test(new URL(request.url()).pathname))technologyChunkRequests.push(request.url())};
+    page.on("request",recordTechnologyChunk);
+    await visit("/en-US");
+    assert.equal(technologyChunkRequests.length,0,"technology page code must stay out of the initial Home request graph");
+    const technologyLink=page.locator('[data-home-group="items-and-progression"] a[href="/en-US/database/technology"]');
+    await technologyLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/technology");
+    await page.locator("#technology-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".technology-card").count()>0,"the technology collection must render verified entries");
+    assert.equal(technologyChunkRequests.length,1,"technology page code must load exactly once on first route entry");
+    await page.locator(".technology-card-link").first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/technology/"));
+    await page.locator(".technology-detail").waitFor({state:"visible"});
+    assert.equal(technologyChunkRequests.length,1,"technology details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database/technology");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await technologyLink.waitFor({state:"visible"});
+    await technologyLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/technology");
+    await page.locator("#technology-search").waitFor({state:"visible"});
+    assert.equal(technologyChunkRequests.length,1,"repeat technology navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordTechnologyChunk);
+  });
+
   await run("server-settings",async()=>{
     const serverChunkRequests=[];
     const recordServerChunk=request=>{if(/\/server-settings-[^/]+\.js$/.test(new URL(request.url()).pathname))serverChunkRequests.push(request.url())};
@@ -192,7 +220,7 @@ try{
   });
 
   await context.close();
-  assert.ok(passed.length>=11,"the Phase 1 browser baseline must cover at least eleven workflows");
+  assert.ok(passed.length>=12,"the Phase 1 browser baseline must cover at least twelve workflows");
   console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();

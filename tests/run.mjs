@@ -41,6 +41,7 @@ import {renderServerSettingsPage} from "../src/pages/server-settings.ts";
 import {renderCalculatorPage} from "../src/pages/calculators.ts";
 import {renderMapPage} from "../src/pages/map.ts";
 import {renderElementsPage} from "../src/pages/elements.ts";
+import {renderTechnologyPage} from "../src/pages/technology.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -48,6 +49,7 @@ const globalSearchSource = await readFile("src/features/global-search.ts", "utf8
 const calculatorsSource = await readFile("src/pages/calculators.ts", "utf8");
 const mapPageSource = await readFile("src/pages/map.ts", "utf8");
 const elementsPageSource = await readFile("src/pages/elements.ts", "utf8");
+const technologyPageSource = await readFile("src/pages/technology.ts", "utf8");
 const integrationRuntimeSource = await readFile("src/integration-runtime.ts", "utf8");
 const productionIntegrationAuditSource = await readFile("scripts/check-production-integrations.mjs", "utf8");
 const planning = await readFile("src/planning.ts", "utf8");
@@ -373,9 +375,9 @@ assert.match(elementStyles,/\.element-graph-edge-shadow\{[^}]*stroke-width:8\}.*
 assert.match(elementStyles,/\.element-components\{.*minmax\(16rem,1fr\).*\.element-formula-expression\{.*flex-wrap:wrap.*@media\(max-width:700px\).*\.element-matchup-route\{grid-template-columns:1fr\}/s,"Element component and formula panels must retain a responsive comparison layout");
 assert.match(technologyImporter,/extractionManifest\.extractedAt/,"Technology generation timestamp must remain deterministic for one extraction");
 assert.match(technologyImporter,/mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851"/,"Technology import must enforce the build-compatible USMAP");
-assert.match(main,/id="technology-kind".*id="technology-category".*id="technology-level".*id="technology-condition"/s,"Technology collection must expose type, unlock, level, and condition filters");
-assert.match(main,/data-technology-level=.*technology-grid.*technologyCard/s,"Technology collection must render authored level groups");
-assert.match(main,/technology\.prerequisite.*technology\.towerBossRequired.*technology\.labResearch/s,"Technology details must expose every verified prerequisite class");
+assert.match(technologyPageSource,/id="technology-kind".*id="technology-category".*id="technology-level".*id="technology-condition"/s,"Technology collection must expose type, unlock, level, and condition filters");
+assert.match(technologyPageSource,/data-technology-level=.*technology-grid.*technologyCard/s,"Technology collection must render authored level groups");
+assert.match(technologyPageSource,/technology\.prerequisite.*technology\.towerBossRequired.*technology\.labResearch/s,"Technology details must expose every verified prerequisite class");
 assert.match(main,/fetch\("\/data\/technology\.json"\)/,"Technology collection, details, and global search must load same-origin normalized data");
 assert.match(main,/renderTechnologyGlobalSearch/,'global search must include localized Technology names, descriptions, and unlock targets');
 assert.match(technologyStyles,/\.technology-card\.ancient.*\.technology-point.*@media\(max-width:700px\)/s,"Technology cards must distinguish Ancient Technology and retain a responsive mobile layout");
@@ -903,9 +905,12 @@ assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/map"\)/,"the map 
 assert.doesNotMatch(main,/^import .*map-labels/m,"map labels and interaction code must stay out of the initial application import graph");
 assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/elements"\)/,"the element database route must load through the shared dynamic module boundary");
 assert.doesNotMatch(main,/^import .*element-matchup-i18n|^import .*evaluateElementMatchup|^import .*renderElementMatchupGraph/m,"element comparison and graph code must stay out of the initial application import graph");
+assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/technology"\)/,"the technology database routes must load through the shared dynamic module boundary");
+assert.doesNotMatch(main,/function technologyCollectionPage|function technologyDetail|const technologySearch=document/,'technology route rendering and filtering must stay out of the initial application module');
 assert.match(mapPageSource,/export function renderMapPage/,"the map module must expose a route renderer");
 assert.match(calculatorsSource,/export function renderCalculatorPage/,'the calculator module must expose a route renderer');
 assert.match(elementsPageSource,/export function renderElementsPage/,"the element module must expose a route renderer");
+assert.match(technologyPageSource,/export function renderTechnologyPage.*export function bindTechnologyPage/s,"the technology module must expose route rendering and filter binding");
 const calculatorRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:{pals:[{i:0,id:"TestPal",dex:1,variant:false,names:{"en-US":"Test Pal"},nocturnal:false,work:{Kindling:1},image:true}],workSuitabilities:[{id:"Kindling",names:{"en-US":"Kindling"},icon:"/kindling.svg"}],pairs:[[0,0,0,"WILDCARD","WILDCARD"]]},itemData:{items:[{id:"TestItem",names:{"en-US":"Test Item"},image:true}],recipes:[{id:"TestRecipe",productId:"TestItem",output:1,workAmount:1,ingredients:[]}]},href:path=>`/en-US${path}`,escape:value=>value,setMeta:()=>{},hero:title=>`<header><h1>${title}</h1></header>`};
 assert.match(renderCalculatorPage("breeding",calculatorRenderContext),/id="parent-a"[\s\S]*id="target-pal"/,"the lazy calculator renderer must produce the breeding workflow");
 assert.match(renderCalculatorPage("crafting",calculatorRenderContext),/id="craft-targets"[\s\S]*id="craft-output"/,"the lazy calculator renderer must produce the crafting workflow");
@@ -920,6 +925,12 @@ const renderedElements=renderElementsPage({locale:"en-US",defaultLocale:"en-US",
 assert.match(renderedElements,/id="element-attacker"[\s\S]*id="element-defender-secondary"[\s\S]*class="element-formula"/,"the lazy element renderer must produce the verified dual-element comparison workflow");
 assert.match(renderedElements,/data-element-edge="fire&amp;gt;grass"|data-element-edge="fire&gt;grass"/,"the lazy element renderer must preserve the selected graph relationship");
 assert.match(renderedElements,/href="\/en-US\/pals\//,"the lazy element renderer must preserve linked Pal relationships");
+const technologyRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),technologyData,technologyLoadError:false,href:path=>`/en-US${path}`,escape:value=>value,setMeta:()=>{},hero:title=>`<header><h1>${title}</h1></header>`,databaseTabs:()=>"<nav></nav>",placeholder:title=>`<h1>${title}</h1>`};
+const renderedTechnologyCollection=renderTechnologyPage(null,technologyRenderContext);
+assert.match(renderedTechnologyCollection,/id="technology-search"[\s\S]*data-technology-level=[\s\S]*class="technology-card-link"/,"the lazy technology renderer must produce the searchable level-grouped collection");
+const technologyDetailFixture=technologyData.technologies.find(technology=>technology.labResearch)||technologyData.technologies.find(technology=>technology.prerequisite)||technologyData.technologies[0];
+const renderedTechnologyDetail=renderTechnologyPage(technologyDetailFixture.slug,technologyRenderContext);
+assert.match(renderedTechnologyDetail,/class="section technology-detail"[\s\S]*class="technology-condition-list"[\s\S]*class="technology-unlocks"/,"the lazy technology renderer must preserve verified detail conditions and unlock relationships");
 assert.match(main,/!routeModuleReady\(\).*preservingPrerender/s,"route rendering must preserve existing content until a lazy page module is ready");
 assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
 assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups\}\)/,"static Home must use the same shared pure renderer");
