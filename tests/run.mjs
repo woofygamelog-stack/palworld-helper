@@ -47,6 +47,7 @@ import {renderExpeditionsPage} from "../src/pages/expeditions.ts";
 import {renderQuestsPage} from "../src/pages/quests.ts";
 import {renderHealthPage} from "../src/pages/health.ts";
 import {renderNpcPage} from "../src/pages/npc.ts";
+import {renderDungeonsPage} from "../src/pages/dungeons.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
@@ -60,6 +61,7 @@ const expeditionsPageSource = await readFile("src/pages/expeditions.ts", "utf8")
 const questsPageSource = await readFile("src/pages/quests.ts", "utf8");
 const healthPageSource = await readFile("src/pages/health.ts", "utf8");
 const npcPageSource = await readFile("src/pages/npc.ts", "utf8");
+const dungeonsPageSource = await readFile("src/pages/dungeons.ts", "utf8");
 const integrationRuntimeSource = await readFile("src/integration-runtime.ts", "utf8");
 const productionIntegrationAuditSource = await readFile("scripts/check-production-integrations.mjs", "utf8");
 const planning = await readFile("src/planning.ts", "utf8");
@@ -263,7 +265,7 @@ assert.ok(entityRouteFamilies.every(family=>family.sitemap&&family.searchIntent&
 assert.match(routeManifest,/dataset:"items".*prerender:"priority".*priorityLimit:75/,"item prerendering must retain its documented priority cap");
 assert.match(routeManifest,/dataset:"dungeons".*prerender:"all"/,"every verified Dungeon detail must receive initial HTML");
 assert.match(main,/renderPalDropSection\(pal\).*renderPalDungeonSection\(pal\)/s,"Pal details must expose verified Dungeon backlinks");
-assert.match(main,/layers=dungeon&dungeon=/,"Dungeon entrances must restore the verified Dungeon map layer and entity filter");
+assert.match(dungeonsPageSource,/layers=dungeon&dungeon=/,"Dungeon entrances must restore the verified Dungeon map layer and entity filter");
 assert.match(featureStyles,/\.dungeon-grid.*\.dungeon-summary.*\.dungeon-entrance-grid.*\.dungeon-pool-grid/s,"Dungeon collection, detail, and pool layouts must retain responsive style contracts");
 assert.match(dungeonImporter,/encounterGroupsForSpawners/,"Dungeon encounters must preserve source spawn groups");
 assert.match(dungeonImporter,/memberRole=primary\?"primary"/,"Dungeon boss groups must distinguish the primary boss from companions");
@@ -272,7 +274,7 @@ assert.doesNotMatch(dungeonImporter,/type==="Material"|materialItemCount/,"Item 
 assert.match(dungeonImporter,/rewardClassDefaultsRaw\.classes\[classPath\]/,"Dungeon rewards must follow the exact extracted class-default reference");
 assert.match(dungeonImporter,/rewardKindByMapObjectId=new Map/,"Dungeon reward labels must use exact map-object IDs");
 assert.doesNotMatch(dungeonImporter,/LotteryValueBlueprint(?:ClassName|SoftClass)[^\n]*(?:match|includes|startsWith)/,"Dungeon reward kinds must not be inferred from Blueprint path patterns");
-assert.doesNotMatch(main,/materialItemCount|dungeon\.rewardKinds|dungeon\.rewardTypes|dungeon\.items|dungeon\.encounters|dungeon\.resourceStatus|dungeon\.rewardContentsStatus/,"Dungeon UI must not consume legacy flattened or inferred fields");
+assert.doesNotMatch(`${main}\n${dungeonsPageSource}`,/materialItemCount|dungeon\.rewardKinds|dungeon\.rewardTypes|dungeon\.items|dungeon\.encounters|dungeon\.resourceStatus|dungeon\.rewardContentsStatus/,"Dungeon UI must not consume legacy flattened or inferred fields");
 assert.match(main,/loaded\.meta\.schema!==3.*resourcesVerified!==false.*rewardSourcesVerified!==true.*rewardContentsVerified!==false/,"Dungeon runtime loader must enforce the schema 3 verification boundary");
 assert.equal(dungeonData.meta.schema,3,"Dungeon public data must use schema 3");
 assert.equal(dungeonData.meta.rewardSourceCount,79,"Dungeon reward source coverage must fail closed on extraction drift");
@@ -318,6 +320,16 @@ const npcDetailFixture=npcData.npcs.find(npc=>npc.fixedLocation&&npc.encounters.
 assert.ok(npcDetailFixture,"NPC test data must include a verified fixed-location detail");
 const npcDetailMarkup=renderNpcPage(npcDetailFixture.slug,npcRenderContext);
 assert.match(npcDetailMarkup,/class="npc-detail section"[\s\S]*class="detail-section npc-locations"[\s\S]*layers=npc,merchant,palMerchant,bounty/,"The lazy NPC detail must retain verified locations and map links");
+assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/dungeons"\)/,"Dungeon database code must have an explicit lazy route boundary");
+assert.doesNotMatch(main,/class="dungeon-detail section"|class="dungeon-card panel"|const filterDungeons=/,"Dungeon rendering and filter binding must stay out of the initial app module");
+assert.match(dungeonsPageSource,/export function renderDungeonsPage[\s\S]*export function bindDungeonsPage/,"The lazy Dungeon module must own both rendering and page binding");
+const dungeonRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:palData,itemData,dungeonData,dungeonLoadError:false,href:path=>`/en-US${path}`,escape:value=>value,setMeta:()=>{},hero:title=>`<section><h1>${title}</h1></section>`,databaseTabs:active=>`<nav data-tab="${active}"></nav>`,placeholder:title=>`<h1>${title}</h1>`};
+const dungeonCollectionMarkup=renderDungeonsPage(null,dungeonRenderContext);
+assert.match(dungeonCollectionMarkup,/id="dungeon-search"[\s\S]*class="dungeon-card panel"[\s\S]*data-kind=/,"The lazy Dungeon collection must retain searchable typed Dungeon cards");
+const dungeonDetailFixture=dungeonData.dungeons.find(dungeon=>dungeon.entrances.length>0&&dungeon.encounterGroups.length>0);
+assert.ok(dungeonDetailFixture,"Dungeon test data must include a verified entrance and encounter detail");
+const dungeonDetailMarkup=renderDungeonsPage(dungeonDetailFixture.slug,dungeonRenderContext);
+assert.match(dungeonDetailMarkup,/class="dungeon-detail section"[\s\S]*class="dungeon-entrance"[\s\S]*layers=dungeon&amp;dungeon=|class="dungeon-detail section"[\s\S]*class="dungeon-entrance"[\s\S]*layers=dungeon&dungeon=/,"The lazy Dungeon detail must retain verified entrances and map links");
 assert.match(healthStyles,/@media\(max-width:700px\).*\.health-filters\{grid-template-columns:minmax\(0,1fr\) auto\}.*\.health-search\{grid-column:1\/-1\}/s,"Health mobile filters must keep search full-width and place scope beside a compact reset action");
 assert.deepEqual({schema:elementData.meta.schema,gameBuild:elementData.meta.gameBuild,verification:elementData.meta.verification,locales:elementData.meta.localeCount,elements:elementData.meta.elementCount,relations:elementData.meta.relationCount,pals:elementData.meta.palCount,numeric:elementData.meta.numericMultipliersVerified,dual:elementData.meta.dualElementRuleVerified,icons:elementData.meta.iconProvenance},{schema:3,gameBuild:"24467282",verification:"verified-and-runtime",locales:17,elements:9,relations:9,pals:299,numeric:true,dual:true,icons:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},"Element data must publish only the runtime-verified numeric baseline");
 assert.equal(elementData.chartImage,undefined,"The reference chart must remain private extraction evidence and must not be published");
