@@ -41,6 +41,10 @@ try{
     await page.keyboard.press("/");
     await page.locator("#global-search-dialog").waitFor({state:"visible"});
     assert.equal(await page.locator("#global-search-input").evaluate(node=>node===document.activeElement),true,"the slash shortcut must reopen and focus global search");
+    await page.locator("#global-search-input").fill("Lamball");
+    const englishNameMatch=page.locator('#global-search-results a[href*="/ko-KR/pals/"]').first();
+    await englishNameMatch.waitFor({state:"visible"});
+    assert.ok((await englishNameMatch.textContent())?.trim(),"an official English Pal name must find a localized Pal result");
   });
 
   await run("pal-collection",async()=>{

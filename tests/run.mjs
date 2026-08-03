@@ -35,9 +35,11 @@ import {hasSupportedLocale,navigateSpa,normalizedLocaleUrl,routeFromPathname} fr
 import {buildPageMetadata,seoSummary} from "../src/app/page-context.ts";
 import {renderApplicationShell,shellRouteIsActive} from "../src/app/shell.ts";
 import {preservedLocaleSearch,shouldOpenGlobalSearchShortcut,themeModeFromChoice} from "../src/app/shell-controller.ts";
+import {findGlobalSearchResults} from "../src/features/global-search.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
+const globalSearchSource = await readFile("src/features/global-search.ts", "utf8");
 const integrationRuntimeSource = await readFile("src/integration-runtime.ts", "utf8");
 const productionIntegrationAuditSource = await readFile("scripts/check-production-integrations.mjs", "utf8");
 const planning = await readFile("src/planning.ts", "utf8");
@@ -92,6 +94,14 @@ const e2eSmoke = await readFile("tests/e2e-smoke.mjs", "utf8");
 const coverageReporter = await readFile("scripts/report-coverage.mjs", "utf8");
 
 const pageMetadata=buildPageMetadata({locale:"ko-KR",locales:["en-US","ko-KR"],defaultLocale:"en-US",route:"/pals/lamball",siteName:"Palworld Helper",origin:"https://palworld-helper.woofy.blog",resolved:{title:"램볼",description:"  검증된   팰 정보  "},localizePath:(locale,path)=>`/${locale}${path}`,hreflang:locale=>locale==="en-US"?"en":locale,structuredData:{"@type":"WebPage"}});
+const searchFixture={pals:[{id:"SheepBall",dex:1,variant:false,names:{"en-US":"Lamball","ko-KR":"도로롱"},work:{handiwork:1},image:true}],items:[{id:"BerrySeeds",names:{"en-US":"Berry Seeds","ko-KR":"열매 씨앗"},descriptions:{"en-US":"Seeds for planting","ko-KR":"파종용 씨앗"},type:"Material",subtype:"Seed",image:true}],activeSkills:[{id:"AirCannon",elementId:"Neutral",names:{"en-US":"Air Cannon","ko-KR":"공기 대포"}}],passiveSkills:[{id:"Artisan",names:{"en-US":"Artisan","ko-KR":"장인 기질"},descriptions:{"en-US":"Work speed increases","ko-KR":"작업 속도 증가"}}],partnerSkills:[{id:"FluffyShield",palId:"SheepBall",names:{"en-US":"Fluffy Shield","ko-KR":"복슬복슬 방패"},palDescriptions:{"en-US":"Uses Lamball as a shield","ko-KR":"도로롱을 방패로 사용"}}]};
+const search=(query)=>findGlobalSearchResults({query,locale:"ko-KR",defaultLocale:"en-US",data:searchFixture,labels:{pals:"팰",database:"데이터베이스",active:"액티브 스킬",passive:"패시브 스킬",partner:"파트너 스킬",results:"개 결과",noResult:"결과 없음"},palName:pal=>pal.names["ko-KR"],itemName:item=>item.names["ko-KR"],partnerSkillName:skill=>skill.names["ko-KR"]});
+assert.deepEqual(search("Lamball").map(result=>result.path),["/pals/SheepBall","/skills/partner/FluffyShield"],"global search must match official English names and related partner-skill copy in a non-English locale");
+assert.deepEqual(search("handiwork").map(result=>result.path),["/pals/SheepBall"],"global search must include positive work-suitability identifiers");
+assert.deepEqual(search("파종용").map(result=>result.path),["/items/BerrySeeds"],"global search must include localized item descriptions");
+assert.deepEqual(search("Neutral").map(result=>result.path),["/skills/active/AirCannon"],"global search must include active-skill element identifiers");
+assert.deepEqual(search("작업 속도").map(result=>result.path),["/skills/passive/Artisan"],"global search must include localized passive-skill descriptions");
+assert.deepEqual(search("   "),[],"global search must return no results for a blank query");
 assert.equal(pageMetadata.documentTitle,"램볼 · Palworld Helper","page context must build the localized document title");
 assert.equal(pageMetadata.description,"검증된 팰 정보 · 램볼","page context must normalize the localized SEO summary");
 assert.equal(pageMetadata.canonical,"https://palworld-helper.woofy.blog/ko-KR/pals/lamball","page context must build the localized canonical URL");
@@ -859,6 +869,7 @@ assert.match(seoStatic,/icon\("chevronDown","nav-chevron"\)/,"prerendered disclo
 assert.doesNotMatch(seoStatic,/nav-chevron[^\n]*⌄/,"prerendered disclosure menus must not render a font-dependent chevron glyph");
 assert.doesNotMatch(main,/shellNavigation\.slice\(/,"mobile navigation must not change implicitly when the desktop menu order changes");
 assert.match(main,/ensureGlobalSearchData/,"global search must load Pal, item and skill data on demand");
+assert.match(main,/renderPrimaryGlobalSearch/,"the application bootstrap must delegate primary global search rendering to the feature module");
 assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
 assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups\}\)/,"static Home must use the same shared pure renderer");
 assert.match(styles,/\.home-action-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\).*@media\(max-width:700px\).*\.home-action-grid,\.home-topic-grid\{grid-template-columns:1fr\}/s,"Home task and topic grids must collapse to one column on phones");
@@ -867,7 +878,7 @@ assert.match(styles,/\.home-hero:before\{[^}]*inset:1rem;height:auto;/,"Home her
 assert.match(styles,/\.home-hero h1\{[^}]*font-size:clamp\(3\.25rem,5\.3vw,5\.2rem\);line-height:1\.02;/,"Home title must keep the documented desktop size and readable line height");
 assert.match(styles,/html\[lang\^="ko"\] \.home-hero h1\{line-height:1\.06;word-break:keep-all\}/,"Korean Home titles must preserve readable lines without splitting words");
 assert.match(styles,/@media\(max-width:700px\).*\.home-hero h1\{font-size:clamp\(2\.5rem,12vw,3\.2rem\);line-height:1\.08\}.*\.home-hero-art\{display:none\}/s,"Phone Home must use the compact title and omit decorative art so actions appear sooner");
-assert.doesNotMatch(main,/trackEvent\([^\n]*(query|searchInput)/,"global search text must not be sent to analytics");
+assert.doesNotMatch(`${main}\n${globalSearchSource}`,/trackEvent\([^\n]*(query|searchInput)/,"global search text must not be sent to analytics");
 assert.equal(readThemePreference({getItem:()=>"dark"}),"dark","an explicit dark preference must be retained");
 assert.equal(readThemePreference({getItem:()=>"invalid"}),"system","an invalid stored preference must fail closed to system");
 assert.equal(themeIconName("system"),"system","the system preference must use the monitor icon");
