@@ -196,6 +196,34 @@ try{
     page.off("request",recordStructureChunk);
   });
 
+  await run("home-expeditions-detail-back",async()=>{
+    const expeditionChunkRequests=[];
+    const recordExpeditionChunk=request=>{if(/\/expeditions-[^/]+\.js$/.test(new URL(request.url()).pathname))expeditionChunkRequests.push(request.url())};
+    page.on("request",recordExpeditionChunk);
+    await visit("/en-US");
+    assert.equal(expeditionChunkRequests.length,0,"expedition page code must stay out of the initial Home request graph");
+    const expeditionLink=page.locator('[data-home-group="exploration"] a[href="/en-US/database/expeditions"]');
+    await expeditionLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/expeditions");
+    await page.locator("#expedition-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".expedition-card").count()>0,"the expedition collection must render verified entries");
+    assert.equal(expeditionChunkRequests.length,1,"expedition page code must load exactly once on first route entry");
+    await page.locator(".expedition-card a[data-link]").first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/expeditions/"));
+    await page.locator(".expedition-detail").waitFor({state:"visible"});
+    assert.equal(expeditionChunkRequests.length,1,"expedition details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database/expeditions");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await expeditionLink.waitFor({state:"visible"});
+    await expeditionLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/expeditions");
+    await page.locator("#expedition-search").waitFor({state:"visible"});
+    assert.equal(expeditionChunkRequests.length,1,"repeat expedition navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordExpeditionChunk);
+  });
+
   await run("server-settings",async()=>{
     const serverChunkRequests=[];
     const recordServerChunk=request=>{if(/\/server-settings-[^/]+\.js$/.test(new URL(request.url()).pathname))serverChunkRequests.push(request.url())};
@@ -248,7 +276,7 @@ try{
   });
 
   await context.close();
-  assert.ok(passed.length>=13,"the Phase 1 browser baseline must cover at least thirteen workflows");
+  assert.ok(passed.length>=14,"the Phase 1 browser baseline must cover at least fourteen workflows");
   console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();
