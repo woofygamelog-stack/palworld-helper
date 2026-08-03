@@ -168,6 +168,34 @@ try{
     page.off("request",recordTechnologyChunk);
   });
 
+  await run("home-structures-detail-back",async()=>{
+    const structureChunkRequests=[];
+    const recordStructureChunk=request=>{if(/\/structures-[^/]+\.js$/.test(new URL(request.url()).pathname))structureChunkRequests.push(request.url())};
+    page.on("request",recordStructureChunk);
+    await visit("/en-US");
+    assert.equal(structureChunkRequests.length,0,"structure page code must stay out of the initial Home request graph");
+    const structureLink=page.locator('[data-home-group="items-and-progression"] a[href="/en-US/database/structures"]');
+    await structureLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/structures");
+    await page.locator("#structure-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".structure-card").count()>0,"the structure collection must render verified entries");
+    assert.equal(structureChunkRequests.length,1,"structure page code must load exactly once on first route entry");
+    await page.locator(".structure-card a[data-link]").first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/structures/"));
+    await page.locator(".structure-detail").waitFor({state:"visible"});
+    assert.equal(structureChunkRequests.length,1,"structure details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database/structures");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await structureLink.waitFor({state:"visible"});
+    await structureLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/structures");
+    await page.locator("#structure-search").waitFor({state:"visible"});
+    assert.equal(structureChunkRequests.length,1,"repeat structure navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordStructureChunk);
+  });
+
   await run("server-settings",async()=>{
     const serverChunkRequests=[];
     const recordServerChunk=request=>{if(/\/server-settings-[^/]+\.js$/.test(new URL(request.url()).pathname))serverChunkRequests.push(request.url())};
@@ -220,7 +248,7 @@ try{
   });
 
   await context.close();
-  assert.ok(passed.length>=12,"the Phase 1 browser baseline must cover at least twelve workflows");
+  assert.ok(passed.length>=13,"the Phase 1 browser baseline must cover at least thirteen workflows");
   console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();
