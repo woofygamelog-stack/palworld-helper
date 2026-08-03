@@ -9,7 +9,8 @@ export type ServerSettingsInput={players:number;pvp:boolean;backup:boolean;value
 export type ServerIniWarning={code:"unsupportedKey"|"boolean"|"number"|"range";key:string};
 const quote=(value:string)=>`"${value.replace(/\\/g,"\\\\").replace(/"/g,'\\"')}"`;
 export function buildServerIni(input:ServerSettingsInput|Record<string,string|number|boolean>):string {
-  const legacy=input as ServerSettingsInput,values:Record<string,string|number|boolean>={...(legacy.values||{})};
+  const legacy=input as ServerSettingsInput,legacyShape="players" in input||"pvp" in input||"backup" in input||"values" in input;
+  const values:Record<string,string|number|boolean>=legacyShape?{...(legacy.values||{})}:{...(input as Record<string,string|number|boolean>)};
   if("players" in input)values.ServerPlayerMaxNum=Math.min(32,Math.max(1,Math.round(Number(legacy.players))));
   if("pvp" in input)values.bIsPvP=legacy.pvp;if("backup" in input)values.bIsUseBackupSaveData=legacy.backup;
   const known=new Map(officialServerSettings.map(setting=>[setting.key,setting]));

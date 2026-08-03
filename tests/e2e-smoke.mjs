@@ -89,9 +89,24 @@ try{
   });
 
   await run("server-settings",async()=>{
-    await visit("/en-US/server-tools/settings-generator");
+    const serverChunkRequests=[];
+    const recordServerChunk=request=>{if(/\/server-settings-[^/]+\.js$/.test(new URL(request.url()).pathname))serverChunkRequests.push(request.url())};
+    page.on("request",recordServerChunk);
+    await visit("/en-US");
+    assert.equal(serverChunkRequests.length,0,"server settings code must stay out of the initial Home request graph");
+    await page.locator('[data-home-action="server"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/server-tools/settings-generator");
     await page.locator("#server-form").waitFor({state:"visible"});
     assert.equal(await page.locator("#ini-output").count(),1,"server output must render once");
+    assert.equal(serverChunkRequests.length,1,"server settings code must load exactly once on first route entry");
+    await page.locator('input[name="ServerPlayerMaxNum"][type="number"]').fill("12");
+    assert.equal(await page.locator("#server-form").evaluate(form=>form.querySelector('input[name="ServerPlayerMaxNum"][data-server-key]')?.value),"12","the lazy server form must retain edited values before generation");
+    await page.locator("#server-form .button.primary").click();
+    assert.match(await page.locator("#ini-output").inputValue(),/ServerPlayerMaxNum=12/,"the lazy server route must generate INI from the bound form");
+    await page.locator("#ini-import").fill("[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerPlayerMaxNum=16)");
+    await page.locator("#import-ini").click();
+    assert.equal(await page.locator('input[name="ServerPlayerMaxNum"][type="number"]').inputValue(),"16","the lazy server route must import official settings locally");
+    page.off("request",recordServerChunk);
   });
 
   await run("locale-change",async()=>{
