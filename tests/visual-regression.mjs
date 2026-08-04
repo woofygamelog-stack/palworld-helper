@@ -12,6 +12,7 @@ const scenarios = [
   { name: "home-mobile-ko-dark", route: "/ko-KR", viewport: { width: 360, height: 800 }, theme: "dark", ready: "[data-home-action=\"breeding\"]" },
   { name: "home-desktop-en-light", route: "/en-US", viewport: { width: 1440, height: 1000 }, theme: "light", ready: "[data-home-action=\"breeding\"]" },
   { name: "breeding-tablet-ja-light", route: "/ja-JP/calculators/breeding", viewport: { width: 768, height: 1024 }, theme: "light", ready: "#parent-a + .pal-combobox .pal-combobox-button" },
+  { name: "breeding-path-mobile-ko-dark", route: "/ko-KR/calculators/breeding-path", viewport: { width: 360, height: 800 }, theme: "dark", ready: "#breeding-path-form" },
   { name: "map-desktop-en-dark", route: "/en-US/map", viewport: { width: 1024, height: 900 }, theme: "dark", ready: ".map-viewport" },
 ];
 

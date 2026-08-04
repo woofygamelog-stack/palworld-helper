@@ -163,6 +163,39 @@ try{
     page.off("request",recordCalculatorChunk);
   });
 
+  await run("owned-pal-breeding-path",async()=>{
+    const workerRoute=/\/assets\/breeding-path-worker-[^/]+\.js$/;
+    await page.route(workerRoute,async route=>{await new Promise(resolve=>setTimeout(resolve,600));await route.continue()});
+    await visit("/ko-KR/calculators/breeding-path");
+    await page.locator("#breeding-path-form").waitFor({state:"visible"});
+    assert.equal(await page.locator("main h1").count(),1,"the breeding-path route must retain one main heading");
+    for(const value of ["0","1","2","3","4","5","6","7","8","9","10","11"]){
+      await page.locator("#path-owned").selectOption(value,{force:true});
+      await page.locator("#path-add-owned").click();
+    }
+    await page.locator("#path-target").selectOption("250",{force:true});
+    await page.locator("#path-depth").fill("4");
+    await page.locator('#breeding-path-form button[type="submit"]').click();
+    await page.locator("#path-cancel").focus();
+    await page.keyboard.press("Enter");
+    assert.match((await page.locator("#breeding-path-output").textContent())||"",/취소/,"an in-progress path search must be cancellable without leaving stale results");
+    await page.locator('#breeding-path-form button[type="submit"]').click();
+    await page.locator(".breeding-path-plan").first().waitFor({state:"visible"});
+    assert.ok(await page.locator(".breeding-path-steps>li").count(),"a current-build owned-Pal selection must render inspectable breeding steps");
+    const sharedUrl=new URL(page.url());
+    assert.equal(sharedUrl.pathname,"/ko-KR/calculators/breeding-path","path state must stay outside the canonical pathname");
+    assert.match(sharedUrl.searchParams.get("owned")||"",/^\d{3,}b?-[a-z0-9-]+(?:,\d{3,}b?-[a-z0-9-]+)+$/,"shared owned-Pal state must use only public slugs");
+    assert.match(sharedUrl.searchParams.get("target")||"",/^\d{3,}b?-[a-z0-9-]+$/,"the shared target must use a public slug");
+    assert.doesNotMatch(sharedUrl.search,/SheepBall|BOSS_|PAL_/i,"shared state must not expose internal game identifiers");
+    await page.reload({waitUntil:"networkidle"});
+    await page.locator(".breeding-path-plan").first().waitFor({state:"visible"});
+    assert.equal(await page.locator(".breeding-owned-chip").count(),12,"a shared breeding path must restore every selected owned Pal");
+    await page.setViewportSize({width:360,height:800});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),true,"the breeding-path workflow must not overflow at 360 CSS pixels");
+    await page.setViewportSize({width:1365,height:900});
+    await page.unroute(workerRoute);
+  });
+
   await run("crafting",async()=>{
     await visit("/en-US/calculators/crafting");
     await page.locator("[data-craft-recipe]").waitFor({state:"attached"});

@@ -9,6 +9,7 @@ export const routeFamilies = [
   {path:"skills/partner",mode:"hybrid",indexable:true,searchIntent:"partner-skill-catalog"},
   {path:"calculators",mode:"hybrid",indexable:true,searchIntent:"calculator-overview"},
   {path:"calculators/breeding",mode:"hybrid",indexable:true,searchIntent:"breeding-calculator"},
+  {path:"calculators/breeding-path",mode:"prerendered",indexable:true,searchIntent:"owned-pal-breeding-path"},
   {path:"calculators/crafting",mode:"hybrid",indexable:true,searchIntent:"crafting-calculator"},
   {path:"calculators/base",mode:"hybrid",indexable:true,searchIntent:"base-team-planner"},
   {path:"calculators/pal-compare",mode:"prerendered",indexable:true,searchIntent:"pal-comparison"},
@@ -52,6 +53,7 @@ export const shellNavigation = [
   ]},
   {id:"calculators",path:"calculators",icon:"calculator",active:[{path:"calculators"}],children:[
     {id:"calculators-breeding",path:"calculators/breeding",active:[{path:"calculators/breeding"}]},
+    {id:"calculators-breeding-path",path:"calculators/breeding-path",active:[{path:"calculators/breeding-path"}]},
     {id:"calculators-crafting",path:"calculators/crafting",active:[{path:"calculators/crafting"}]},
     {id:"calculators-base",path:"calculators/base",active:[{path:"calculators/base"}]},
     {id:"calculators-pal-compare",path:"calculators/pal-compare",active:[{path:"calculators/pal-compare"}]},

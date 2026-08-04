@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import { findBreedingResult, findParentPairs } from "../src/breeding.ts";
+import {breedingPathComponents,breedingPathScore,defaultBreedingPathWeights,findBreedingPaths,flattenBreedingPath,normalizeBreedingPathWeights} from "../src/breeding-path.ts";
+import {breedingPathCopy,breedingPathCopyProvenance,breedingPathRuntimeCopy,breedingPathRuntimeCopyProvenance} from "../src/breeding-path-i18n.ts";
 import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts";
 import { browserLocale,locales,localizePath,resolveLocale } from "../src/config.ts";
 import { expandRecipe } from "../src/data.ts";
@@ -124,6 +126,45 @@ assert.deepEqual(condensingData.stages.map(stage=>stage.required),[2,4,8,16],"co
 assert.deepEqual(condensingPlan(condensingData.stages,0,1,0),{incremental:2,cumulative:2,owned:0,remaining:2},"the first condensation stage must require two matching Pals");
 assert.deepEqual(condensingPlan(condensingData.stages,1,4,10),{incremental:28,cumulative:30,owned:10,remaining:18},"condensing must sum only selected stages and subtract owned matching Pals once");
 assert.throws(()=>condensingPlan(condensingData.stages,2,2,0),/Invalid condensing range/,"invalid condensation ranges must fail closed");
+const pathRows=[
+  [0,1,9,"WILDCARD","WILDCARD"],
+  [0,0,3,"WILDCARD","WILDCARD"],
+  [3,3,9,"WILDCARD","WILDCARD"],
+  [0,2,4,"MALE","FEMALE"],
+  [1,2,5,"WILDCARD","WILDCARD"],
+  [4,5,8,"WILDCARD","WILDCARD"],
+  [8,2,9,"WILDCARD","WILDCARD"],
+  [9,0,1,"WILDCARD","WILDCARD"],
+];
+const directPath=findBreedingPaths(pathRows,[0,1,2],9,{maxDepth:3});
+assert.equal(directPath.shortest?.components.generations,1,"shortest breeding paths must prefer the fewest generations");
+assert.equal(flattenBreedingPath(directPath.shortest.node).length,1,"a direct breeding path must flatten to one inspectable step");
+const pathGoldenCases=Array.from({length:10},(_,index)=>({target:100+index,row:[0,1,100+index,"WILDCARD","WILDCARD"]}));
+for(const fixture of pathGoldenCases){const result=findBreedingPaths([fixture.row],[0,1],fixture.target,{maxDepth:1});assert.equal(result.shortest?.node.pal,fixture.target,`golden target ${fixture.target} must retain its shortest route`);assert.equal(result.practical?.node.signature,result.shortest?.node.signature,`golden target ${fixture.target} must retain its practical ranking`);assert.deepEqual(flattenBreedingPath(result.practical.node).map(step=>step.row),[fixture.row],`golden target ${fixture.target} must retain its exact verified breeding step`)}
+assert.equal(pathGoldenCases.length,10,"breeding paths must retain at least ten representative, shortest, and practical golden cases");
+const reusePath=findBreedingPaths(pathRows,[0,1,2],9,{maxDepth:3,weights:{generations:0,uniqueOwned:20,repeatedOwnedUses:0}});
+assert.equal(reusePath.practical?.components.uniqueOwned,1,"adjustable practical scoring must be able to prefer a route that uses fewer owned Pal species");
+assert.equal(reusePath.practical?.components.generations,2,"practical and shortest paths must remain independently ranked");
+assert.equal(findBreedingPaths(pathRows,[0,1,2],8,{maxDepth:1}).shortest,null,"the generation bound must reject deeper paths");
+assert.equal(findBreedingPaths(pathRows,[0,1,2],8,{maxDepth:2}).shortest?.components.generations,2,"the generation bound must admit a route at its exact boundary");
+const constrainedPath=findBreedingPaths(pathRows,[0,2],4,{maxDepth:1}).shortest;
+assert.deepEqual(constrainedPath?.components,{generations:1,uniqueOwned:2,genderConstraints:2,specialSteps:1,repeatedOwnedUses:0},"gender-conditioned rows must expose their verified scoring components without hiding them in a combined score");
+assert.equal(breedingPathScore(constrainedPath.components,defaultBreedingPathWeights),25,"the practical score must be the documented weighted sum of visible components");
+assert.deepEqual(normalizeBreedingPathWeights({generations:-2,uniqueOwned:120,genderConstraints:Number.NaN}),{generations:0,uniqueOwned:100,genderConstraints:2,specialSteps:3,repeatedOwnedUses:1},"path weights must fail into documented bounds and defaults");
+assert.equal(findBreedingPaths(pathRows,[0,1,1,-1,1.5],9,{maxDepth:1}).shortest?.node.signature,directPath.shortest?.node.signature,"owned Pal input must ignore invalid values and deduplicate deterministically");
+assert.equal(findBreedingPaths(pathRows,[0,1],1,{maxDepth:3}).alternatives.length,0,"path generation must reject cycles back into an ancestor or already-owned target");
+assert.deepEqual(findBreedingPaths(pathRows,[2,1,0],9,{maxDepth:3}).alternatives.map(plan=>plan.node.signature),directPath.alternatives.map(plan=>plan.node.signature),"path alternatives must be deterministic regardless of owned-Pal input order");
+assert.ok(directPath.evaluatedCandidates>0&&!directPath.truncated,"bounded fixture searches must report evaluated candidates without false truncation");
+const currentBuildPath=findBreedingPaths(palData.pairs,[0,1,2,3,4,5],250,{maxDepth:3});
+assert.ok(currentBuildPath.shortest&&currentBuildPath.practical,"the current verified breeding table must retain a representative owned-Pal route");
+assert.ok(flattenBreedingPath(currentBuildPath.practical.node).every(step=>palData.pairs.some(row=>row.every((value,index)=>value===step.row[index]))),"every generated current-build step must resolve to an exact verified breeding row");
+assert.deepEqual(findBreedingPaths(palData.pairs,[5,4,3,2,1,0],250,{maxDepth:3}).alternatives.map(plan=>plan.node.signature),currentBuildPath.alternatives.map(plan=>plan.node.signature),"current-build path generation must remain deterministic");
+assert.equal(Object.keys(breedingPathCopy).length,locales.length,"breeding-path copy must cover every supported locale");
+for(const locale of locales){assert.equal(Object.values(breedingPathCopy[locale]).length,Object.values(breedingPathCopy["en-US"]).length,`${locale} breeding-path copy must retain field parity`);assert.ok(Object.values(breedingPathCopy[locale]).every(value=>value.trim()),`${locale} breeding-path copy must be complete`)}
+assert.deepEqual(Object.keys(breedingPathCopyProvenance).sort(),Object.keys(breedingPathCopy["en-US"]).sort(),"every breeding-path field must record translation provenance");
+assert.ok(Object.values(breedingPathCopyProvenance).every(value=>value==="gpt"),"breeding-path explanatory translations must identify their GPT provenance");
+for(const locale of locales){assert.equal(Object.values(breedingPathRuntimeCopy[locale]).length,3,`${locale} breeding-path progress controls must retain field parity`);assert.ok(Object.values(breedingPathRuntimeCopy[locale]).every(value=>value.trim()),`${locale} breeding-path progress controls must be complete`)}
+assert.ok(Object.values(breedingPathRuntimeCopyProvenance).every(value=>value==="gpt"),"breeding-path progress translations must identify their GPT provenance");
 const questImporter = await readFile("scripts/import-quest-data.mjs", "utf8");
 const questStyles = await readFile("src/quests.css", "utf8");
 const healthImporter = await readFile("scripts/import-health-data.mjs", "utf8");
@@ -332,6 +373,10 @@ assert.match(seoStatic,/renderFooter\(locale,m\.footer\)/,"Prerendered pages mus
 assert.match(packageJson.devDependencies.wrangler, /^\d+\.\d+\.\d+$/, "Wrangler must be pinned exactly for reproducible deployments");
 assert.equal(packageJson.scripts["release:check"], "npm run check && npm run check:determinism && npm run deploy:dry-run", "the release check must include the full build, deterministic-output, and Wrangler dry-run gates");
 assert.equal(packageJson.scripts["test:visual"], "node tests/visual-regression.mjs", "the standard check must expose the visual regression suite");
+assert.ok(routeFamilies.some(family=>family.path==="calculators/breeding-path"&&family.mode==="prerendered"&&family.indexable),"the completed breeding-path workflow must be an indexable prerendered route");
+assert.match(calculatorsSource,/URLSearchParams[\s\S]*palPublicSlug[\s\S]*owned[\s\S]*weights/s,"breeding-path share state must use public Pal slugs and explicit scoring weights");
+assert.match(calculatorsSource,/trackOnce\("calculator:breeding_path","calculator_use",\{tool:"breeding_path"\}\)/,"breeding-path analytics must emit only a stable tool identifier without Pal choices or scoring input");
+assert.match(calculatorsSource,/new Worker\(new URL\("\.\.\/breeding-path-worker\.ts",import\.meta\.url\)[\s\S]*stopWorker\(\)/,"breeding-path search must run off the main thread and expose real cancellation");
 assert.match(packageJson.scripts["check:determinism"], /--record.*--verify/, "determinism verification must compare two consecutive production builds");
 assert.equal(packageJson.scripts["deploy:production"], "npm run release:check && wrangler deploy", "production deployment must run the release gate first");
 assert.equal(packageJson.scripts["build:production"], "npm run build && npm run check:production-integrations", "the production build must verify that advertising and Analytics remain enabled");
@@ -619,9 +664,9 @@ assert.equal(seoHreflang("es-419"),"es","Latin American Spanish must keep its ro
 assert.ok(indexableGroups.pals.every(url=>/^https:\/\/palworld-helper\.woofy\.blog\/[a-z]{2}(?:-[A-Z0-9]+)?\/pals\/\d{3,}b?-[a-z0-9-]+$/.test(url)),"Pal sitemap URLs must use Paldeck-based public slugs");
 const rawSeoIds=new Set([...palData.pals,...itemData.items,...skillData.activeSkills,...skillData.passiveSkills,...skillData.partnerSkills].map(entity=>entity.id));
 assert.ok(!Object.values(indexableGroups).flat().some(url=>rawSeoIds.has(decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).at(-1)||""))),"Sitemaps must not expose raw game-object IDs");
-assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73287,"typed SEO groups must enumerate every implemented localized URL");
+assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73304,"typed SEO groups must enumerate every implemented localized URL");
 assert.deepEqual(Object.fromEntries(Object.entries(prerenderSelection).map(([key,value])=>[key,value.length])),{pals:299,items:75,activeSkills:40,passiveSkills:30,partnerSkills:30,npcs:164,dungeons:28,technologies:20,structures:5,conditions:7,expeditions:18,quests:5},"hybrid prerender selection must retain its deterministic family limits");
-assert.equal(prerenderEntries.length,12784,"collection and priority detail prerenders must remain inside the deployment budget");
+assert.equal(prerenderEntries.length,12801,"collection and priority detail prerenders must remain inside the deployment budget");
 const koreanHomeEntry=prerenderEntries.find(entry=>entry.locale==="ko-KR"&&entry.kind==="collection"&&entry.route===""),koreanHomeModel=renderRouteModel(koreanHomeEntry,seoData,prerenderSelection),koreanHomeHtml=renderHtmlDocument(indexHtml,koreanHomeEntry,koreanHomeModel);
 assert.match(koreanHomeHtml,/필요한 정보를 빠르게 찾고, 다시 팰월드로\./,"Home initial HTML must contain the localized redesigned hero");
 assert.equal((koreanHomeHtml.match(/data-home-action=/g)||[]).length,6,"Home initial HTML must contain all six task shortcuts");
@@ -1097,6 +1142,7 @@ assert.match(expeditionsPageSource,/export function renderExpeditionsPage.*expor
 assert.match(questsPageSource,/export function renderQuestsPage.*export function bindQuestsPage/s,"the quest module must expose route rendering and filter binding");
 const calculatorRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:{pals:[{i:0,id:"TestPal",dex:1,variant:false,names:{"en-US":"Test Pal"},nocturnal:false,work:{Kindling:1},image:true}],workSuitabilities:[{id:"Kindling",names:{"en-US":"Kindling"},icon:"/kindling.svg"}],pairs:[[0,0,0,"WILDCARD","WILDCARD"]]},itemData:{items:[{id:"TestItem",names:{"en-US":"Test Item"},image:true}],recipes:[{id:"TestRecipe",productId:"TestItem",output:1,workAmount:1,ingredients:[]}]},href:path=>`/en-US${path}`,escape:value=>value,setMeta:()=>{},hero:title=>`<header><h1>${title}</h1></header>`};
 assert.match(renderCalculatorPage("breeding",calculatorRenderContext),/id="parent-a"[\s\S]*id="target-pal"/,"the lazy calculator renderer must produce the breeding workflow");
+assert.match(renderCalculatorPage("breeding-path",calculatorRenderContext),/id="breeding-path-form"[\s\S]*data-path-weight="generations"[\s\S]*id="path-cancel"[\s\S]*id="breeding-path-output"/,"the lazy calculator renderer must expose owned Pal selection, inspectable weights, cancellation, and a live path result");
 assert.match(renderCalculatorPage("crafting",calculatorRenderContext),/id="craft-targets"[\s\S]*id="craft-output"/,"the lazy calculator renderer must produce the crafting workflow");
 assert.match(renderCalculatorPage("base",calculatorRenderContext),/id="base-planner-form"[\s\S]*id="base-plan-output"/,"the lazy calculator renderer must produce the base workflow");
 const palToolContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:palData,skillData,mapData:{bosses:[],habitats:[]},condensingData,location:{search:"",pathname:"/en-US/calculators/pal-compare"},href:path=>`/en-US${path}`,escape:value=>value,palSlug:pal=>`pal-${pal.dex}${pal.variant?"b":""}`,setMeta:()=>{},hero:title=>`<header><h1>${title}</h1></header>`};

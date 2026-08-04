@@ -34,10 +34,11 @@ import {bindShellInteractions,preservedLocaleSearch} from "./app/shell-controlle
 import {createLazyModule} from "./app/lazy-module";
 import {guideNavLabel} from "./guide-nav-i18n";
 import {palToolsCopy} from "./pal-tools-i18n";
+import {breedingPathCopy} from "./breeding-path-i18n";
 import type {CondensingData,PalToolKind} from "./pages/pal-tools";
 
 type Work=Record<string,number>;
-type CalculatorKind="breeding"|"crafting"|"base";
+type CalculatorKind="breeding"|"breeding-path"|"crafting"|"base";
 const knownCollectionRoutes=new Set([...collectionRoutes,...previewRoutes].map(path=>path?`/${path}`:"/"));
 type Pal={i:number;id:string;dex:number;variant:boolean;names:Record<Locale,string>;descriptions:Record<Locale,string>;shortDescriptions:Record<Locale,string>;power:number;rarity:number;size:string;nocturnal:boolean;hp:number;attack:number;defense:number;work:Work;elementSlugs:string[];guaranteedPassiveIds:string[];image?:boolean};
 type WorkSuitability={id:string;names:Record<Locale,string>;icon:string};
@@ -131,7 +132,7 @@ const palsPageModule=createLazyModule(()=>import("./pages/pals"),()=>render());
 const skillsPageModule=createLazyModule(()=>import("./pages/skills"),()=>render());
 const guidesPageModule=createLazyModule(()=>import("./pages/guides"),()=>render());
 const palToolsPageModule=createLazyModule(()=>import("./pages/pal-tools"),()=>render());
-function calculatorKindForRoute(value=route()):CalculatorKind|null{return value==="/calculators"||value==="/calculators/breeding"?"breeding":value==="/calculators/crafting"?"crafting":value==="/calculators/base"?"base":null}
+function calculatorKindForRoute(value=route()):CalculatorKind|null{return value==="/calculators"||value==="/calculators/breeding"?"breeding":value==="/calculators/breeding-path"?"breeding-path":value==="/calculators/crafting"?"crafting":value==="/calculators/base"?"base":null}
 function palToolKindForRoute(value=route()):PalToolKind|null{return value==="/calculators/pal-compare"?"compare":value==="/calculators/team-builder"?"team":value==="/calculators/condensing"?"condensing":null}
 function isTechnologyRoute(value=route()){return value==="/database/technology"||value.startsWith("/database/technology/")}
 function isStructureRoute(value=route()){return value==="/database/structures"||value.startsWith("/database/structures/")}
@@ -196,7 +197,7 @@ function routeSpecificMeta(title:string,description:string){
 }
 function routeStructuredData(title:string,description:string,canonical:string){
   const current=route(),isCollection=knownCollectionRoutes.has(current),links=homeCopy[locale].linkLabels,details:[RegExp,string,string][]=[[/^\/pals\/[^/]+$/,"/pals",m.palDex],[/^\/items\/[^/]+$/,"/database",m.itemDatabase],[/^\/skills\/active\/[^/]+$/,"/skills/active",skillLabels[locale].active],[/^\/skills\/passive\/[^/]+$/,"/skills/passive",skillLabels[locale].passive],[/^\/skills\/partner\/[^/]+$/,"/skills/partner",partnerLabel[locale]],[/^\/database\/npcs\/[^/]+$/,"/database/npcs",links.npcs],[/^\/database\/dungeons\/[^/]+$/,"/database/dungeons",links.dungeons],[/^\/database\/technology\/[^/]+$/,"/database/technology",links.technology],[/^\/database\/structures\/[^/]+$/,"/database/structures",links.structures],[/^\/database\/expeditions\/[^/]+$/,"/database/expeditions",links.expeditions],[/^\/database\/quests\/[^/]+$/,"/database/quests",links.quests],[/^\/database\/health\/conditions\/[^/]+$/,"/database/health",links.health],[/^\/guides\/[^/]+$/,"/guides",guideNavLabel[locale]]],detail=details.find(([pattern])=>pattern.test(current));
-  const type=current==="/"?"WebSite":["/map","/calculators","/calculators/breeding","/calculators/crafting","/calculators/base","/calculators/pal-compare","/calculators/team-builder","/calculators/condensing","/server-tools/settings-generator"].includes(current)?"WebApplication":current.startsWith("/guides/")?"Article":isCollection?"CollectionPage":detail?"WebPage":null;
+  const type=current==="/"?"WebSite":["/map","/calculators","/calculators/breeding","/calculators/breeding-path","/calculators/crafting","/calculators/base","/calculators/pal-compare","/calculators/team-builder","/calculators/condensing","/server-tools/settings-generator"].includes(current)?"WebApplication":current.startsWith("/guides/")?"Article":isCollection?"CollectionPage":detail?"WebPage":null;
   if(!type)return null;
   const page:Record<string,unknown>={"@type":type,name:title,url:canonical,description,inLanguage:locale};if(type==="WebApplication"){page.applicationCategory="GameApplication";page.operatingSystem="Any"}if(type==="WebSite")return {"@context":"https://schema.org",...page};
   const graph:Record<string,unknown>[]=[page];if(detail)graph.push({"@type":"BreadcrumbList",itemListElement:[{"@type":"ListItem",position:1,name:m.home,item:`${site.origin}${href("/")}`},{"@type":"ListItem",position:2,name:detail[2],item:`${site.origin}${href(detail[1])}`},{"@type":"ListItem",position:3,name:title,item:canonical}]});return {"@context":"https://schema.org","@graph":graph};
@@ -205,7 +206,7 @@ const themeModeLabels:Record<Locale,[string,string,string]>={
   "en-US":["System","Light","Dark"],"ko-KR":["시스템","밝게","어둡게"],"ja-JP":["システム","ライト","ダーク"],"zh-CN":["跟随系统","浅色","深色"],"zh-TW":["跟隨系統","淺色","深色"],"de-DE":["System","Hell","Dunkel"],"fr-FR":["Système","Clair","Sombre"],"it-IT":["Sistema","Chiaro","Scuro"],"es-ES":["Sistema","Claro","Oscuro"],"es-419":["Sistema","Claro","Oscuro"],"pt-BR":["Sistema","Claro","Escuro"],"ru-RU":["Система","Светлая","Тёмная"],"id-ID":["Sistem","Terang","Gelap"],"th-TH":["ระบบ","สว่าง","มืด"],"tr-TR":["Sistem","Açık","Koyu"],"vi-VN":["Hệ thống","Sáng","Tối"],"pl-PL":["System","Jasny","Ciemny"]
 };
 const globalSearchLabels:Record<Locale,string>={"en-US":"Search all game data","ko-KR":"전체 게임 정보 검색","ja-JP":"ゲーム情報を検索","zh-CN":"搜索全部游戏数据","zh-TW":"搜尋全部遊戲資料","de-DE":"Alle Spieldaten suchen","fr-FR":"Rechercher toutes les données","it-IT":"Cerca in tutti i dati","es-ES":"Buscar en todos los datos","es-419":"Buscar en todos los datos","pt-BR":"Buscar em todos os dados","ru-RU":"Поиск по игровым данным","id-ID":"Cari semua data game","th-TH":"ค้นหาข้อมูลเกมทั้งหมด","tr-TR":"Tüm oyun verilerinde ara","vi-VN":"Tìm kiếm toàn bộ dữ liệu","pl-PL":"Przeszukaj wszystkie dane"};
-function shellLabel(item:{readonly id:string}){const id=item.id,skills=skillLabels[locale],links=homeCopy[locale].linkLabels,tools=palToolsCopy[locale];return id==="map"?m.map:id==="pals"?m.pals:id==="skills"?skills.title:id==="skills-active"?skills.active:id==="skills-passive"?skills.passive:id==="skills-partner"?partnerLabel[locale]:id==="calculators"?m.calculators:id==="calculators-breeding"?m.breeding:id==="calculators-crafting"?m.crafting:id==="calculators-base"?links["base-planner"]:id==="calculators-pal-compare"?tools.compareTitle:id==="calculators-team-builder"?tools.teamTitle:id==="calculators-condensing"?tools.condensingTitle:id==="database"?m.database:id==="database-items"?links.items:id==="database-quests"?links.quests:id==="database-structures"?links.structures:id==="database-expeditions"?links.expeditions:id==="database-elements"?links.elements:id==="database-technology"?links.technology:id==="database-health"?links.health:id==="database-npcs"?links.npcs:id==="database-dungeons"?links.dungeons:id==="guides"?guideNavLabel[locale]:m.server}
+function shellLabel(item:{readonly id:string}){const id=item.id,skills=skillLabels[locale],links=homeCopy[locale].linkLabels,tools=palToolsCopy[locale];return id==="map"?m.map:id==="pals"?m.pals:id==="skills"?skills.title:id==="skills-active"?skills.active:id==="skills-passive"?skills.passive:id==="skills-partner"?partnerLabel[locale]:id==="calculators"?m.calculators:id==="calculators-breeding"?m.breeding:id==="calculators-breeding-path"?breedingPathCopy[locale].title:id==="calculators-crafting"?m.crafting:id==="calculators-base"?links["base-planner"]:id==="calculators-pal-compare"?tools.compareTitle:id==="calculators-team-builder"?tools.teamTitle:id==="calculators-condensing"?tools.condensingTitle:id==="database"?m.database:id==="database-items"?links.items:id==="database-quests"?links.quests:id==="database-structures"?links.structures:id==="database-expeditions"?links.expeditions:id==="database-elements"?links.elements:id==="database-technology"?links.technology:id==="database-health"?links.health:id==="database-npcs"?links.npcs:id==="database-dungeons"?links.dungeons:id==="guides"?guideNavLabel[locale]:m.server}
 function shellMarkup(){return renderApplicationShell({siteName:site.name,locale,locales,localeLabels,currentRoute:route(),navigation:shellNavigation,mobilePrimaryIds:mobilePrimaryNavigationIds,currentTheme:readThemePreference(localStorage),themeLabels:themeModeLabels[locale],copy:{primaryNavigation:shellCopy[locale].primaryNavigation,more:shellCopy[locale].more,language:m.language,theme:m.theme,search:m.search,remove:m.remove,globalSearch:globalSearchLabels[locale]},href,label:shellLabel,renderIcon:icon})}
 function footer(){return renderFooter(locale,m.footer)}
 function hero(title:string,..._descriptions:string[]){return `<section class="page-hero"><p class="eyebrow">${m.verified}</p><h1>${title}</h1></section>`}
@@ -317,7 +318,7 @@ function ensureRouteData(){
   if(isQuest)ensureQuestData();
   if(isElements||isExpedition||current==="/pals"||current.startsWith("/pals/"))ensureElementData();
   if(["/map","/database","/calculators/crafting"].includes(current)||current.startsWith("/items/")||current.startsWith("/pals/")||isSkills||isNpc&&current!=="/database/npcs"||isDungeon||isStructure||isExpedition||isQuest||isHealth)ensureItemData();
-  if(["/map","/pals","/calculators","/calculators/breeding","/calculators/base"].includes(current)||current.startsWith("/pals/")||current.startsWith("/items/")||isSkills||isNpc&&current!=="/database/npcs"||isDungeon||isElements)ensurePalData();
+  if(["/map","/pals","/calculators","/calculators/breeding","/calculators/breeding-path","/calculators/base"].includes(current)||current.startsWith("/pals/")||current.startsWith("/items/")||isSkills||isNpc&&current!=="/database/npcs"||isDungeon||isElements)ensurePalData();
   if(current==="/map")ensureMapData();
   if(isSkills||current.startsWith("/pals/")||isElements)ensureSkillData();
   if(current==="/map"||current.startsWith("/pals/")||current.startsWith("/items/")||isDungeon)ensureDungeonData();
@@ -344,7 +345,7 @@ function routeDataReady(){
   if(isQuest)return Boolean((questData||questLoadError)&&itemData);
   if(isHealth)return Boolean(healthData||healthLoadError);
   if(current==="/skills"||current.startsWith("/skills/"))return Boolean(skillData&&itemData&&data);
-  if(current==="/calculators"||current==="/calculators/breeding"||current==="/calculators/base")return Boolean(data);
+  if(current==="/calculators"||current==="/calculators/breeding"||current==="/calculators/breeding-path"||current==="/calculators/base")return Boolean(data);
   if(current==="/calculators/crafting")return Boolean(itemData);
   if(current==="/calculators/pal-compare"||current==="/calculators/team-builder")return Boolean(data&&skillData&&mapData);
   if(current==="/calculators/condensing")return Boolean(condensingData);
