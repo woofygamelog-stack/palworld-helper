@@ -19,7 +19,7 @@ using SkiaSharp;
 
 if (args.Length < 3 || args.Length > 4)
 {
-    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element|expedition|health|quest]");
+    Console.Error.WriteLine("Usage: GameDataExtractor <Paks directory> <Mappings.usmap> <output directory> [full|npc|dungeon|technology|structure|element|expedition|health|quest|calculator]");
     return 2;
 }
 
@@ -27,7 +27,7 @@ var paks = Path.GetFullPath(args[0]);
 var mappings = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
 var mode = args.Length == 4 ? args[3] : "full";
-if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element" or "expedition" or "health" or "quest")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
+if (mode is not ("full" or "npc" or "dungeon" or "technology" or "structure" or "element" or "expedition" or "health" or "quest" or "calculator")) throw new ArgumentException($"Unsupported extraction mode: {mode}");
 if (!Directory.Exists(paks) || !File.Exists(mappings)) throw new FileNotFoundException("Required local game input was not found.");
 Directory.CreateDirectory(output);
 
@@ -360,6 +360,38 @@ object DumpMappingDefinitions(IEnumerable<string> typeNames)
     return new { requestedTypeCount = requestedNames.Count, extractedTypeCount = definitions.Length, missingTypeCount = missing.Length, definitions, missing };
 }
 
+object FindCalculatorMappingDefinitions(IEnumerable<string> keywords)
+{
+    var requestedKeywords = keywords.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+    var mappingsForGame = provider.MappingsContainer?.MappingsForGame
+        ?? throw new InvalidDataException("Game type mappings were not loaded.");
+    var matchingTypes = mappingsForGame.Types.Values
+        .Where(value => requestedKeywords.Any(keyword => value.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+            || value.Properties.Values.Any(property => property.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase))))
+        .OrderBy(value => value.Name, StringComparer.Ordinal)
+        .Select(value => new
+        {
+            name = value.Name,
+            superType = value.SuperType,
+            propertyCount = value.PropertyCount,
+            matchedKeywords = requestedKeywords.Where(keyword => value.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                || value.Properties.Values.Any(property => property.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase))).ToArray(),
+            properties = value.Properties.Values
+                .OrderBy(property => property.Index)
+                .ThenBy(property => property.Name, StringComparer.Ordinal)
+                .Select(property => new
+                {
+                    property.Name,
+                    property.Index,
+                    property.ArraySize,
+                    mappingType = property.MappingType.ToString()
+                })
+                .ToArray()
+        })
+        .ToArray();
+    return new { requestedKeywords, matchingTypeCount = matchingTypes.Length, types = matchingTypes };
+}
+
 object DumpWorkerEventClassDefaults()
 {
     const string workerEventPrefix = "Pal/Content/Pal/Blueprint/BaseCamp/WorkerEvents/BP_PalBaseCampWorkerEvent_";
@@ -389,6 +421,81 @@ object DumpWorkerEventClassDefaults()
         }
     }
     return new { requestedClassCount = classPaths.Length, extractedClassCount = classes.Count, failedClassCount = errors.Count, classes, errors };
+}
+
+if (mode == "calculator")
+{
+    var assetKeywords = new[]
+    {
+        "Breed", "Combi", "Egg", "Capture", "PalSphere", "Talent", "Individual", "Rankup", "Soul",
+        "WorkSpeed", "WorkSuitability", "WorkAmount", "Product", "Craft", "StatusCalculator", "CharacterParameter", "GameSetting"
+    };
+    var calculatorAssets = provider.Files.Keys
+        .Where(path => path.StartsWith("Pal/Content/Pal/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.Contains("/Blueprint/", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("/DataAsset/", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("/Curve/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => assetKeywords.Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        .Where(path => !path.Contains("/WorldMapUIData/", StringComparison.OrdinalIgnoreCase))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var candidateTableAssets = calculatorAssets
+        .Where(path => path.Contains("/DataTable/", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+    var runtimeAssetNames = new[]
+    {
+        "BP_PalGameSetting.uasset", "BP_PalDatabaseCharacterParameter.uasset", "BP_PalCharacterParameterStorageSubsystem.uasset",
+        "BP_PalCaptureBodyBase.uasset", "BP_PalCaptureJudgeObject.uasset", "BP_ThrowCaptureObjectBase.uasset",
+        "BP_PalSphere_ThrowObject.uasset", "BP_BuildObject_BreedFarm.uasset", "BP_PalWorkProgressManager.uasset",
+        "BP_ActionWork.uasset", "BP_ActionCommonWork.uasset", "BP_BuildObject_WorkBench.uasset", "BP_SkillEffect_GeneralWork.uasset"
+    };
+    var runtimeBlueprintAssets = calculatorAssets
+        .Where(path => path.Contains("/Blueprint/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => !path.Contains("/UI/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => runtimeAssetNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var mappingKeywords = new[]
+    {
+        "Breed", "Combi", "Capture", "Sphere", "Talent", "Individual", "Rankup", "Soul", "WorkSpeed",
+        "WorkSuitability", "WorkAmount", "Craft", "Product", "HP", "Attack", "Defense", "Level"
+    };
+    Write("calculator-assets.raw.json", calculatorAssets);
+    Write("calculator-tables.raw.json", DumpCandidateDataTables(candidateTableAssets));
+    Write("calculator-runtime-blueprint-assets.raw.json", runtimeBlueprintAssets);
+    Write("calculator-mapping-definitions.raw.json", FindCalculatorMappingDefinitions(mappingKeywords));
+    var runtimeBlueprintPackages = JObject.FromObject(DumpPackageExports(runtimeBlueprintAssets));
+    Write("calculator-runtime-blueprint-exports.raw.json", runtimeBlueprintPackages);
+    Write("pal-parameters.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalMonsterParameter"));
+    Write("pal-blueprint-classes.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalBPClass"));
+    Write("items.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable"));
+    Write("recipes.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemRecipeDataTable"));
+
+    var pakFiles = Directory.EnumerateFiles(paks, "*", SearchOption.TopDirectoryOnly)
+        .Select(path => new FileInfo(path))
+        .OrderBy(file => file.Name)
+        .Select(file => new { file.Name, file.Length, file.LastWriteTimeUtc })
+        .ToArray();
+    var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
+    Write("calculator-manifest.json", new
+    {
+        schema = 1,
+        mode,
+        extractedAt = DateTimeOffset.UtcNow,
+        mappingHash,
+        pakFiles,
+        candidateAssetCount = calculatorAssets.Length,
+        candidateTableCount = candidateTableAssets.Length,
+        runtimeBlueprintCandidateCount = runtimeBlueprintAssets.Length,
+        runtimeBlueprintExtractedCount = runtimeBlueprintPackages["extractedCount"]?.Value<int>() ?? 0,
+        runtimeBlueprintFailureCount = runtimeBlueprintPackages["failedCount"]?.Value<int>() ?? 0
+    });
+    Console.WriteLine($"Extracted {candidateTableAssets.Length} calculator table candidates, {runtimeBlueprintAssets.Length} runtime Blueprint candidates, mapping definitions, and core Pal/item/recipe inputs to {output}");
+    return 0;
 }
 
 if (mode == "quest")

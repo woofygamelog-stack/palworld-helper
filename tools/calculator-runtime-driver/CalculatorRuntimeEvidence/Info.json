@@ -1,0 +1,9 @@
+{
+  "name": "CalculatorRuntimeEvidence",
+  "version": "1.0.0",
+  "description": "Build-scoped isolated calculator observations",
+  "authors": ["Woofy"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": []
+}

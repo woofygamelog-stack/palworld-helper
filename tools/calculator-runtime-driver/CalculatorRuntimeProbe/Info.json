@@ -1,0 +1,9 @@
+{
+  "name": "CalculatorRuntimeProbe",
+  "version": "1.0.0",
+  "description": "Build-scoped isolated calculator function inventory",
+  "authors": ["Woofy"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": []
+}
