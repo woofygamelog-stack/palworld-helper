@@ -1,0 +1,54 @@
+import type {Locale} from "../config";
+import {guideCopy,guideDefinitions,findGuide,guideRoute} from "../guide-content.ts";
+import {messages} from "../i18n.ts";
+import {plannerCopy} from "../planner-i18n.ts";
+import {skillLabels} from "../skill-i18n.ts";
+import {questCopy} from "../quest-i18n.ts";
+import {technologyCopy} from "../technology-i18n.ts";
+import {structureCopy} from "../structure-i18n.ts";
+import {expeditionCopy} from "../expedition-i18n.ts";
+import {elementCopy} from "../element-i18n.ts";
+import {healthCopy} from "../health-i18n.ts";
+
+const escape=(value:string)=>value.replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]!);
+
+export type GuidePageModel={title:string;description:string;body:string;type:"CollectionPage"|"Article";parent?:{route:string;label:string}};
+
+function routeLabel(locale:Locale,route:string){
+  const m=messages(locale),planner=plannerCopy[locale];
+  if(route==="map")return m.map;
+  if(route==="pals")return m.palDex;
+  if(route==="calculators/base")return planner.baseTitle;
+  if(route==="database/quests")return questCopy[locale].title;
+  if(route==="database/technology")return technologyCopy[locale].title;
+  if(route==="database/expeditions")return expeditionCopy[locale].title;
+  if(route==="calculators/breeding")return m.breeding;
+  if(route==="skills/passive")return skillLabels[locale].passive;
+  if(route==="calculators/crafting")return m.crafting;
+  if(route==="database/structures")return structureCopy[locale].title;
+  if(route==="server-tools/settings-generator")return m.serverTitle;
+  if(route==="database/elements")return elementCopy[locale].title;
+  if(route==="database/health")return healthCopy[locale].title;
+  return skillLabels[locale].active;
+}
+
+export function guidePageModel(locale:Locale,route:string,href:(route:string)=>string):GuidePageModel|null{
+  const copy=guideCopy[locale],m=messages(locale),hero=(title:string)=>`<section class="page-hero"><p class="eyebrow">${escape(copy.eyebrow)}</p><h1>${escape(title)}</h1></section>`;
+  if(route==="guides"){
+    const cards=guideDefinitions.map(guide=>{const text=copy.guides[guide.id];return `<article class="panel guide-card"><h2><a href="${escape(href(guideRoute(guide.slug)))}" data-link>${escape(text.title)}</a></h2><p>${escape(text.description)}</p><a class="guide-card-link" href="${escape(href(guideRoute(guide.slug)))}" data-link>${escape(copy.open)} <span aria-hidden="true">→</span></a></article>`}).join("");
+    return {title:copy.hubTitle,description:copy.hubDescription,type:"CollectionPage",body:`${hero(copy.hubTitle)}<section class="section guide-hub"><p class="collection-intro">${escape(copy.hubDescription)}</p><div class="guide-grid">${cards}</div></section>`};
+  }
+  const guide=findGuide(route);
+  if(!guide)return null;
+  const text=copy.guides[guide.id],links=guide.related.map((target,index)=>`<li><a href="${escape(href(target))}" data-link><span class="guide-step-number">${(index+1).toLocaleString(locale)}</span><span><strong>${escape(routeLabel(locale,target))}</strong><small>${escape(copy.open)}</small></span><span aria-hidden="true">→</span></a></li>`).join("");
+  const breadcrumb=`<nav class="breadcrumbs" aria-label="${escape(m.home)}"><a href="${escape(href(""))}" data-link>${escape(m.home)}</a><a href="${escape(href("guides"))}" data-link>${escape(copy.hubTitle)}</a><span aria-current="page">${escape(text.title)}</span></nav>`;
+  const body=`${hero(text.title)}<article class="section guide-detail">${breadcrumb}<div class="panel guide-intro"><p>${escape(text.description)}</p></div><section class="guide-workflow"><h2>${escape(copy.workflow)}</h2><p>${escape(copy.workflowIntro)}</p><ol>${links}</ol></section><aside class="panel guide-scope"><h2>${escape(copy.scope)}</h2><p>${escape(copy.scopeText)}</p></aside><nav class="guide-related" aria-label="${escape(copy.related)}"><a href="${escape(href("guides"))}" data-link>← ${escape(copy.hubTitle)}</a></nav></article>`;
+  return {title:text.title,description:text.description,body,type:"Article",parent:{route:"guides",label:copy.hubTitle}};
+}
+
+export function renderGuidesPage({locale,route,href,setMeta}:{locale:Locale;route:string;href:(route:string)=>string;setMeta:(title:string,description:string)=>void}){
+  const model=guidePageModel(locale,route.replace(/^\//,""),href);
+  if(!model)return null;
+  setMeta(model.title,model.description);
+  return model.body;
+}

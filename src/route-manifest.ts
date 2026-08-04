@@ -11,6 +11,9 @@ export const routeFamilies = [
   {path:"calculators/breeding",mode:"hybrid",indexable:true,searchIntent:"breeding-calculator"},
   {path:"calculators/crafting",mode:"hybrid",indexable:true,searchIntent:"crafting-calculator"},
   {path:"calculators/base",mode:"hybrid",indexable:true,searchIntent:"base-team-planner"},
+  {path:"calculators/pal-compare",mode:"prerendered",indexable:true,searchIntent:"pal-comparison"},
+  {path:"calculators/team-builder",mode:"prerendered",indexable:true,searchIntent:"pal-team-coverage"},
+  {path:"calculators/condensing",mode:"prerendered",indexable:true,searchIntent:"pal-condensing-calculator"},
   {path:"database",mode:"hybrid",indexable:true,searchIntent:"item-catalog"},
   {path:"database/quests",mode:"prerendered",indexable:true,searchIntent:"quest-catalog"},
   {path:"database/structures",mode:"hybrid",indexable:true,searchIntent:"structure-catalog"},
@@ -21,6 +24,13 @@ export const routeFamilies = [
   {path:"database/npcs",mode:"hybrid",indexable:true,searchIntent:"npc-catalog"},
   {path:"database/dungeons",mode:"hybrid",indexable:true,searchIntent:"dungeon-catalog"},
   {path:"server-tools/settings-generator",mode:"hybrid",indexable:true,searchIntent:"server-settings"},
+  {path:"guides",mode:"prerendered",indexable:true,searchIntent:"palworld-guide-hub"},
+  {path:"guides/getting-started",mode:"prerendered",indexable:true,searchIntent:"palworld-getting-started-guide"},
+  {path:"guides/returning-player",mode:"prerendered",indexable:true,searchIntent:"palworld-returning-player-guide"},
+  {path:"guides/breeding",mode:"prerendered",indexable:true,searchIntent:"palworld-breeding-guide"},
+  {path:"guides/base",mode:"prerendered",indexable:true,searchIntent:"palworld-base-guide"},
+  {path:"guides/server",mode:"prerendered",indexable:true,searchIntent:"palworld-server-guide"},
+  {path:"guides/combat",mode:"prerendered",indexable:true,searchIntent:"palworld-combat-guide"},
 ] as const satisfies readonly {path:string;mode:RenderMode;indexable:boolean;searchIntent:string}[];
 
 export const collectionRoutes = routeFamilies.filter(route=>route.indexable).map(route=>route.path);
@@ -44,6 +54,9 @@ export const shellNavigation = [
     {id:"calculators-breeding",path:"calculators/breeding",active:[{path:"calculators/breeding"}]},
     {id:"calculators-crafting",path:"calculators/crafting",active:[{path:"calculators/crafting"}]},
     {id:"calculators-base",path:"calculators/base",active:[{path:"calculators/base"}]},
+    {id:"calculators-pal-compare",path:"calculators/pal-compare",active:[{path:"calculators/pal-compare"}]},
+    {id:"calculators-team-builder",path:"calculators/team-builder",active:[{path:"calculators/team-builder"}]},
+    {id:"calculators-condensing",path:"calculators/condensing",active:[{path:"calculators/condensing"}]},
   ]},
   {id:"database",path:"database",icon:"database",active:[{path:"database"},{path:"items"}],children:[
     {id:"database-items",path:"database",active:[{path:"database",exact:true},{path:"items"}]},
@@ -57,6 +70,7 @@ export const shellNavigation = [
     {id:"database-dungeons",path:"database/dungeons",active:[{path:"database/dungeons"}]},
   ]},
   {id:"server",path:"server-tools/settings-generator",icon:"server",active:[{path:"server-tools/settings-generator"}]},
+  {id:"guides",path:"guides",icon:"database",active:[{path:"guides"}]},
 ] as const satisfies readonly ShellNavigationItem[];
 
 export const mobilePrimaryNavigationIds=["map","pals","calculators"] as const;

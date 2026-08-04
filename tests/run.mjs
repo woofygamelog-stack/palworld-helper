@@ -4,7 +4,8 @@ import { access, readFile } from "node:fs/promises";
 import { findBreedingResult, findParentPairs } from "../src/breeding.ts";
 import { messages, messageCatalogs, translationProvenance } from "../src/i18n.ts";
 import { browserLocale,locales,localizePath,resolveLocale } from "../src/config.ts";
-import { buildServerIni, expandRecipe, parseServerIni } from "../src/data.ts";
+import { expandRecipe } from "../src/data.ts";
+import {buildServerIni,officialServerSettings,parseServerIni,serverDefaultValues,serverSettingsDiff,serverSettingsInventory,supportedServerSettings,validateServerSettings} from "../src/server-settings.ts";
 import { createAnalyticsTracker, installGtagQueue } from "../src/analytics.ts";
 import {googleConsentModePurposeStatus,googleConsentRegions,installRegionalConsentMode,mayLoadAds,openGooglePrivacyChoices,queueAnalyticsInitialization,queueGoogleConsentModeReady,resolveIntegrationState} from "../src/integrations.ts";
 import {manualAdSlotSelector,requestManualAd} from "../src/integration-runtime.ts";
@@ -48,8 +49,16 @@ import {renderQuestsPage} from "../src/pages/quests.ts";
 import {renderHealthPage} from "../src/pages/health.ts";
 import {renderNpcPage} from "../src/pages/npc.ts";
 import {renderDungeonsPage} from "../src/pages/dungeons.ts";
+import {renderItemsPage} from "../src/pages/items.ts";
+import {renderPalsPage} from "../src/pages/pals.ts";
+import {renderSkillsPage} from "../src/pages/skills.ts";
+import {guideCopy,guideDefinitions,guideRoute} from "../src/guide-content.ts";
+import {guidePageModel,renderGuidesPage} from "../src/pages/guides.ts";
+import {condensingPlan,differentComparisonRows,normalizePalSelection,teamCoverage} from "../src/pal-tools.ts";
+import {renderPalToolPage} from "../src/pages/pal-tools.ts";
 
 const data = await readFile("src/data.ts", "utf8");
+const serverSettingsSource = await readFile("src/server-settings.ts", "utf8");
 const main = await readFile("src/main.ts", "utf8");
 const globalSearchSource = await readFile("src/features/global-search.ts", "utf8");
 const calculatorsSource = await readFile("src/pages/calculators.ts", "utf8");
@@ -62,6 +71,9 @@ const questsPageSource = await readFile("src/pages/quests.ts", "utf8");
 const healthPageSource = await readFile("src/pages/health.ts", "utf8");
 const npcPageSource = await readFile("src/pages/npc.ts", "utf8");
 const dungeonsPageSource = await readFile("src/pages/dungeons.ts", "utf8");
+const itemsPageSource = await readFile("src/pages/items.ts", "utf8");
+const palsPageSource = await readFile("src/pages/pals.ts", "utf8");
+const skillsPageSource = await readFile("src/pages/skills.ts", "utf8");
 const integrationRuntimeSource = await readFile("src/integration-runtime.ts", "utf8");
 const productionIntegrationAuditSource = await readFile("scripts/check-production-integrations.mjs", "utf8");
 const planning = await readFile("src/planning.ts", "utf8");
@@ -99,6 +111,19 @@ const healthData = JSON.parse(await readFile("public/data/health.json", "utf8"))
 const elementData = JSON.parse(await readFile("public/data/elements.json", "utf8"));
 const expeditionData = JSON.parse(await readFile("public/data/expeditions.json", "utf8"));
 const questData = JSON.parse(await readFile("public/data/quests.json", "utf8"));
+const condensingData = JSON.parse(await readFile("public/data/condensing.json", "utf8"));
+assert.deepEqual(normalizePalSelection(["one","missing","one","two","three"],new Map([["one","PalA"],["two","PalB"],["three","PalC"]]),2),["PalA","PalB"],"Pal tool URL selections must ignore unknown and duplicate slugs and respect the route limit");
+assert.deepEqual(differentComparisonRows([{key:"same",values:["1","1"]},{key:"different",values:["1","2"]}],true).map(row=>row.key),["different"],"difference-only comparison must preserve only differing verified rows");
+const coverage=teamCoverage([{id:"A",elementSlugs:["fire"],work:{kindling:2},partnerSkillId:"shared"},{id:"B",elementSlugs:["fire","grass"],work:{kindling:3,planting:1},partnerSkillId:"shared"}]);
+assert.deepEqual(coverage.elements,["fire","grass"],"team coverage must report deterministic element coverage");
+assert.equal(coverage.workMaximums.kindling,3,"team coverage must retain the best verified work suitability in the selected team");
+assert.deepEqual(coverage.duplicateElements,["fire"],"team coverage must report overlapping elements without inventing a score");
+assert.deepEqual(coverage.duplicatePartnerSkills,["shared"],"team coverage must report duplicate partner skills");
+assert.equal(condensingData.meta.gameBuild,palData.meta.gameBuild,"condensing data must match the current Pal dataset build");
+assert.deepEqual(condensingData.stages.map(stage=>stage.required),[2,4,8,16],"condensing stage requirements must retain the verified progression table");
+assert.deepEqual(condensingPlan(condensingData.stages,0,1,0),{incremental:2,cumulative:2,owned:0,remaining:2},"the first condensation stage must require two matching Pals");
+assert.deepEqual(condensingPlan(condensingData.stages,1,4,10),{incremental:28,cumulative:30,owned:10,remaining:18},"condensing must sum only selected stages and subtract owned matching Pals once");
+assert.throws(()=>condensingPlan(condensingData.stages,2,2,0),/Invalid condensing range/,"invalid condensation ranges must fail closed");
 const questImporter = await readFile("scripts/import-quest-data.mjs", "utf8");
 const questStyles = await readFile("src/quests.css", "utf8");
 const healthImporter = await readFile("scripts/import-health-data.mjs", "utf8");
@@ -114,6 +139,8 @@ const elementRuntimeValidation = await readFile("scripts/element-damage-runtime-
 const elementRunner = await readFile("scripts/run-element-damage-verification.ps1", "utf8");
 const e2eSmoke = await readFile("tests/e2e-smoke.mjs", "utf8");
 const coverageReporter = await readFile("scripts/report-coverage.mjs", "utf8");
+const blockedCalculatorAudit = await readFile("scripts/audit-blocked-calculators.mjs", "utf8");
+const updateRehearsal = await readFile("scripts/rehearse-update-diff.mjs", "utf8");
 
 const pageMetadata=buildPageMetadata({locale:"ko-KR",locales:["en-US","ko-KR"],defaultLocale:"en-US",route:"/pals/lamball",siteName:"Palworld Helper",origin:"https://palworld-helper.woofy.blog",resolved:{title:"램볼",description:"  검증된   팰 정보  "},localizePath:(locale,path)=>`/${locale}${path}`,hreflang:locale=>locale==="en-US"?"en":locale,structuredData:{"@type":"WebPage"}});
 const searchFixture={pals:[{id:"SheepBall",dex:1,variant:false,names:{"en-US":"Lamball","ko-KR":"도로롱"},work:{handiwork:1},image:true}],items:[{id:"BerrySeeds",names:{"en-US":"Berry Seeds","ko-KR":"열매 씨앗"},descriptions:{"en-US":"Seeds for planting","ko-KR":"파종용 씨앗"},type:"Material",subtype:"Seed",image:true}],activeSkills:[{id:"AirCannon",elementId:"Neutral",names:{"en-US":"Air Cannon","ko-KR":"공기 대포"}}],passiveSkills:[{id:"Artisan",names:{"en-US":"Artisan","ko-KR":"장인 기질"},descriptions:{"en-US":"Work speed increases","ko-KR":"작업 속도 증가"}}],partnerSkills:[{id:"FluffyShield",palId:"SheepBall",names:{"en-US":"Fluffy Shield","ko-KR":"복슬복슬 방패"},palDescriptions:{"en-US":"Uses Lamball as a shield","ko-KR":"도로롱을 방패로 사용"}}]};
@@ -122,6 +149,7 @@ assert.deepEqual(search("Lamball").map(result=>result.path),["/pals/SheepBall","
 assert.deepEqual(search("handiwork").map(result=>result.path),["/pals/SheepBall"],"global search must include positive work-suitability identifiers");
 assert.deepEqual(search("파종용").map(result=>result.path),["/items/BerrySeeds"],"global search must include localized item descriptions");
 assert.deepEqual(search("Neutral").map(result=>result.path),["/skills/active/AirCannon"],"global search must include active-skill element identifiers");
+assert.deepEqual(search("백업").map(result=>result.path),["/guides/server"],"global search must include localized guide workflows");
 assert.deepEqual(search("작업 속도").map(result=>result.path),["/skills/passive/Artisan"],"global search must include localized passive-skill descriptions");
 assert.deepEqual(search("   "),[],"global search must return no results for a blank query");
 let lazyLoadCount=0,lazyReadyCount=0;
@@ -138,6 +166,8 @@ let serverMeta;
 const serverMarkup=renderServerSettingsPage({locale:"en-US",messages:messages("en-US"),copy:uiCopy["en-US"],setMeta:(title,description)=>{serverMeta={title,description}},hero:title=>`<header><h1>${title}</h1></header>`,escape:value=>value});
 assert.deepEqual(serverMeta,{title:"Server settings assistant",description:uiCopy["en-US"].serverNotice},"the server route module must set localized metadata");
 assert.match(serverMarkup,/id="server-form"[\s\S]*id="ini-import"[\s\S]*id="ini-output"/,"the server route module must render form, import, and output workflows together");
+assert.equal((serverMarkup.match(/data-server-key/g)||[]).length,93,"the server route module must render every supported documented setting from the shared schema");
+assert.match(serverMarkup,/data-server-mode="basic"[\s\S]*data-server-mode="advanced"[\s\S]*id="server-diff"[\s\S]*id="download-ini"/,"the server route module must render basic and advanced modes, default diff, and download workflows");
 assert.equal(pageMetadata.documentTitle,"램볼 · Palworld Helper","page context must build the localized document title");
 assert.equal(pageMetadata.description,"검증된 팰 정보 · 램볼","page context must normalize the localized SEO summary");
 assert.equal(pageMetadata.canonical,"https://palworld-helper.woofy.blog/ko-KR/pals/lamball","page context must build the localized canonical URL");
@@ -163,27 +193,86 @@ const koreanHomeMarkup=renderHomeMarkup({copy:homeCopy["ko-KR"],href:route=>`/ko
 assert.equal((koreanHomeMarkup.match(/<h1(?:\s[^>]*)?>/g)||[]).length,1,"Home must contain exactly one h1");
 assert.equal((koreanHomeMarkup.match(/data-home-action=/g)||[]).length,homeQuickActions.length,"Home must render every quick action once");
 assert.equal((koreanHomeMarkup.match(/data-home-group=/g)||[]).length,homeCatalogGroups.length,"Home must render every topic group once");
+assert.equal(guideDefinitions.length,6,"the launch guide catalog must contain six substantial workflow families");
+assert.equal(new Set(guideDefinitions.map(guide=>guide.slug)).size,guideDefinitions.length,"guide slugs must be unique");
+assert.ok(guideDefinitions.every(guide=>guide.related.length>=3&&guide.reviewTrigger),"every guide must connect at least three implemented routes and declare a freshness trigger");
+for(const locale of locales){
+  assert.equal(Object.keys(guideCopy[locale].guides).length,guideDefinitions.length,`${locale} guide copy must cover every guide`);
+  const hub=guidePageModel(locale,"guides",route=>`/${locale}/${route}`);
+  assert.ok(hub&&hub.type==="CollectionPage"&&(hub.body.match(/class="panel guide-card"/g)||[]).length===guideDefinitions.length,`${locale} guide hub must render every guide`);
+  for(const guide of guideDefinitions){
+    const model=guidePageModel(locale,guideRoute(guide.slug),route=>`/${locale}/${route}`);
+    assert.ok(model&&model.type==="Article"&&(model.body.match(/class="guide-step-number"/g)||[]).length===guide.related.length,`${locale} ${guide.id} must render its workflow`);
+    assert.equal((model.body.match(/<h1>/g)||[]).length,1,`${locale} ${guide.id} must keep one h1`);
+  }
+}
+let guideMeta=null;
+const koreanGuideMarkup=renderGuidesPage({locale:"ko-KR",route:"/guides/server",href:route=>`/ko-KR/${route}`,setMeta:(title,description)=>{guideMeta={title,description}}});
+assert.ok(koreanGuideMarkup?.includes("server-tools/settings-generator")&&guideMeta?.title,"the server guide must link to the settings workflow and set metadata");
 assert.doesNotMatch(koreanHomeMarkup,/class="home-trust"|확인된 범위를 명확하게/,"Home must omit the removed trust section");
 assert.match(koreanHomeMarkup,/data-open-search.*aria-controls="global-search-dialog"/s,"Home search launcher must reuse the global search dialog");
 assert.doesNotMatch(koreanHomeMarkup,/(?:24181527|24467282)|Data version|Game build|업데이트 버전/,"Home must not expose build or data-version labels");
 
-assert.match(data, /Math\.min\(32,\s*Math\.max\(1/, "server generator must clamp the official supported player range");
-assert.doesNotMatch(data, /WorkSpeedRate|bEnablePlayerToPlayerDamage|bEnableDefenseOtherGuildPlayer/, "server generator must not emit parameters absent from the current official parameter list");
-assert.match(data, /bIsPvP/, "server generator must use the current official PvP parameter");
-assert.match(data, /bIsUseBackupSaveData/, "server generator must use the current official backup parameter");
+assert.deepEqual(serverSettingsInventory,{documented:94,supported:93,deprecated:1,withDefaults:93,withDescriptions:94},"server inventory must cover every currently documented parameter and classify the deprecated key");
+assert.equal(new Set(officialServerSettings.map(setting=>setting.key)).size,94,"server schema keys must be unique");
+assert.equal(supportedServerSettings.every(setting=>setting.defaultValue!==undefined),true,"every supported server setting must retain an official default");
+assert.match(serverSettingsSource, /Math\.min\(32,\s*Math\.max\(1/, "server generator must clamp the official supported player range");
+assert.doesNotMatch(serverSettingsSource, /WorkSpeedRate|bEnablePlayerToPlayerDamage|bEnableDefenseOtherGuildPlayer/, "server generator must not emit parameters absent from the current official parameter list");
+assert.match(serverSettingsSource, /bIsPvP/, "server generator must use the current official PvP parameter");
+assert.match(serverSettingsSource, /bIsUseBackupSaveData/, "server generator must use the current official backup parameter");
 const importedServer=parseServerIni("[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerPlayerMaxNum=12,bIsPvP=True,bIsUseBackupSaveData=False,UnknownKey=1)");
 assert.match(buildServerIni({ServerPlayerMaxNum:12}),/OptionSettings=\(ServerPlayerMaxNum=12\)/,"server generator must retain official-key form records");
 assert.deepEqual(importedServer.value,{players:12,pvp:true,backup:false},"server INI importer must parse supported keys");
 assert.equal(importedServer.warnings.length,1,"server INI importer must warn about unsupported keys");
+const defaultServerIni=buildServerIni({...serverDefaultValues}),defaultServerRoundTrip=parseServerIni(defaultServerIni);
+assert.equal(defaultServerRoundTrip.warnings.length,0,"official server defaults must round trip without warnings");
+assert.deepEqual(defaultServerRoundTrip.values,serverDefaultValues,"server import and export must preserve every supported official default");
+assert.match(defaultServerIni,/CrossplayPlatforms=\(Steam,Xbox,PS5,Mac\)/,"server generator must preserve tuple syntax for crossplay platforms");
+assert.match(buildServerIni({DenyTechnologyList:["PALBOX","RepairBench"]}),/DenyTechnologyList=\("PALBOX","RepairBench"\)/,"server generator must quote technology list values");
+const invalidServer=parseServerIni("[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerPlayerMaxNum=4.5,ServerPlayerMaxNum=12,AllowConnectPlatform=Steam,CrossplayPlatforms=(Steam,Unknown),Broken)");
+assert.deepEqual(invalidServer.warnings.map(item=>item.code),["integer","deprecatedKey","enum","malformedEntry"],"server parser must classify integer, deprecated, enum, and malformed entries without silently accepting them");
+assert.deepEqual(validateServerSettings({RCONEnabled:true,RESTAPIEnabled:true,AdminPassword:"",bEnableFastTravelOnlyBaseCamp:true,bEnableFastTravel:false}).map(item=>[item.code,item.key]),[["security","RCONEnabled"],["security","RESTAPIEnabled"],["dependency","bEnableFastTravelOnlyBaseCamp"]],"server validator must report security and dependency risks without inspecting sensitive values");
+assert.deepEqual(serverSettingsDiff({...serverDefaultValues,ServerPlayerMaxNum:16}).map(item=>item.key),["ServerPlayerMaxNum"],"server default diff must report only changed settings");
+assert.match(buildServerIni({ServerDescription:""}),/ServerDescription=""/,"an explicit empty server string must remain distinct from an omitted setting");
+assert.doesNotMatch(buildServerIni({}),/ServerDescription/,"an omitted server setting must remain absent from the generated tuple");
+const serverIni=body=>`[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(${body})`,serverGoldenCases=[
+  [serverIni("bIsPvP=True"),[],{bIsPvP:true}],
+  [serverIni("bIsPvP=False"),[],{bIsPvP:false}],
+  [serverIni("bIsPvP=maybe"),["boolean"],{}],
+  [serverIni("ServerPlayerMaxNum=12"),[],{ServerPlayerMaxNum:12}],
+  [serverIni("ServerPlayerMaxNum=4.5"),["integer"],{}],
+  [serverIni("ServerPlayerMaxNum=0"),["range"],{}],
+  [serverIni("ServerPlayerMaxNum=64"),["range"],{}],
+  [serverIni("DeathPenalty=All"),[],{DeathPenalty:"All"}],
+  [serverIni("DeathPenalty=Inventory"),["enum"],{}],
+  [serverIni("CrossplayPlatforms=(Steam,Xbox)"),[],{CrossplayPlatforms:["Steam","Xbox"]}],
+  [serverIni("CrossplayPlatforms=(Steam,Unknown)"),["enum"],{}],
+  [serverIni('DenyTechnologyList=("PALBOX","RepairBench")'),[],{DenyTechnologyList:["PALBOX","RepairBench"]}],
+  [serverIni('ServerName="Friends, Pals"'),[],{ServerName:"Friends, Pals"}],
+  [serverIni("UnknownKey=1"),["unsupportedKey"],{}],
+  [serverIni("AllowConnectPlatform=Steam"),["deprecatedKey"],{}],
+  [serverIni("ServerPlayerMaxNum=8,ServerPlayerMaxNum=12"),["duplicateKey"],{ServerPlayerMaxNum:12}],
+  [serverIni("Broken"),["malformedEntry"],{}],
+  ["ServerPlayerMaxNum=12",["missingHeader"],{ServerPlayerMaxNum:12}],
+  [serverIni("bEnableFastTravelOnlyBaseCamp=True,bEnableFastTravel=False"),["dependency"],{bEnableFastTravelOnlyBaseCamp:true,bEnableFastTravel:false}],
+  [serverIni("RCONEnabled=True,AdminPassword=\"\""),["security"],{RCONEnabled:true,AdminPassword:""}],
+  [serverIni("PalSpawnNumRate=2"),["performance"],{PalSpawnNumRate:2}]
+];
+for(const [source,codes,values] of serverGoldenCases){const parsed=parseServerIni(source);assert.deepEqual(parsed.warnings.map(item=>item.code),codes,`server golden warning mismatch for ${source}`);assert.deepEqual(parsed.values,values,`server golden value mismatch for ${source}`)}
+assert.ok(serverGoldenCases.length>=20,"server parser and validator must retain at least twenty golden cases");
 assert.match(data, /Recipe cycle/, "crafting engine must detect cycles");
 assert.match(data, /Math\.ceil\(needed\s*\/\s*recipe\.output\)/, "crafting engine must round process counts up");
 assert.doesNotMatch(main, /pw-consent/, "the obsolete global consent storage gate must be removed");
 assert.match(packageJson.scripts.check,/npm run build && npm run check:route-budget && npm run test:e2e/,"the full check must validate the built route budget and browser smoke flow");
 assert.match(e2eSmoke,/data-home-action="breeding".*goBack.*data-home-action="breeding"/s,"the browser smoke test must cover home to breeding and browser-back restoration");
-assert.match(viteConfig,/manualChunks.*(?:i18n\|\[\^\/\]\+-i18n\|map-labels).*return "localization"/s,"localization modules must remain in a dedicated deterministic bundle chunk");
+assert.doesNotMatch(viteConfig,/return "localization"/,"route-specific localization must not be forced into the initial shared request graph");
+assert.match(`${palsPageSource}\n${skillsPageSource}`,/dungeon-i18n\.ts[\s\S]*skill-i18n\.ts/,"lazy database modules must own the route-specific localization they render");
 assert.match(builtChecker,/JavaScript chunks exceed 500 KB/,"the production artifact must fail when a JavaScript chunk crosses the Phase 1 size gate");
 for(const field of ["sourceCount","eligibleCount","normalizedCount","localizedNameCount","localizedNameTarget","localizedDescriptionCount","localizedDescriptionTarget","imageCount","imageTarget","relationshipCount","searchCovered","collectionRoute","detailRouteFamily","detailIndexableUrls","detailPrerenderedUrls","duplicateCount","orphanCount","invalidSlugCount","exceptions"])assert.ok(coverageReporter.includes(field),`coverage reports must retain ${field}`);
 assert.match(packageJson.scripts.check,/npm run check:coverage.*npm run build/s,"the full check must validate domain coverage before building");
+assert.match(packageJson.scripts.check,/check:blocked-calculators.*check:coverage.*check:update-rehearsal/s,"the full check must preserve blocked calculator and patch-rehearsal gates");
+assert.match(blockedCalculatorAudit,/capture.*iv.*production.*status:"blocked"/s,"unsupported exact calculators must retain explicit private blocked decisions");
+assert.match(updateRehearsal,/added,changed,removed,unresolved.*affectedRoutes/s,"the update rehearsal must report every diff state and affected routes");
 assert.doesNotMatch(main, /class="consent"|consentBanner\(\)|data-consent/, "the global consent banner must not be rendered");
 assert.doesNotMatch(`${styles}\n${featureStyles}`, /\.consent(?:\{|\s)/, "removed consent banner styles must not remain");
 assert.match(main, /<button class="button" type="button" data-privacy-settings>/, "privacy choices must reopen through a semantic keyboard-operable button");
@@ -259,12 +348,16 @@ assert.match(routeManifest,/path:"database\/expeditions".*mode:"prerendered".*in
 assert.match(routeManifest,/prefix:"database\/expeditions".*dataset:"expeditions".*prerender:"all"/,"Every verified Pal Expedition detail must receive initial HTML");
 assert.match(routeManifest,/path:"database\/quests".*mode:"prerendered".*indexable:true.*quest-catalog/,"Quest collection must be an implemented indexable prerendered route");
 assert.match(routeManifest,/path:"calculators\/base".*mode:"hybrid".*indexable:true.*base-team-planner/,"Base team planner must be an implemented indexable route");
+assert.match(routeManifest,/path:"calculators\/pal-compare".*mode:"prerendered".*indexable:true.*pal-comparison/,"Pal comparison must be an implemented indexable route");
+assert.match(routeManifest,/path:"calculators\/team-builder".*mode:"prerendered".*indexable:true.*pal-team-coverage/,"team coverage must be an implemented indexable route");
+assert.match(routeManifest,/path:"calculators\/condensing".*mode:"prerendered".*indexable:true.*pal-condensing-calculator/,"condensing must be an implemented indexable route");
+assert.doesNotMatch(routeManifest,/calculators\/(?:capture|iv|production)/,"blocked exact calculators must not appear in routing, navigation, canonical metadata, or sitemaps");
 assert.match(routeManifest,/prefix:"database\/quests".*dataset:"quests".*prerender:"priority".*priorityLimit:5/,"Quest details must use a deterministic high-value priority prerender policy");
 assert.ok(routeFamilies.every(family=>family.indexable&&family.searchIntent),"every collection route must declare its indexability and search intent");
 assert.ok(entityRouteFamilies.every(family=>family.sitemap&&family.searchIntent&&["all","priority"].includes(family.prerender)),"every entity family must declare one sitemap and deterministic prerender policy");
 assert.match(routeManifest,/dataset:"items".*prerender:"priority".*priorityLimit:75/,"item prerendering must retain its documented priority cap");
 assert.match(routeManifest,/dataset:"dungeons".*prerender:"all"/,"every verified Dungeon detail must receive initial HTML");
-assert.match(main,/renderPalDropSection\(pal\).*renderPalDungeonSection\(pal\)/s,"Pal details must expose verified Dungeon backlinks");
+assert.match(palsPageSource,/renderDropSection\(pal\).*renderDungeonSection\(pal\)/s,"Pal details must expose verified Dungeon backlinks");
 assert.match(dungeonsPageSource,/layers=dungeon&dungeon=/,"Dungeon entrances must restore the verified Dungeon map layer and entity filter");
 assert.match(featureStyles,/\.dungeon-grid.*\.dungeon-summary.*\.dungeon-entrance-grid.*\.dungeon-pool-grid/s,"Dungeon collection, detail, and pool layouts must retain responsive style contracts");
 assert.match(dungeonImporter,/encounterGroupsForSpawners/,"Dungeon encounters must preserve source spawn groups");
@@ -330,6 +423,38 @@ const dungeonDetailFixture=dungeonData.dungeons.find(dungeon=>dungeon.entrances.
 assert.ok(dungeonDetailFixture,"Dungeon test data must include a verified entrance and encounter detail");
 const dungeonDetailMarkup=renderDungeonsPage(dungeonDetailFixture.slug,dungeonRenderContext);
 assert.match(dungeonDetailMarkup,/class="dungeon-detail section"[\s\S]*class="dungeon-entrance"[\s\S]*layers=dungeon&amp;dungeon=|class="dungeon-detail section"[\s\S]*class="dungeon-entrance"[\s\S]*layers=dungeon&dungeon=/,"The lazy Dungeon detail must retain verified entrances and map links");
+assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/items"\)/,"Item database code must have an explicit lazy route boundary");
+assert.doesNotMatch(main,/class="entity-detail item-detail panel"|class="item-card"|const filterItems=/,"Item rendering and filter binding must stay out of the initial app module");
+assert.match(itemsPageSource,/export function renderItemsPage[\s\S]*export function bindItemsPage/,"The lazy Item module must own both rendering and page binding");
+const itemRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:palData,itemData,dungeonData,expeditionData,dropLabels:{items:"Dropped items",pals:"Dropped by Pals",level:"Level",chance:"Chance",quantity:"Quantity"},href:path=>`/en-US${path}`,escape:value=>value,resolveItemSegment:segment=>itemData.items.find(item=>item.id===segment)||null,setMeta:()=>{},hero:title=>`<section><h1>${title}</h1></section>`,databaseTabs:active=>`<nav data-tab="${active}"></nav>`,placeholder:title=>`<h1>${title}</h1>`};
+const itemCollectionMarkup=renderItemsPage(null,itemRenderContext);
+assert.match(itemCollectionMarkup,/id="item-search"[\s\S]*class="item-card"[\s\S]*data-type=/,"The lazy Item collection must retain searchable categorized item cards");
+const itemDetailMarkup=renderItemsPage("Leather",itemRenderContext);
+assert.match(itemDetailMarkup,/class="entity-detail item-detail panel"[\s\S]*class="detail-section item-drop-section"[\s\S]*Dropped by Pals/,"The lazy Item detail must retain reverse Pal drop relationships");
+assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/pals"\)/,"Pal database code must have an explicit lazy route boundary");
+assert.doesNotMatch(main,/class="entity-detail pal-detail panel"|class="pal-card"|const filterPals=/,"Pal rendering and filter binding must stay out of the initial app module");
+assert.match(palsPageSource,/export function renderPalsPage[\s\S]*export function bindPalsPage/,"The lazy Pal module must own both rendering and page binding");
+const palRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:palData,itemData,skillData,elementData,dungeonData,dropLabels:{items:"Dropped items",level:"Level",chance:"Chance",quantity:"Quantity"},dungeonLabels:{title:"Dungeons",roleNormal:"Normal",roleBoss:"Boss",roleMidboss:"Midboss",roleMonster:"Monster",roleAquatic:"Aquatic",primaryBoss:"Primary boss",companion:"Companion",groupMember:"Group member"},detailLabels:{passive:"Passive skills",size:"Size",breedingPower:"Breeding power"},href:path=>`/en-US${path}`,escape:value=>value,resolvePalSegment:segment=>palData.pals.find(pal=>pal.id===segment)||null,setMeta:()=>{},hero:title=>`<section><h1>${title}</h1></section>`,placeholder:title=>`<h1>${title}</h1>`};
+const palCollectionMarkup=renderPalsPage(null,palRenderContext);
+assert.match(palCollectionMarkup,/id="pal-search"[\s\S]*class="pal-card"[\s\S]*data-work=/,"The lazy Pal collection must retain searchable Paldeck-ordered cards");
+const palDetailFixture=palData.pals.find(pal=>itemData.drops.some(drop=>drop.palId===pal.id)&&dungeonData.dungeons.some(dungeon=>dungeon.encounterGroups.some(group=>group.members.some(member=>member.palId===pal.id))));
+assert.ok(palDetailFixture,"Pal test data must include verified drop and Dungeon backlinks");
+const palDetailMarkup=renderPalsPage(palDetailFixture.id,palRenderContext);
+assert.match(palDetailMarkup,/class="entity-detail pal-detail panel"[\s\S]*class="detail-section pal-drop-section"[\s\S]*class="detail-section dungeon-backlinks"/,"The lazy Pal detail must retain verified item-drop and Dungeon backlinks");
+assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/skills"\)/,"Skill database code must have an explicit lazy route boundary");
+assert.doesNotMatch(main,/class="skill-card"|const filterSkills=|class="partner-skill-card"/,"Skill rendering and filter binding must stay out of the initial app module");
+assert.match(skillsPageSource,/export function renderSkillsPage[\s\S]*export function bindSkillsPage/,"The lazy Skill module must own rendering, decoration, and page binding");
+const skillRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:palData,skillData,labels:{title:"Skills",active:"Active skills",passive:"Passive skills",elements:"Elements",all:"All",power:"Power",cooldown:"Cooldown",inherit:"Inheritable",search:"Search skills"},partnerLabel:"Partner skills",passiveLabels:{rank:"Rank",inheritable:"Randomly inheritable",surgery:"Surgery cost"},skillFruitLabel:"Skill Fruit",href:path=>`/en-US${path}`,escape:value=>value,renderIcon:()=>"<svg></svg>",resolveActiveSegment:segment=>skillData.activeSkills.find(skill=>skill.id===segment)||null,resolvePassiveSegment:segment=>skillData.passiveSkills.find(skill=>skill.id===segment)||null,resolvePartnerSegment:segment=>skillData.partnerSkills.find(skill=>skill.id===segment)||null,setMeta:()=>{},hero:title=>`<section><h1>${title}</h1></section>`,placeholder:title=>`<h1>${title}</h1>`};
+const skillCollectionMarkup=renderSkillsPage("all",null,skillRenderContext);
+assert.match(skillCollectionMarkup,/id="skill-search"[\s\S]*class="skill-card"[\s\S]*data-kind="active"/,"The lazy Skill collection must retain searchable active and passive cards");
+const passiveCollectionMarkup=renderSkillsPage("passive",null,skillRenderContext);
+assert.match(passiveCollectionMarkup,/id="skill-rank"[\s\S]*data-passive-group="5"/,"The lazy passive collection must retain rank filtering and authored groups");
+const activeSkillFixture=skillData.activeSkills[0],activeSkillMarkup=renderSkillsPage("active",activeSkillFixture.id,skillRenderContext);
+assert.match(activeSkillMarkup,/class="detail-image element-detail"[\s\S]*Skill Fruit/,"The lazy active-skill detail must retain verified element and Skill Fruit facts");
+const partnerSkillFixture=skillData.partnerSkills.find(skill=>palData.pals.some(pal=>pal.id===skill.palId));
+assert.ok(partnerSkillFixture,"Skill test data must include a partner skill with a published Pal");
+const partnerSkillMarkup=renderSkillsPage("partner",partnerSkillFixture.id,skillRenderContext);
+assert.match(partnerSkillMarkup,/class="entity-detail panel"[\s\S]*href="\/en-US\/pals\//,"The lazy partner-skill detail must retain its Pal backlink");
 assert.match(healthStyles,/@media\(max-width:700px\).*\.health-filters\{grid-template-columns:minmax\(0,1fr\) auto\}.*\.health-search\{grid-column:1\/-1\}/s,"Health mobile filters must keep search full-width and place scope beside a compact reset action");
 assert.deepEqual({schema:elementData.meta.schema,gameBuild:elementData.meta.gameBuild,verification:elementData.meta.verification,locales:elementData.meta.localeCount,elements:elementData.meta.elementCount,relations:elementData.meta.relationCount,pals:elementData.meta.palCount,numeric:elementData.meta.numericMultipliersVerified,dual:elementData.meta.dualElementRuleVerified,icons:elementData.meta.iconProvenance},{schema:3,gameBuild:"24467282",verification:"verified-and-runtime",locales:17,elements:9,relations:9,pals:299,numeric:true,dual:true,icons:{direct:9,sharedOfficial:0,atlasOfficial:0,derivedOfficial:0,missing:0}},"Element data must publish only the runtime-verified numeric baseline");
 assert.equal(elementData.chartImage,undefined,"The reference chart must remain private extraction evidence and must not be published");
@@ -454,7 +579,7 @@ assert.match(expeditionsPageSource,/function expeditionDetail.*visibilityConditi
 assert.match(expeditionsPageSource,/expedition-station-actions.*structureCopy\[locale\]\.title.*technologyCopy\[locale\]\.title/s,"Pal Expedition station actions must distinguish building and unlock-technology details");
 assert.match(expeditionsPageSource,/<details class="expedition-filter-panel" open>.*id="expedition-filter-count".*id="expedition-search"/s,"Pal Expedition mobile filters must use one compact disclosure with a visible result count");
 assert.match(expeditionsPageSource,/matchMedia\("\(max-width:700px\)"\).*filterPanel\.open=!mobileFilters\.matches/s,"Pal Expedition filters must start collapsed on mobile and open on desktop");
-assert.match(main,/renderItemExpeditionSection\(item\)/,"Item details must expose Pal Expedition reward backlinks");
+assert.match(itemsPageSource,/renderItemExpeditionSection\(item\)/,"Item details must expose Pal Expedition reward backlinks");
 assert.match(main,/fetch\("\/data\/expeditions\.json"\)/,"Pal Expedition collection, details, backlinks, and search must load same-origin normalized data");
 assert.match(main,/renderExpeditionGlobalSearch/,"Global search must include localized Pal Expedition names and reward items");
 assert.match(expeditionStyles,/\.expedition-grid.*\.expedition-detail-grid.*\.expedition-reward-slots.*@media\(max-width:700px\)/s,"Pal Expedition catalog, details, and rewards must retain a responsive layout contract");
@@ -494,9 +619,9 @@ assert.equal(seoHreflang("es-419"),"es","Latin American Spanish must keep its ro
 assert.ok(indexableGroups.pals.every(url=>/^https:\/\/palworld-helper\.woofy\.blog\/[a-z]{2}(?:-[A-Z0-9]+)?\/pals\/\d{3,}b?-[a-z0-9-]+$/.test(url)),"Pal sitemap URLs must use Paldeck-based public slugs");
 const rawSeoIds=new Set([...palData.pals,...itemData.items,...skillData.activeSkills,...skillData.passiveSkills,...skillData.partnerSkills].map(entity=>entity.id));
 assert.ok(!Object.values(indexableGroups).flat().some(url=>rawSeoIds.has(decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).at(-1)||""))),"Sitemaps must not expose raw game-object IDs");
-assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73117,"typed SEO groups must enumerate every implemented localized URL");
+assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73287,"typed SEO groups must enumerate every implemented localized URL");
 assert.deepEqual(Object.fromEntries(Object.entries(prerenderSelection).map(([key,value])=>[key,value.length])),{pals:299,items:75,activeSkills:40,passiveSkills:30,partnerSkills:30,npcs:164,dungeons:28,technologies:20,structures:5,conditions:7,expeditions:18,quests:5},"hybrid prerender selection must retain its deterministic family limits");
-assert.equal(prerenderEntries.length,12614,"collection and priority detail prerenders must remain inside the deployment budget");
+assert.equal(prerenderEntries.length,12784,"collection and priority detail prerenders must remain inside the deployment budget");
 const koreanHomeEntry=prerenderEntries.find(entry=>entry.locale==="ko-KR"&&entry.kind==="collection"&&entry.route===""),koreanHomeModel=renderRouteModel(koreanHomeEntry,seoData,prerenderSelection),koreanHomeHtml=renderHtmlDocument(indexHtml,koreanHomeEntry,koreanHomeModel);
 assert.match(koreanHomeHtml,/필요한 정보를 빠르게 찾고, 다시 팰월드로\./,"Home initial HTML must contain the localized redesigned hero");
 assert.equal((koreanHomeHtml.match(/data-home-action=/g)||[]).length,6,"Home initial HTML must contain all six task shortcuts");
@@ -564,8 +689,8 @@ assert.match(integrationRuntimeSource, /installRegionalConsentMode\(target\);\s*
 assert.doesNotMatch(main, /analyticsCollectionAllowed|mayLoadAnalytics/, "Analytics must not be disabled while Advanced Consent Mode applies regional storage controls");
 assert.doesNotMatch(main, /trackPageView/, "GA Enhanced Measurement must own SPA page views so browser-history changes cannot be double counted");
 assert.doesNotMatch(main, /gtag=\(\.\.\.args\)=>/, "Analytics must not queue ordinary arrays in place of Arguments commands");
-assert.match(main, /collection_search",\s*\{\s*collection:/, "collection search may emit only a stable collection identifier");
-assert.doesNotMatch(main, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
+assert.match(`${main}\n${itemsPageSource}\n${palsPageSource}\n${skillsPageSource}`, /collection_search",\s*\{\s*collection:/, "collection search may emit only a stable collection identifier");
+assert.doesNotMatch(`${main}\n${itemsPageSource}\n${palsPageSource}\n${skillsPageSource}`, /trackEvent\([^\n]*(\.value|FormData|coordinate|query)/, "analytics events must not include free-form control values");
 
 const consentTarget={};
 installRegionalConsentMode(consentTarget);
@@ -662,6 +787,14 @@ assert.ok(palData.pals.every(pal=>!/이\(가\)|은\(는\)|을\(를\)|과\(와\)/
 assert.match(palData.pals.find(pal=>pal.id==="PinkCat").descriptions["ko-KR"],/까부냥이 핥아/,"PinkCat description must resolve its localized name and Korean subject particle");
 assert.match(palData.pals.find(pal=>pal.id==="LilyQueen").descriptions["ko-KR"],/태양 폭발/,"active-skill markup must resolve to the official localized skill name");
 assert.match(mapPageSource,/category==="habitat"\?!!habitatSelect\?\.value/,"selected Pal habitats must remain enabled independently from point layers");
+assert.match(mapPageSource,/points\.length>120&&mapView\.scale<4.*dataset\.clusterCount=String\(cluster\.count\)/s,"dense point layers must aggregate into bounded, count-preserving clusters");
+assert.match(mapPageSource,/pw-map-progress:\$\{activePointWorld\}/,"map completion state must use world-specific storage");
+assert.match(mapPageSource,/localStorage\.setItem\(progressStorageKey/,"map completion state must remain local");
+assert.match(mapPageSource,/map-unfinished-only/,"map completion state must remain filterable");
+assert.match(mapPageSource,/pw-map-pins:\$\{activePointWorld\}/,"personal map pins must use world-specific storage");
+assert.match(mapPageSource,/localStorage\.setItem\(pinStorageKey.*data-remove-pin/s,"personal map pins must remain local and removable");
+assert.doesNotMatch(mapPageSource,/trackEvent\([^\n]*(progressKey|completed|coordinates)/,"map progress keys and coordinates must never be sent to analytics");
+assert.doesNotMatch(mapPageSource,/trackEvent\([^\n]*(pinStorageKey|localPins|pinNameInput)/,"personal pin names and coordinates must never be sent to analytics");
 const byId=new Map(palData.pals.map(p=>[p.id,p.i]));
 assert.equal(findBreedingResult(palData.pairs,byId.get("Anubis"),byId.get("Anubis"),"WILDCARD","WILDCARD"),byId.get("Anubis"),"Anubis self-pair golden case must pass");
 assert.equal(findBreedingResult(palData.pairs,byId.get("CatMage"),byId.get("FoxMage"),"FEMALE","MALE"),byId.get("CatMage_Fire"),"gender-specific special combination must take precedence");
@@ -683,8 +816,8 @@ assert.deepEqual(itemData.drops.filter(drop=>drop.palId==="Anubis"&&drop.level==
   {palId:"Anubis",itemId:"TechnologyBook_G2",level:0,rate:5,min:1,max:1}
 ],"Anubis base drop table must match the current extracted game row");
 assert.match(main,/dropLabels:Record<Locale/,"drop relationship UI must provide labels for every supported locale");
-assert.match(main,/itemData\.drops\.filter\(drop=>drop\.palId===pal\.id\)/,"Pal details must render normalized item drops");
-assert.match(main,/renderItemDropSection\(item\)/,"item details must render reverse Pal drop relationships in the detail template");
+assert.match(palsPageSource,/itemData\.drops\.filter\(drop=>drop\.palId===pal\.id\)/,"Pal details must render normalized item drops");
+assert.match(itemsPageSource,/renderItemDropSection\(item\)/,"item details must render reverse Pal drop relationships in the detail template");
 assert.doesNotMatch(main,/function bindDropRelations/,"drop relationships must not depend on post-render DOM insertion");
 const leatherSources=groupItemDropSources("Leather",palData.pals,itemData.drops);
 assert.equal(leatherSources.length,77,"Leather detail must expose all 77 unique Pal sources");
@@ -700,20 +833,20 @@ for(const locale of Object.keys(messageCatalogs)){
 }
 assert.equal(itemCategoryLabel("Armor","ko-KR"),"방어구","Korean armor category must be localized");
 assert.equal(itemCategoryLabel("Blueprint","ko-KR"),"설계도","Korean schematic category must be localized");
-assert.doesNotMatch(main,/item-card[^\n]*<code>\$\{esc\(item\.id\)\}/,"item cards must not expose internal item IDs");
-assert.doesNotMatch(main,/<span>\$\{esc\(item\.subtype\)\}<\/span>/,"item cards and details must not expose raw subtype enums");
+assert.doesNotMatch(itemsPageSource,/item-card[^\n]*<code>\$\{esc\(item\.id\)\}/,"item cards must not expose internal item IDs");
+assert.doesNotMatch(itemsPageSource,/<span>\$\{esc\(item\.subtype\)\}<\/span>/,"item cards and details must not expose raw subtype enums");
 assert.match(styles,/\.item-card\{display:flex;flex-direction:column;/,"item cards must keep their header, category and stats in a stable vertical flow");
-assert.match(main,/hero\(itemName\(item\)\)/,"item detail headers must omit the duplicated description");
+assert.match(itemsPageSource,/hero\(itemName\(item\)\)/,"item detail headers must omit the duplicated description");
 assert.match(main,/function hero\(title:string,\.\.\._descriptions:string\[\]\).*<h1>\$\{title\}<\/h1><\/section>/,"all internal page headers must render only the verification badge and title");
 assert.doesNotMatch(main,/function hero[^\n]*\$\{body\}/,"internal page headers must never render page descriptions");
-assert.match(main,/usedIn\.length\.toLocaleString\(locale\).*\$\{m\.results\}/,"item detail result headings must include the localized actual count");
-assert.doesNotMatch(main,/usedIn\.slice\(0,80\)/,"item detail result headings and rendered cards must not disagree because of a hidden cap");
+assert.match(itemsPageSource,/usedIn\.length\.toLocaleString\(locale\).*\$\{m\.results\}/,"item detail result headings must include the localized actual count");
+assert.doesNotMatch(itemsPageSource,/usedIn\.slice\(0,80\)/,"item detail result headings and rendered cards must not disagree because of a hidden cap");
 assert.match(styles,/\.item-categories\{[^}]*margin:\.75rem 0 1rem/,"item categories must have visible separation from the item image and stats");
 assert.match(styles,/\.item-stats\{[^}]*margin:auto 0 0/,"item stats must stay aligned at the bottom across one-line and wrapped item names");
 assert.equal(itemData.meta.blueprintTargetCount,475,"every legal blueprint unlock relationship in the extracted recipe table must be retained");
 assert.equal(itemData.meta.unavailableUnlockItem,1,"the one recipe referencing an unavailable blueprint must remain explicit");
 assert.equal(itemData.items.find(item=>item.id==="Blueprint_Accessory_AT_1_2")?.unlocksItemId,"Accessory_AT_1","blueprint target links must come from the official UnlockItemID recipe field");
-assert.match(main,/class="blueprint-product"/,"blueprint cards must show the verified unlocked-product image when available");
+assert.match(itemsPageSource,/class=\\?"blueprint-product\\?"/,"blueprint cards must show the verified unlocked-product image when available");
 assert.equal(imageManifest.gameBuild,itemData.meta.gameBuild,"image manifest must match the item data build");
 const imagedItems=itemData.items.filter(item=>item.image===true);
 assert.equal(imageManifest.itemCount,imagedItems.length,"item image manifest must match verified image flags");
@@ -756,8 +889,8 @@ for(const locale of Object.keys(messageCatalogs).filter(locale=>locale!=="ko-KR"
 assert.deepEqual(Object.keys(itemFilterAllLabels).sort(),Object.keys(messageCatalogs).sort(),"Item filter all labels must cover every supported locale");
 assert.equal(itemFilterAllLabelsProvenance,"gpt","Item filter all labels must record translation provenance");
 assert.equal(itemFilterAllLabels["ko-KR"],"전체","Korean item filters must use an item-neutral all option");
-assert.match(main,/id="item-type"><option value="">\$\{itemFilterAllLabels\[locale\]\}/,"Item category filter must not reuse the Pal selection prompt");
-assert.match(main,/id="item-rarity"><option value="">\$\{itemFilterAllLabels\[locale\]\}/,"Item rarity filter must not reuse the Pal selection prompt");
+assert.match(itemsPageSource,/id=\\?"item-type\\?"><option value=\\?"\\?">\$\{itemFilterAllLabels\[locale\]\}/,"Item category filter must not reuse the Pal selection prompt");
+assert.match(itemsPageSource,/id=\\?"item-rarity\\?"><option value=\\?"\\?">\$\{itemFilterAllLabels\[locale\]\}/,"Item rarity filter must not reuse the Pal selection prompt");
 assert.equal(itemData.items.find(item=>item.id==="PalSphere_Mega")?.names["ja-JP"],"メガスフィア","official Japanese game terminology must remain in extracted data");
 assert.doesNotMatch(main,/const ui=/,"user-visible item and crafting copy must use the message catalog");
 assert.equal(translationProvenance["zh-CN"],"gpt","Simplified Chinese UI provenance must be explicit");
@@ -785,11 +918,13 @@ assert.match(messages("ru-RU").privacy,/Конфиденциальность/,"C
 assert.match(messages("th-TH").language,/ภาษา/,"Thai UI text must remain valid UTF-8");
 assert.match(messages("vi-VN").quantity,/Số lượng/,"Vietnamese diacritics must remain valid UTF-8");
 assert.doesNotMatch(main,/Loading…/,"home page must not show a loading state for data it intentionally loads lazily");
-assert.match(main,/data-clear-search="pal"/,"Pal search must expose a one-action clear control");
-assert.match(main,/data-clear-search="item"/,"item search must expose a one-action clear control");
-assert.match(main,/id="pal-empty"[^>]*hidden/,"Pal search must have an explicit empty state");
-assert.match(main,/id="item-empty"[^>]*hidden/,"item search must have an explicit empty state");
-assert.match(main,/filterCollection\(kind\).*input\.focus\(\)/,"clearing search must restore results and keyboard focus");
+assert.match(palsPageSource,/data-clear-search=\\?"pal\\?"/,"Pal search must expose a one-action clear control");
+assert.match(itemsPageSource,/data-clear-search=\\?"item\\?"/,"item search must expose a one-action clear control");
+assert.match(palsPageSource,/id=\\?"pal-empty\\?"[^>]*hidden/,"Pal search must have an explicit empty state");
+assert.match(itemsPageSource,/id=\\?"item-empty\\?"[^>]*hidden/,"item search must have an explicit empty state");
+assert.match(skillsPageSource,/data-clear-search="skill"[\s\S]*filterSkills\(\);search\.focus\(\)/,"clearing skill search must restore results and keyboard focus");
+assert.match(palsPageSource,/data-clear-search="pal"[\s\S]*filterPals\(\);search\.focus\(\)/,"clearing Pal search must restore results and keyboard focus");
+assert.match(itemsPageSource,/data-clear-search="item"[\s\S]*filterItems\(\);search\.focus\(\)/,"clearing item search must restore results and keyboard focus");
 assert.equal(skillData.meta.gameBuild,"24467282","skill data must match the verified local game build");
 assert.equal(skillData.elements.length,9,"all nine game elements must be published");
 assert.equal(skillData.activeSkills.length,317,"only active skills with an official player-facing name must be published");
@@ -805,12 +940,12 @@ assert.ok(palData.pals.every(pal=>Array.isArray(pal.guaranteedPassiveIds)),"ever
 const passiveIds=new Set(skillData.passiveSkills.map(skill=>skill.id));
 assert.ok(palData.pals.every(pal=>pal.guaranteedPassiveIds.every(id=>passiveIds.has(id))),"every guaranteed Pal passive must reference a published passive skill");
 assert.match(main,/fetch\("\/data\/skills\.json"\)/,"versioned skill data must load from the same origin");
-assert.match(main,/id="skill-element"/,"skill collection must support element filtering");
-assert.match(main,/role="status"/,"collection result counts must be announced as status updates");
-assert.match(main,/rankOrder=\[5,4,3,2,1,-1,-2,-3\]/,"passive skill groups must be ordered from highest to lowest extracted rank");
-assert.match(main,/data-passive-group=/,"passive skills must render in semantic rank groups");
-assert.match(main,/id="skill-rank"/,"passive skill collections must provide a rank filter");
-assert.match(main,/partnerSkillName\(skill,pal\)/,"partner skill names must safely fall back through linked Pal names");
+assert.match(skillsPageSource,/id=\\?"skill-element\\?"/,"skill collection must support element filtering");
+assert.match(skillsPageSource,/role=\\?"status\\?"/,"collection result counts must be announced as status updates");
+assert.match(skillsPageSource,/rankOrder=\[5,4,3,2,1,-1,-2,-3\]/,"passive skill groups must be ordered from highest to lowest extracted rank");
+assert.match(skillsPageSource,/data-passive-group=/,"passive skills must render in semantic rank groups");
+assert.match(skillsPageSource,/id=\\?"skill-rank\\?"/,"passive skill collections must provide a rank filter");
+assert.match(skillsPageSource,/partnerName\(skill,pal\)/,"partner skill names must safely fall back through linked Pal names");
 assert.match(featureStyles,/\.skill-name-link,\.pal-passives strong a\{[^}]*text-decoration:none/,"skill name links must remove the default underline");
 assert.match(featureStyles,/\.passive-rank-group\[data-passive-group="5"\]/,"highest passive ranks must have a game-inspired rank accent");
 assert.match(featureStyles,/\.passive-rank-group\[data-passive-group="1"\],\.passive-rank-group\[data-passive-group="2"\],\.passive-rank-group\[data-passive-group="3"\]\{--rank-accent:#ffdd00\}/,"positive passive ranks 1 through 3 must use the extracted game-yellow accent");
@@ -818,9 +953,9 @@ assert.match(featureStyles,/\.passive-rank-group:is\(\[data-passive-group="1"\],
 assert.match(featureStyles,/\.passive-rank-group \.passive-game-card\{[^}]*background:linear-gradient\([^}]*var\(--rank-accent\)/,"passive skill card backgrounds must inherit their rank accent");
 assert.match(featureStyles,/\.passive-rank-group\[data-passive-group="1"\]\{--rank-surface-strength:6%\}\.passive-rank-group\[data-passive-group="2"\]\{--rank-surface-strength:9%\}\.passive-rank-group\[data-passive-group="3"\]\{--rank-surface-strength:12%\}/,"yellow passive ranks must remain distinguishable through graduated surface strength");
 assert.match(featureStyles,/\.passive-rank-group \.passive-game-card:hover,\.passive-rank-group \.passive-game-card:focus-within/,"rank-colored passive cards must preserve hover and keyboard focus feedback");
-assert.doesNotMatch(main,/<code>\$\{esc\(skill\.id\)\}<\/code>/,"skill cards and details must not expose internal identifiers");
-assert.match(main,/const description=localized\(skill\.descriptions\);setMeta\(localized\(skill\.names\),description\|\|labels\.active\)/,"active skill details must use the official localized description in metadata");
-assert.match(main,/<p class="entity-description">\$\{esc\(description\)\}<\/p>/,"skill details must render the official localized description in the detail content");
+assert.doesNotMatch(skillsPageSource,/<code>\$\{esc\(skill\.id\)\}<\/code>/,"skill cards and details must not expose internal identifiers");
+assert.match(skillsPageSource,/const description=localized\(skill\.descriptions\);setMeta\(localized\(skill\.names\),description\|\|labels\.active\)/,"active skill details must use the official localized description in metadata");
+assert.match(skillsPageSource,/<p class=\\?"entity-description\\?">\$\{esc\(description\)\}<\/p>/,"skill details must render the official localized description in the detail content");
 const convergingRecipes={A:{id:"A",output:1,ingredients:{B:1,C:1}},B:{id:"B",output:1,ingredients:{D:1}},C:{id:"C",output:1,ingredients:{D:1}},D:{id:"D",output:2,ingredients:{E:1}}};
 assert.deepEqual(expandRecipe("A",1,convergingRecipes),{E:1},"converging demands must aggregate before process rounding");
 assert.deepEqual(expandRecipe("A",1,convergingRecipes,{D:1}),{E:1},"owned intermediate stock must be consumed once after demands converge");
@@ -964,6 +1099,11 @@ const calculatorRenderContext={locale:"en-US",defaultLocale:"en-US",messages:mes
 assert.match(renderCalculatorPage("breeding",calculatorRenderContext),/id="parent-a"[\s\S]*id="target-pal"/,"the lazy calculator renderer must produce the breeding workflow");
 assert.match(renderCalculatorPage("crafting",calculatorRenderContext),/id="craft-targets"[\s\S]*id="craft-output"/,"the lazy calculator renderer must produce the crafting workflow");
 assert.match(renderCalculatorPage("base",calculatorRenderContext),/id="base-planner-form"[\s\S]*id="base-plan-output"/,"the lazy calculator renderer must produce the base workflow");
+const palToolContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:palData,skillData,mapData:{bosses:[],habitats:[]},condensingData,location:{search:"",pathname:"/en-US/calculators/pal-compare"},href:path=>`/en-US${path}`,escape:value=>value,palSlug:pal=>`pal-${pal.dex}${pal.variant?"b":""}`,setMeta:()=>{},hero:title=>`<header><h1>${title}</h1></header>`};
+assert.match(renderPalToolPage("compare",palToolContext),/data-pal-picker[\s\S]*data-differences-only/,"the Pal comparison route must render a bounded public-slug selection workflow");
+assert.match(renderPalToolPage("team",{...palToolContext,location:{...palToolContext.location,pathname:"/en-US/calculators/team-builder"}}),/data-team-purpose[\s\S]*team-coverage-grid/,"the team builder must render purpose and neutral coverage controls");
+assert.match(renderPalToolPage("condensing",{...palToolContext,location:{...palToolContext.location,pathname:"/en-US/calculators/condensing"}}),/data-condense-from[\s\S]*data-condense-incremental[\s\S]*data-condense-remaining/,"the condensing calculator must render verified stage totals and owned-Pal subtraction");
+assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/pal-tools"\)/,"Pal utility routes must load through a dedicated dynamic module boundary");
 const mapRenderContext={locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:{pals:[{id:"TestPal",dex:1,variant:false,names:{"en-US":"Test Pal"},image:true}]},itemData:{items:[],map:{minX:0,minY:0,maxX:100,maxY:100}},mapData:{worlds:[{id:"palpagos",minX:0,minY:0,maxX:100,maxY:100,width:8192,height:8192,image:"/map.webp"}],bosses:[{worldId:"palpagos",palId:"TestPal",x:50,y:50,levelMin:1}],habitats:[],fastTravel:[],points:[]},npcData:{npcs:[]},dungeonData:{dungeons:[]},location:{search:"",pathname:"/en-US/map"},href:path=>`/en-US${path}`,escape:value=>value,renderIcon:name=>`<svg data-icon="${name}"></svg>`,levelLabel:"Level",copy:{worldTree:"World Tree",loading:"Loading"},setMeta:()=>{},hero:title=>`<header><h1>${title}</h1></header>`};
 const renderedMap=renderMapPage(mapRenderContext);
 assert.match(renderedMap,/id="planning-map"[\s\S]*id="habitat-layer"/,"the lazy map renderer must produce the interactive map surface");
@@ -998,8 +1138,10 @@ const questDetailFixture=questData.quests.find(quest=>quest.objectiveGroups.leng
 const renderedQuestDetail=renderQuestsPage(questDetailFixture.slug,questRenderContext);
 assert.match(renderedQuestDetail,/class="section quest-detail"[\s\S]*class="quest-objective-groups"[\s\S]*class="panel quest-rewards"/,"the lazy quest renderer must preserve verified objectives and rewards");
 assert.match(main,/!routeModuleReady\(\).*preservingPrerender/s,"route rendering must preserve existing content until a lazy page module is ready");
-assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,adMarkup\}\)/,"runtime Home must use the shared pure renderer");
-assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups\}\)/,"static Home must use the same shared pure renderer");
+assert.match(main,/return renderHomeMarkup\(\{copy,href,renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,guideLabel:guideNavLabel\[locale\],adMarkup\}\)/,"runtime Home must use the shared pure renderer and expose Guides");
+assert.match(seoStatic,/renderHomeMarkup\(\{copy:homeCopy\[locale\],href:target=>href\(locale,target\),renderIcon:icon,quickActions:homeQuickActions,catalogGroups:homeCatalogGroups,guideLabel:guideNavLabel\[locale\]\}\)/,"static Home must use the same shared pure renderer and expose Guides");
+assert.match(main,/createLazyModule\(\(\)=>import\("\.\/pages\/guides"\)/,"guide routes must load through the shared dynamic module boundary");
+assert.match(main,/if\(palMatch\)return `\$\{palsPage.*guideContextLink\("breeding"\)/,"Pal details must provide a contextual path into the breeding guide");
 assert.match(styles,/\.home-action-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\).*@media\(max-width:700px\).*\.home-action-grid,\.home-topic-grid\{grid-template-columns:1fr\}/s,"Home task and topic grids must collapse to one column on phones");
 assert.match(styles,/\.home-hero\{[^}]*min-height:520px[^}]*padding:4rem 3rem 3\.5rem[^}]*overflow:hidden\}/,"Home hero must keep its compact desktop height and contain its content");
 assert.match(styles,/\.home-hero:before\{[^}]*inset:1rem;height:auto;/,"Home hero backdrop must contain the search launcher instead of ending above it");

@@ -23,12 +23,14 @@ export async function findChromiumExecutable() {
 }
 
 async function availablePort(){
-  const probe=createServer();
-  await new Promise((resolve,reject)=>{probe.once("error",reject);probe.listen(0,"127.0.0.1",resolve)});
-  const address=probe.address(),port=typeof address==="object"&&address?address.port:0;
-  await new Promise((resolve,reject)=>probe.close(error=>error?reject(error):resolve()));
-  if(!port)throw new Error("Unable to reserve a local preview port.");
-  return port;
+  for(let port=4173;port<=4210;port++){
+    const probe=createServer();
+    const available=await new Promise(resolve=>{probe.once("error",()=>resolve(false));probe.listen(port,"127.0.0.1",()=>resolve(true))});
+    if(!available)continue;
+    await new Promise((resolve,reject)=>probe.close(error=>error?reject(error):resolve()));
+    return port;
+  }
+  throw new Error("Unable to reserve a safe local preview port.");
 }
 
 export async function startPreviewServer(){

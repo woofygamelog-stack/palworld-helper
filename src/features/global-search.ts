@@ -1,4 +1,5 @@
 import type {IconName} from "../icons";
+import {guideCopy,guideDefinitions,guideRoute} from "../guide-content.ts";
 
 type Localized<Locale extends string>=Record<Locale,string>;
 
@@ -61,6 +62,14 @@ export function findGlobalSearchResults<Locale extends string>({
   const localizedValues=(names:Localized<Locale>|undefined)=>names?Object.values(names) as string[]:[];
   const localized=(names:Localized<Locale>)=>names[locale]||names[defaultLocale];
   const results:GlobalSearchResult[]=[];
+
+  if(locale in guideCopy){
+    const copy=guideCopy[locale as keyof typeof guideCopy];
+    for(const guide of guideDefinitions){
+      const text=copy.guides[guide.id];
+      if(matches([guide.id,guide.slug,text.title,text.description,copy.hubTitle]))results.push({title:text.title,meta:copy.hubTitle,path:`/${guideRoute(guide.slug)}`,icon:"database"});
+    }
+  }
 
   for(const pal of data.pals){
     if(matches([pal.id,pal.dex,...localizedValues(pal.names),...Object.keys(pal.work).filter(key=>pal.work[key]>0)])){

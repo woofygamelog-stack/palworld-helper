@@ -18,10 +18,18 @@ import { mapSeoCopy, mapSeoTranslationProvenance } from "./seo-static.mjs";
 import { shellCopy, shellCopyProvenance } from "../src/shell-i18n.ts";
 import {homeCopy,homeCopyProvenance} from "../src/home-i18n.ts";
 import {footerCopy,footerCopyProvenance} from "../src/footer-i18n.ts";
+import {serverCopy,serverCopyProvenance} from "../src/server-i18n.ts";
+import {guideCopy,guideCopyProvenance,guideDefinitions} from "../src/guide-content.ts";
+import {mapProgressCopy,mapProgressCopyProvenance} from "../src/map-progress-i18n.ts";
+import {palToolsCopy,palToolsCopyProvenance} from "../src/pal-tools-i18n.ts";
 const config = await readFile("src/config.ts", "utf8");
 const i18n = await readFile("src/i18n.ts", "utf8");
 const expected = ["en-US","zh-CN","zh-TW","ja-JP","fr-FR","it-IT","de-DE","es-ES","pt-BR","ru-RU","ko-KR","id-ID","es-419","th-TH","tr-TR","vi-VN","pl-PL"];
 const flattenStrings=value=>typeof value==="string"?[value]:Object.values(value).flatMap(flattenStrings),homeEnglish=flattenStrings(homeCopy["en-US"]);
+if(mapProgressCopyProvenance!=="gpt")throw new Error("Map progress copy provenance must be recorded as gpt");
+if(palToolsCopyProvenance!=="gpt")throw new Error("Pal tools copy provenance must be recorded as gpt");
+const palToolsEnglish=Object.values(palToolsCopy["en-US"]),palToolsKeys=Object.keys(palToolsCopy["en-US"]).sort();
+for(const locale of expected){const catalog=palToolsCopy[locale];if(JSON.stringify(Object.keys(catalog||{}).sort())!==JSON.stringify(palToolsKeys)||Object.values(catalog||{}).some(value=>typeof value!=="string"||!value.trim()))throw new Error(`${locale} Pal tools catalog is incomplete`);if(locale!=="en-US"&&Object.values(catalog).filter((value,index)=>value!==palToolsEnglish[index]).length<Math.floor(palToolsEnglish.length*.8))throw new Error(`${locale} Pal tools catalog appears to be an accidental English fallback`)}
 for(const locale of expected){
   const footer=footerCopy[locale];
   if(!footer||Object.values(footer).some(value=>!value.trim())||!footerCopyProvenance[locale])throw new Error(`${locale} Footer copy or provenance is incomplete`);
@@ -31,6 +39,7 @@ for(const locale of expected){
   if(!homeCopyProvenance[locale])throw new Error(`${locale} Home translation provenance is missing`);
   if(locale!=="en-US"&&values.filter((value,index)=>value!==homeEnglish[index]).length<Math.floor(values.length*.8))throw new Error(`${locale} Home catalog appears to be an accidental English fallback`);
 }
+for(const locale of expected)if(Object.values(mapProgressCopy[locale]||{}).length!==3||Object.values(mapProgressCopy[locale]).some(value=>!value.trim()))throw new Error(`${locale} map progress copy is incomplete`);
 for (const locale of expected) {
   if (!config.includes(`"${locale}"`)) throw new Error(`Locale missing from config: ${locale}`);
   if (!i18n.includes(`"${locale}"`)) throw new Error(`Translation provenance missing: ${locale}`);
@@ -181,6 +190,25 @@ for(const locale of expected){
   if(locale!=="en-US"&&values.filter((value,index)=>value!==basePresetEnglish[index]).length<Math.floor(values.length*.8))throw new Error(`${locale} base preset catalog appears to be an accidental English fallback`);
 }
 if(basePresetCopyProvenance!=="gpt")throw new Error("Base preset translation provenance is incomplete");
+const serverEnglish=serverCopy["en-US"],serverKeys=Object.keys(serverEnglish).sort();
+for(const locale of expected){
+  const catalog=serverCopy[locale];
+  if(JSON.stringify(Object.keys(catalog||{}).sort())!==JSON.stringify(serverKeys))throw new Error(`${locale} server catalog key mismatch`);
+  for(const key of serverKeys){
+    if(typeof catalog[key]!=="string"||!catalog[key].trim())throw new Error(`${locale} server catalog ${key} is empty`);
+    const sourceTokens=[...serverEnglish[key].matchAll(/\{[^}]+\}/g)].map(match=>match[0]).sort(),targetTokens=[...catalog[key].matchAll(/\{[^}]+\}/g)].map(match=>match[0]).sort();
+    if(JSON.stringify(sourceTokens)!==JSON.stringify(targetTokens))throw new Error(`${locale} server catalog ${key} placeholder mismatch`);
+  }
+  if(locale!=="en-US"&&serverKeys.filter(key=>catalog[key]!==serverEnglish[key]).length<Math.floor(serverKeys.length*.8))throw new Error(`${locale} server catalog appears to be an accidental English fallback`);
+}
+if(serverCopyProvenance!=="gpt")throw new Error("Server translation provenance is incomplete");
+const guideEnglish=flattenStrings(guideCopy["en-US"]);
+for(const locale of expected){
+  const catalog=guideCopy[locale],values=flattenStrings(catalog||{});
+  if(values.length!==guideEnglish.length||values.some(value=>!value.trim()))throw new Error(`${locale} guide catalog is incomplete`);
+  if(Object.keys(catalog.guides).length!==guideDefinitions.length||!guideCopyProvenance[locale])throw new Error(`${locale} guide coverage or provenance is incomplete`);
+  if(locale!=="en-US"&&values.filter((value,index)=>value!==guideEnglish[index]).length<Math.floor(values.length*.8))throw new Error(`${locale} guide catalog appears to be an accidental English fallback`);
+}
 const shellKeys=Object.keys(shellCopy["en-US"]).sort();
 for(const locale of expected){
   const catalog=shellCopy[locale];
@@ -192,4 +220,4 @@ if(/\$\{esc\((?:encounter|step)\.variant\)/.test(main))throw new Error("NPC inte
 for(const text of [">Skill Fruit<",">Surgery cost<",">Breeding power<",">Size<","Server management","Import existing INI","Import and validate","INI output","Only settings documented by the official Palworld Server Guide"]){
   if(main.includes(text))throw new Error(`Hard-coded English UI copy remains in main.ts: ${text}`);
 }
-console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${elementMatchupKeys.length} element matchup, ${structureKeys.length} structure, ${expeditionKeys.length} expedition, ${questKeys.length} quest, ${plannerKeys.length} planner, ${shellKeys.length} shell, and ${basePresetIds.length} base preset message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);
+console.log(`Validated ${keys.length} shared, ${npcKeys.length} NPC, ${uiKeys.length} supplemental UI, ${skillKeys.length} skill, ${dungeonKeys.length} Dungeon, ${technologyKeys.length} technology, ${healthKeys.length} health, ${elementKeys.length} element, ${elementMatchupKeys.length} element matchup, ${structureKeys.length} structure, ${expeditionKeys.length} expedition, ${questKeys.length} quest, ${plannerKeys.length} planner, ${serverKeys.length} server, ${guideDefinitions.length} guide, ${shellKeys.length} shell, and ${basePresetIds.length} base preset message keys in ${Object.keys(messageCatalogs).length} complete catalogs; ${fallback.length} locales remain explicit fallback.`);

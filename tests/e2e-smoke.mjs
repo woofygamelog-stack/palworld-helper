@@ -53,10 +53,89 @@ try{
     page.off("request",recordSearchChunk);
   });
 
-  await run("pal-collection",async()=>{
-    await visit("/en-US/pals");
+  await run("home-pals-detail-back",async()=>{
+    const palChunkRequests=[];
+    const recordPalChunk=request=>{if(/\/pals-[^/]+\.js$/.test(new URL(request.url()).pathname))palChunkRequests.push(request.url())};
+    page.on("request",recordPalChunk);
+    await visit("/en-US");
+    assert.equal(palChunkRequests.length,0,"Pal page code must stay out of the initial Home request graph");
+    const palLink=page.locator('[data-home-action="pals"]');
+    await palLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/pals");
     await page.locator("#pal-search").waitFor({state:"visible"});
     assert.ok(await page.locator(".pal-grid .pal-card").count()>0,"Pal collection must render cards");
+    assert.equal(palChunkRequests.length,1,"Pal page code must load exactly once on first route entry");
+    await page.locator(".pal-card h2 a[data-link]").first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/pals/"));
+    await page.locator(".pal-detail").waitFor({state:"visible"});
+    assert.equal(await page.locator('.contextual-guide-link a[href="/en-US/guides/breeding"]').count(),1,"Pal details must expose the related breeding guide");
+    assert.equal(palChunkRequests.length,1,"Pal details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/pals");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await palLink.waitFor({state:"visible"});
+    await palLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/pals");
+    await page.locator("#pal-search").waitFor({state:"visible"});
+    assert.equal(palChunkRequests.length,1,"repeat Pal navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordPalChunk);
+  });
+
+  await run("home-skills-detail-back",async()=>{
+    const skillChunkRequests=[];
+    const recordSkillChunk=request=>{if(/\/skills-[^/]+\.js$/.test(new URL(request.url()).pathname))skillChunkRequests.push(request.url())};
+    page.on("request",recordSkillChunk);
+    await visit("/en-US");
+    assert.equal(skillChunkRequests.length,0,"Skill page code must stay out of the initial Home request graph");
+    const skillLink=page.locator('[data-home-group="pals-and-skills"] a[href="/en-US/skills"]');
+    await skillLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/skills");
+    await page.locator("#skill-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".skill-grid .skill-card").count()>0,"Skill collection must render cards");
+    assert.equal(skillChunkRequests.length,1,"Skill page code must load exactly once on first route entry");
+    await page.locator('.skill-card[data-kind="active"] h2 a[data-link]').first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/skills/active/"));
+    await page.locator(".entity-detail").waitFor({state:"visible"});
+    assert.equal(skillChunkRequests.length,1,"Skill details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/skills");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await skillLink.waitFor({state:"visible"});
+    await skillLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/skills");
+    await page.locator("#skill-search").waitFor({state:"visible"});
+    assert.equal(skillChunkRequests.length,1,"repeat Skill navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordSkillChunk);
+  });
+
+  await run("home-items-detail-back",async()=>{
+    const itemChunkRequests=[];
+    const recordItemChunk=request=>{if(/\/items-[^/]+\.js$/.test(new URL(request.url()).pathname))itemChunkRequests.push(request.url())};
+    page.on("request",recordItemChunk);
+    await visit("/en-US");
+    assert.equal(itemChunkRequests.length,0,"Item page code must stay out of the initial Home request graph");
+    const itemLink=page.locator('[data-home-group="items-and-progression"] a[href="/en-US/database"]');
+    await itemLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database");
+    await page.locator("#item-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".item-card").count()>0,"the Item collection must render verified entries");
+    assert.equal(itemChunkRequests.length,1,"Item page code must load exactly once on first route entry");
+    await page.locator(".item-card h2 a[data-link]").first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.locator(".item-detail").waitFor({state:"visible"});
+    assert.equal(itemChunkRequests.length,1,"Item details must reuse the loaded collection module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US");
+    await itemLink.waitFor({state:"visible"});
+    await itemLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database");
+    await page.locator("#item-search").waitFor({state:"visible"});
+    assert.equal(itemChunkRequests.length,1,"repeat Item navigation must reuse the loaded module without a duplicate request");
+    page.off("request",recordItemChunk);
   });
 
   await run("home-breeding-back",async()=>{
@@ -96,6 +175,48 @@ try{
     assert.equal(await page.locator("#base-plan-output").count(),1,"base planner output must render once");
   });
 
+  await run("pal-compare",async()=>{
+    await visit("/en-US/calculators/pal-compare");
+    await page.locator("[data-pal-picker]").waitFor({state:"visible"});
+    for(let count=1;count<=2;count++){
+      const value=await page.locator('[data-pal-picker] option:not([value=""])').first().getAttribute("value");
+      assert.ok(value,"Pal comparison must expose a public-slug option");
+      await page.locator("[data-pal-picker]").selectOption(value);
+      await page.locator("[data-add-pal]").click();
+      await page.waitForFunction(expected=>document.querySelectorAll(".pal-selection-list article").length===expected,count);
+    }
+    assert.match(page.url(),/\?pals=\d{3}[a-z0-9-]+%2C\d{3}[a-z0-9-]+/,"Pal comparison URL must preserve only public slugs");
+    assert.ok(await page.locator(".pal-tool-table tbody tr").count()>5,"Pal comparison must render verified comparison rows");
+    await page.locator("[data-differences-only]").check();
+    assert.match(page.url(),/diff=1/,"difference-only comparison state must be URL-restorable");
+  });
+
+  await run("team-builder",async()=>{
+    await visit("/ko-KR/calculators/team-builder");
+    for(let count=1;count<=2;count++){
+      const value=await page.locator('[data-pal-picker] option:not([value=""])').first().getAttribute("value");
+      await page.locator("[data-pal-picker]").selectOption(value);
+      await page.locator("[data-add-pal]").click();
+      await page.waitForFunction(expected=>document.querySelectorAll(".pal-selection-list article").length===expected,count);
+    }
+    await page.locator("[data-team-purpose]").selectOption("movement");
+    assert.match(page.url(),/purpose=movement/,"team purpose must be URL-restorable");
+    assert.equal(await page.locator(".team-coverage-grid article").count(),3,"team builder must show neutral element, work, and overlap coverage");
+    assert.ok((await page.locator(".notice").allTextContents()).some(text=>text.trim()),"unverified role weights must have a visible boundary note");
+  });
+
+  await run("condensing",async()=>{
+    await visit("/en-US/calculators/condensing");
+    await page.locator("[data-condense-from]").selectOption("1");
+    await page.locator("[data-condense-owned]").fill("10");
+    await page.locator("[data-condense-owned]").press("Tab");
+    await page.waitForFunction(()=>document.querySelector("[data-condense-remaining]")?.textContent?.trim()==="18");
+    assert.equal((await page.locator("[data-condense-incremental]").textContent())?.trim(),"28","one-to-four-star condensation must require 28 matching Pals");
+    assert.equal((await page.locator("[data-condense-remaining]").textContent())?.trim(),"18","owned matching Pals must be subtracted exactly once");
+    assert.equal(await page.locator(".pal-tool-table tbody tr").count(),4,"condensing must expose the four verified stage rows");
+    assert.match(page.url(),/from=1.*to=4.*owned=10/,"condensing inputs must be URL-restorable");
+  });
+
   await run("home-map-back",async()=>{
     const mapChunkRequests=[];
     const recordMapChunk=request=>{if(/\/map-[^/]+\.js$/.test(new URL(request.url()).pathname))mapChunkRequests.push(request.url())};
@@ -107,6 +228,38 @@ try{
     await page.locator(".map-viewport").waitFor({state:"visible"});
     await page.waitForFunction(()=>Number(document.querySelector("#map-result-count")?.textContent)>0);
     assert.ok(Number(await page.locator("#map-result-count").textContent())>0,"map must expose a non-empty result count");
+    await page.locator('[data-map-panel="results"]').click();
+    const firstProgress=page.locator('.map-result:not([hidden]) [data-map-progress]').first();
+    await firstProgress.click();
+    assert.match(await page.evaluate(()=>localStorage.getItem("pw-map-progress:palpagos")||""),/boss:/,"map completion state must remain in world-specific local storage");
+    await page.locator('[data-map-panel="filters"]').click();
+    await page.locator("#map-unfinished-only").check();
+    assert.equal(await page.locator('.map-result.is-complete:not([hidden])').count(),0,"unfinished-only mode must hide locally completed results");
+    await page.locator("#map-unfinished-only").uncheck();
+    await page.locator('[data-map-panel="results"]').click();
+    await page.locator('.map-result.is-complete [data-map-progress]').first().click();
+    await page.evaluate(()=>localStorage.removeItem("pw-map-progress:palpagos"));
+    await page.locator('[data-map-panel="filters"]').click();
+    await page.locator("#map-pin-name").fill("Local test pin");
+    await page.locator("#map-pin-x").fill("0");
+    await page.locator("#map-pin-y").fill("0");
+    await page.locator("#map-pin-form button[type=submit]").click();
+    assert.match(await page.evaluate(()=>localStorage.getItem("pw-map-pins:palpagos")||""),/Local test pin/,"personal pins must remain in world-specific local storage");
+    await page.locator("#local-pin-layer").uncheck();
+    assert.equal(new URL(page.url()).searchParams.get("pins"),"0","local-pin visibility must restore from URL state");
+    await page.locator("#local-pin-layer").check();
+    await page.locator('[data-map-panel="results"]').click();
+    await page.locator('[data-map-result="localPin"] [data-remove-pin]').click();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("pw-map-pins:palpagos")||"[]").length),0,"personal pins must be removable without a network service");
+    await page.locator('[data-map-panel="filters"]').click();
+    const denseLayer=await page.locator("[data-point-layer]").evaluateAll(inputs=>{const input=inputs.find(node=>Number(node.closest("label")?.querySelector("b")?.textContent)>120);return input?.getAttribute("data-point-layer")||""});
+    assert.ok(denseLayer,"the verified map dataset must retain at least one dense layer for aggregation coverage");
+    await page.locator(`[data-point-layer="${denseLayer}"]`).evaluate(input=>{const group=input.closest("details");if(group)group.open=true});
+    await page.locator(`[data-point-layer="${denseLayer}"]`).check();
+    await page.waitForFunction(category=>document.querySelectorAll(`.map-marker-cluster[data-map-category="${category}"]`).length>0,denseLayer);
+    const aggregateParity=await page.evaluate(category=>({visual:[...document.querySelectorAll(`.map-marker-cluster[data-map-category="${category}"]`)].reduce((sum,node)=>sum+Number((node).dataset.clusterCount||0),0),results:document.querySelectorAll(`.map-result[data-map-result="${category}"]`).length}),denseLayer);
+    assert.equal(aggregateParity.visual,aggregateParity.results,"cluster member counts must equal the accessible result-list count");
+    assert.match(new URL(page.url()).search,/layers=/,"enabled dense layers must restore from URL state");
     assert.equal(mapChunkRequests.length,1,"map code must load exactly once on first map navigation");
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/en-US");
@@ -142,7 +295,7 @@ try{
 
   await run("home-technology-detail-back",async()=>{
     const technologyChunkRequests=[];
-    const recordTechnologyChunk=request=>{if(/\/technology-[^/]+\.js$/.test(new URL(request.url()).pathname))technologyChunkRequests.push(request.url())};
+    const recordTechnologyChunk=request=>{if(/\/technology-(?!i18n-)[^/]+\.js$/.test(new URL(request.url()).pathname))technologyChunkRequests.push(request.url())};
     page.on("request",recordTechnologyChunk);
     await visit("/en-US");
     assert.equal(technologyChunkRequests.length,0,"technology page code must stay out of the initial Home request graph");
@@ -310,7 +463,7 @@ try{
 
   await run("home-health-detail-back",async()=>{
     const healthChunkRequests=[];
-    const recordHealthChunk=request=>{if(/\/health-[^/]+\.js$/.test(new URL(request.url()).pathname))healthChunkRequests.push(request.url())};
+    const recordHealthChunk=request=>{if(/\/health-(?!i18n-)[^/]+\.js$/.test(new URL(request.url()).pathname))healthChunkRequests.push(request.url())};
     page.on("request",recordHealthChunk);
     await visit("/en-US");
     assert.equal(healthChunkRequests.length,0,"Health page code must stay out of the initial Home request graph");
@@ -347,14 +500,81 @@ try{
     await page.locator("#server-form").waitFor({state:"visible"});
     assert.equal(await page.locator("#ini-output").count(),1,"server output must render once");
     assert.equal(serverChunkRequests.length,1,"server settings code must load exactly once on first route entry");
+    assert.equal(await page.locator("[data-server-key]").count(),93,"the server form must expose every supported official setting");
+    const basicVisible=await page.locator("[data-server-scope=basic]:visible").count();
+    assert.ok(basicVisible>0&&basicVisible<93,"basic mode must present a focused subset of the complete schema");
+    await page.locator('[data-server-mode="advanced"]').click();
+    assert.equal(await page.locator("[data-server-scope]:visible").count(),93,"advanced mode must reveal the complete supported schema");
     await page.locator('input[name="ServerPlayerMaxNum"][type="number"]').fill("12");
     assert.equal(await page.locator("#server-form").evaluate(form=>form.querySelector('input[name="ServerPlayerMaxNum"][data-server-key]')?.value),"12","the lazy server form must retain edited values before generation");
-    await page.locator("#server-form .button.primary").click();
+    await page.locator('#server-form button[type="submit"]').click();
     assert.match(await page.locator("#ini-output").inputValue(),/ServerPlayerMaxNum=12/,"the lazy server route must generate INI from the bound form");
-    await page.locator("#ini-import").fill("[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerPlayerMaxNum=16)");
-    await page.locator("#import-ini").click();
+    assert.match(await page.locator("#server-diff").textContent(),/ServerPlayerMaxNum/,"the server route must summarize settings that differ from official defaults");
+    await page.locator('select[name="RCONEnabled"]').selectOption("True");
+    assert.match(await page.locator("#ini-warnings").textContent(),/RCONEnabled.*AdminPassword/s,"the server validator must surface the RCON credential dependency without transmitting the value");
+    await page.locator('input[name="AdminPassword"]').fill("local-secret-only");
+    await page.locator('#server-form button[type="submit"]').click();
+    assert.equal(new URL(page.url()).search,"","sensitive server values must not be written to the URL");
+    assert.doesNotMatch(await page.evaluate(()=>JSON.stringify(localStorage)),/local-secret-only/,"sensitive server values must not be written to local storage");
+    await page.locator("#ini-file").setInputFiles({name:"PalWorldSettings.ini",mimeType:"text/plain",buffer:Buffer.from("[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerPlayerMaxNum=16,UnknownKey=1)")});
     assert.equal(await page.locator('input[name="ServerPlayerMaxNum"][type="number"]').inputValue(),"16","the lazy server route must import official settings locally");
+    assert.match(await page.locator("#ini-warnings").textContent(),/UnknownKey/,"the local INI import must report unsupported keys");
+    const downloadPromise=page.waitForEvent("download");
+    await page.locator("#download-ini").click();
+    const download=await downloadPromise;
+    assert.equal(download.suggestedFilename(),"PalWorldSettings.ini","the server route must download the generated configuration with the expected filename");
+    for(const width of [360,768,1024,1440]){
+      await page.setViewportSize({width,height:900});
+      await visit("/ko-KR/server-tools/settings-generator");
+      await page.locator("#server-form").waitFor({state:"visible"});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,`the localized server form must not overflow at ${width}px`);
+    }
+    await page.setViewportSize({width:360,height:800});
+    await page.evaluate(()=>localStorage.setItem("pw-theme","dark"));
+    await page.reload({waitUntil:"networkidle"});
+    assert.equal(await page.locator("html").getAttribute("data-theme"),"dark","the mobile server flow must render in the stored dark theme");
+    await page.locator('[data-server-mode="advanced"]').focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator("[data-server-scope]:visible").count(),93,"the advanced server mode must be keyboard operable on mobile");
+    await page.evaluate(()=>localStorage.removeItem("pw-theme"));
+    await page.setViewportSize({width:1365,height:900});
     page.off("request",recordServerChunk);
+  });
+
+  await run("home-guides-detail-search",async()=>{
+    const guideChunkRequests=[];
+    const recordGuideChunk=request=>{if(/\/guides-[^/]+\.js$/.test(new URL(request.url()).pathname))guideChunkRequests.push(request.url())};
+    page.on("request",recordGuideChunk);
+    await visit("/en-US");
+    assert.equal(guideChunkRequests.length,0,"guide content must stay out of the initial Home request graph");
+    await page.locator('.home-guides-link a[href="/en-US/guides"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/guides");
+    await page.locator(".guide-hub").waitFor({state:"visible"});
+    assert.equal(await page.locator(".guide-card").count(),6,"the guide hub must expose all six workflows");
+    assert.equal(guideChunkRequests.length,1,"guide content must load once on first route entry");
+    await page.locator('.guide-card a[href="/en-US/guides/server"]').first().click();
+    await page.waitForURL(url=>url.pathname==="/en-US/guides/server");
+    await page.locator(".guide-detail").waitFor({state:"visible"});
+    assert.equal(await page.locator(".guide-step-number").count(),3,"the server guide must expose its three linked workflow steps");
+    assert.equal(guideChunkRequests.length,1,"guide details must reuse the loaded guide module");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/guides");
+    await page.locator("header [data-open-search]").click();
+    await page.locator("#global-search-input").fill("backup");
+    await page.locator('#global-search-results a[href="/en-US/guides/server"]').waitFor({state:"visible"});
+    for(const width of [360,768,1024,1440]){
+      await page.setViewportSize({width,height:900});
+      await visit("/ko-KR/guides/combat");
+      await page.locator(".guide-detail").waitFor({state:"visible"});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,`the localized guide must not overflow at ${width}px`);
+    }
+    await page.setViewportSize({width:360,height:800});
+    await page.evaluate(()=>localStorage.setItem("pw-theme","dark"));
+    await visit("/ko-KR/guides/combat");
+    assert.equal(await page.locator("html").getAttribute("data-theme"),"dark","the Korean mobile guide must support the explicit dark theme");
+    await page.evaluate(()=>localStorage.removeItem("pw-theme"));
+    await page.setViewportSize({width:1365,height:900});
+    page.off("request",recordGuideChunk);
   });
 
   await run("locale-change",async()=>{
@@ -388,7 +608,7 @@ try{
   });
 
   await context.close();
-  assert.ok(passed.length>=18,"the Phase 1 browser baseline must cover at least eighteen workflows");
+  assert.ok(passed.length>=20,"the browser baseline must cover at least twenty workflows");
   console.log(`Passed ${passed.length} browser workflows with ${path.basename(executablePath)}: ${passed.join(", ")}.`);
 }finally{
   await browser.close();

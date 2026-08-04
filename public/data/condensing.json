@@ -1,0 +1,1 @@
+{"meta":{"schema":1,"gameBuild":"24467282","verification":"verified","maxStars":4,"stageCount":4},"stages":[{"fromStars":0,"toStars":1,"required":2,"cumulative":2},{"fromStars":1,"toStars":2,"required":4,"cumulative":6},{"fromStars":2,"toStars":3,"required":8,"cumulative":14},{"fromStars":3,"toStars":4,"required":16,"cumulative":30}]}
