@@ -1,7 +1,7 @@
 param(
     [string]$ServerRoot = "private\runtime\palserver",
     [string]$Output = "private\verification\calculators\build-24467282\capture-session-1.log",
-    [ValidateRange(30, 900)][int]$TimeoutSeconds = 180
+    [ValidateRange(30, 900)][int]$TimeoutSeconds = 420
 )
 
 $ErrorActionPreference = "Stop"
@@ -65,7 +65,7 @@ try {
         }
         if ($launcher.HasExited) { throw "Dedicated server exited before capture evidence completed." }
     }
-    if (-not ($lines -match 'PAL_CAPTURE_EVIDENCE\|complete')) { throw "Capture evidence timed out. Connect a client to the isolated server and enter a loaded world." }
+    if (-not ($lines -match 'PAL_CAPTURE_EVIDENCE\|complete')) { throw "Capture evidence timed out before post-join coverage completed. Launch the client, manually join 127.0.0.1:8392, and enter the loaded world before the deadline." }
     if (-not ($lines -match 'PAL_CAPTURE_EVIDENCE\|case\|')) { throw "Capture evidence completed without a valid case." }
     New-Item -ItemType Directory -Path (Split-Path -Parent $outputPath) -Force | Out-Null
     [IO.File]::WriteAllLines($outputPath, $lines, [Text.UTF8Encoding]::new($false))

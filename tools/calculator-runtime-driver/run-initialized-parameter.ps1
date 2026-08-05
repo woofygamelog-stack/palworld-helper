@@ -1,7 +1,7 @@
 param(
     [string]$ServerRoot = "private\runtime\palserver",
     [string]$Output = "private\verification\calculators\build-24467282\initialized-parameter-session-1.log",
-    [ValidateRange(30, 900)][int]$TimeoutSeconds = 120,
+    [ValidateRange(30, 900)][int]$TimeoutSeconds = 420,
     [switch]$LaunchClient,
     [string]$ClientLauncher = ""
 )
@@ -72,6 +72,7 @@ try {
         Start-Sleep -Seconds 20
         $clientStartTime = Get-Date
         Start-Process -FilePath $ClientLauncher -ArgumentList "-connect=127.0.0.1:8392 -NoSplash -windowed -ResX=640 -ResY=360" -WorkingDirectory (Split-Path -Parent $ClientLauncher) -WindowStyle Hidden | Out-Null
+        Write-Output "Palworld client launched. Automatic joining is not reliable; manually join 127.0.0.1:8392 and enter the loaded world."
     }
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     $lines = @()
@@ -83,7 +84,7 @@ try {
         }
         if ($launcher.HasExited) { throw "Dedicated server exited before initialized-parameter evidence completed." }
     }
-    if (-not ($lines -match 'PAL_INITIALIZED_PARAMETER\|complete')) { throw "Initialized-parameter evidence timed out before a game-created Pal parameter was observed. Connect a client to the isolated server and enter a loaded world." }
+    if (-not ($lines -match 'PAL_INITIALIZED_PARAMETER\|complete')) { throw "Initialized-parameter evidence timed out before a post-join Pal parameter was observed. If the client launched but did not join automatically, manually join 127.0.0.1:8392 and enter the loaded world, then rerun the session." }
     if (-not ($lines -match 'PAL_INITIALIZED_PARAMETER\|observed\|')) { throw "Initialized-parameter evidence completed without a valid observed parameter." }
     if ($lines -match 'PAL_INITIALIZED_PARAMETER\|error\|') { throw "Initialized-parameter evidence contains runtime inspection errors." }
     New-Item -ItemType Directory -Path (Split-Path -Parent $outputPath) -Force | Out-Null

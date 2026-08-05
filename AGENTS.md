@@ -43,6 +43,15 @@
 - Never describe a shortest breeding path as the most practical path. Expose the scoring factors used for practical route ranking.
 - Do not publish capture probability as exact until build-specific constants, modifier order, caps, and rounding have game-file or in-game golden-case verification. Until then, expose only clearly labeled unavailable or experimental information.
 
+## Live client/server runtime verification
+
+- For any isolated verification that needs a real Palworld client, read and follow `.agents/skills/palworld-helper/references/live-client-runtime-verification.md` before starting processes.
+- Do not assume that launching the client with `-connect=127.0.0.1:<port>` joins the isolated server. In the current owner environment, the client launch can succeed while the automatic join does not; the owner manually selects and joins the local server after the client is ready.
+- Start the isolated server and evidence watcher first, launch the client second, then tell the owner the exact local address and wait for the owner to complete the manual join and enter the loaded world. Do not repeatedly relaunch the client while waiting for that action.
+- A running or responsive client process, elapsed time, window appearance, or launch command exit status is not connection evidence. Require the verification mod's post-join observation marker and final `complete` marker, and reject sessions containing an error marker or missing required coverage.
+- Size the session timeout for client startup plus manual joining and world loading. A timeout before a post-join marker is an incomplete session, not proof that the driver or game formula failed.
+- For two independent runtime sessions, fully stop only the isolated server and client processes started for the session, restart them cleanly, and have the owner manually join again. Keep all connection logs, runtime evidence, machine paths, and server files under ignored `private/` storage.
+
 ## Localization
 
 - Support exactly the current official interface-language set, verified from an authoritative source at release time. The current baseline is:
