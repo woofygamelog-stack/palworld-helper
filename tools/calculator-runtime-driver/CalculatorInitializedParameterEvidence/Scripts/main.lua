@@ -5,6 +5,8 @@ local MAX_ATTEMPTS = 3600
 local completed = false
 local attempts = 0
 local pending_handles = {}
+local run_in_flight = false
+local pal_ids = { __PAL_IDS__ }
 
 local function log(message)
     print(string.format("[%s] PAL_INITIALIZED_PARAMETER|%s\n", MOD_NAME, message))
@@ -24,22 +26,6 @@ end
 
 local function clean(value)
     return tostring(unwrap(value)):gsub("[\r\n|]", " ")
-end
-
-local function cdo(class_path)
-    local class = StaticFindObject(class_path)
-    return is_valid(class) and class:GetCDO() or nil
-end
-
-local function database_for_world(utility)
-    local worlds_ok, worlds = pcall(FindAllOf, "World")
-    if worlds_ok and worlds then
-        for _, world in ipairs(worlds) do
-            local ok, value = pcall(function() return utility:GetDatabaseCharacterParameter(world) end)
-            if ok and is_valid(value) then return value end
-        end
-    end
-    return nil
 end
 
 local function remember_return_value(...)
@@ -75,15 +61,6 @@ local function inspect_parameter(parameter, handle)
         baseline_defense
     ))
     local save = parameter.SaveParameter
-    local utility = cdo("/Script/Pal.PalUtility")
-    if not is_valid(utility) then error("Pal utility is unavailable") end
-    local database = database_for_world(utility)
-    if not is_valid(database) then error("character parameter database is unavailable") end
-    local original = {
-        level = unwrap(save.Level), rank = unwrap(save.Rank),
-        hp_soul = unwrap(save.Rank_HP), attack_soul = unwrap(save.Rank_Attack), defense_soul = unwrap(save.Rank_Defence),
-        hp_talent = unwrap(save.Talent_HP), attack_talent = unwrap(save.Talent_Shot), defense_talent = unwrap(save.Talent_Defense),
-    }
     local character_id_ok, character_id = pcall(function() return save.CharacterID:ToString() end)
     local character_id_text = character_id_ok and tostring(character_id) or "unknown"
     local is_human = character_id_text == "Player"
@@ -96,38 +73,85 @@ local function inspect_parameter(parameter, handle)
         log("skipped|" .. clean(character_id_text))
         return false
     end
+    local original = {
+        character_id = character_id_text,
+        level = unwrap(save.Level), rank = unwrap(save.Rank),
+        hp_soul = unwrap(save.Rank_HP), attack_soul = unwrap(save.Rank_Attack), defense_soul = unwrap(save.Rank_Defence),
+        hp_talent = unwrap(save.Talent_HP), attack_talent = unwrap(save.Talent_Shot), defense_talent = unwrap(save.Talent_Defense),
+    }
     log(string.format(
         "profile|%s|%d|%d|%d|%d|%d|%d|%d|%d",
         clean(character_id_text),
         original.level, original.rank, original.hp_soul, original.attack_soul, original.defense_soul,
         original.hp_talent, original.attack_talent, original.defense_talent
     ))
-    local points = { -10000, -1000, -1, 0, 5999, 6000, 12999, 13000, 20999, 21000, 29999, 30000, 39999, 40000, 54999, 55000, 79999, 80000, 109999, 110000, 149999, 150000, 199999, 200000 }
+    local points = { 0, 6000, 13000, 21000, 30000, 40000, 55000, 80000, 110000, 150000, 200000 }
+    local grid_points = {
+        { -10000, -3 }, { -1000, -2 }, { -1, -1 }, { 0, 0 }, { 6000, 1 }, { 13000, 2 }, { 21000, 3 },
+        { 30000, 4 }, { 40000, 5 }, { 55000, 6 }, { 80000, 7 }, { 110000, 8 }, { 150000, 9 }, { 200000, 10 },
+    }
     local changed = false
     local ok, message = pcall(function()
-        for _, point in ipairs(points) do
-            save.FriendshipPoint = point
-            local actual_point = tonumber(unwrap(parameter:GetFriendshipPoint()))
-            local rank = tonumber(unwrap(parameter:GetFriendshipRank()))
-            local hp = tonumber(unwrap(parameter:GetMaxHP()))
-            local attack = tonumber(unwrap(parameter:GetShotAttack()))
-            local defense = tonumber(unwrap(parameter:GetDefense()))
-            local database_hp = tonumber(unwrap(database:GetHPBySaveParameter(save)))
-            local database_attack = tonumber(unwrap(database:GetShotAttackBySaveParameter(save)))
-            local database_defense = tonumber(unwrap(database:GetDefenseBySaveParameter(save)))
-            if actual_point == nil or rank == nil or not hp or not attack or not defense or not database_hp or not database_attack or not database_defense then
-                error("post-initialization lookup returned a non-numeric value")
+        save.Level = 80
+        save.Rank = 1
+        save.Rank_HP = 0
+        save.Rank_Attack = 0
+        save.Rank_Defence = 0
+        save.Talent_HP = 0
+        save.Talent_Shot = 0
+        save.Talent_Defense = 0
+        for _, id in ipairs(pal_ids) do
+            save.CharacterID = FName(id)
+            local hp_values = {}
+            local attack_values = {}
+            local defense_values = {}
+            for _, point in ipairs(points) do
+                save.FriendshipPoint = point
+                local actual_point = tonumber(unwrap(parameter:GetFriendshipPoint()))
+                local hp = tonumber(unwrap(parameter:GetMaxHP()))
+                local attack = tonumber(unwrap(parameter:GetShotAttack()))
+                local defense = tonumber(unwrap(parameter:GetDefense()))
+                if actual_point == nil or not hp or not attack or not defense then
+                    error("species friendship lookup returned a non-numeric value")
+                end
+                if actual_point ~= point then error("species friendship point did not update") end
+                if actual_point ~= original_friendship then changed = true end
+                hp_values[#hp_values + 1] = tostring(hp)
+                attack_values[#attack_values + 1] = tostring(attack)
+                defense_values[#defense_values + 1] = tostring(defense)
             end
-            if hp ~= database_hp or attack ~= database_attack or defense ~= database_defense then
-                error(string.format("live and database friendship routes disagree at point %d", point))
-            end
-            if actual_point ~= original_friendship then changed = true end
-            log(string.format("friendship|%d|%d|%d|%d|%d|%d", point, actual_point, rank, hp, attack, defense))
-            log(string.format("database-friendship|%d|%d|%d|%d", point, database_hp, database_attack, database_defense))
+            log(string.format("species|%s|%s|%s|%s", clean(id), table.concat(hp_values, ","), table.concat(attack_values, ","), table.concat(defense_values, ",")))
         end
-        log(string.format("database-bridge-complete|%d", #points))
+        log(string.format("species-complete|%d|%d", #pal_ids, #points))
+        save.CharacterID = FName("Alpaca")
+        for _, level in ipairs({ 1, 2, 10, 50, 65, 80 }) do
+            save.Level = level
+            for _, talent in ipairs({ 0, 1, 50, 99, 100 }) do
+                save.Talent_HP = talent
+                save.Talent_Shot = talent
+                save.Talent_Defense = talent
+                for condensing = 0, 4 do
+                    save.Rank = condensing + 1
+                    for soul = 0, 4 do
+                        save.Rank_HP = soul
+                        save.Rank_Attack = soul
+                        save.Rank_Defence = soul
+                        for _, friendship in ipairs(grid_points) do
+                            save.FriendshipPoint = friendship[1]
+                            local hp = tonumber(unwrap(parameter:GetMaxHP()))
+                            local attack = tonumber(unwrap(parameter:GetShotAttack()))
+                            local defense = tonumber(unwrap(parameter:GetDefense()))
+                            if not hp or not attack or not defense then error("IV interaction grid returned a non-numeric value") end
+                            log(string.format("grid|%d|%d|%d|%d|%d|%d|%d|%d", level, talent, condensing, soul, friendship[2], hp, attack, defense))
+                        end
+                    end
+                end
+            end
+        end
+        log("grid-complete|Alpaca|10500")
     end)
     pcall(function()
+        save.CharacterID = FName(original.character_id)
         save.FriendshipPoint = original_friendship
         save.Level = original.level
         save.Rank = original.rank
@@ -147,6 +171,7 @@ end
 
 local function poll()
     if completed then return true end
+    if run_in_flight then return false end
     attempts = attempts + 1
     for index = #pending_handles, 1, -1 do
         local handle = pending_handles[index]
@@ -154,9 +179,13 @@ local function poll()
             local ok, parameter = pcall(function() return handle:TryGetIndividualParameter() end)
             if ok and is_valid(parameter) then
                 table.remove(pending_handles, index)
-                local inspect_ok, message = pcall(function() inspect_parameter(parameter, handle) end)
-                if not inspect_ok then log("error|" .. clean(message)) end
-                if completed then return true end
+                run_in_flight = true
+                ExecuteInGameThread(function()
+                    local inspect_ok, message = pcall(function() inspect_parameter(parameter, handle) end)
+                    if not inspect_ok then log("error|" .. clean(message)) end
+                    run_in_flight = false
+                end)
+                return false
             end
         else
             table.remove(pending_handles, index)

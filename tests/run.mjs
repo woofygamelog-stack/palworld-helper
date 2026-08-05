@@ -60,6 +60,8 @@ import {guideCopy,guideDefinitions,guideRoute} from "../src/guide-content.ts";
 import {guidePageModel,renderGuidesPage} from "../src/pages/guides.ts";
 import {condensingPlan,differentComparisonRows,normalizePalSelection,teamCoverage} from "../src/pal-tools.ts";
 import {renderPalToolPage} from "../src/pages/pal-tools.ts";
+import {calculateIvStat,findIvRange} from "../src/iv-calculator.ts";
+import {ivCopy} from "../src/iv-i18n.ts";
 
 const data = await readFile("src/data.ts", "utf8");
 const serverSettingsSource = await readFile("src/server-settings.ts", "utf8");
@@ -116,6 +118,7 @@ const elementData = JSON.parse(await readFile("public/data/elements.json", "utf8
 const expeditionData = JSON.parse(await readFile("public/data/expeditions.json", "utf8"));
 const questData = JSON.parse(await readFile("public/data/quests.json", "utf8"));
 const condensingData = JSON.parse(await readFile("public/data/condensing.json", "utf8"));
+const ivData = JSON.parse(await readFile("public/data/iv.json", "utf8"));
 assert.deepEqual(normalizePalSelection(["one","missing","one","two","three"],new Map([["one","PalA"],["two","PalB"],["three","PalC"]]),2),["PalA","PalB"],"Pal tool URL selections must ignore unknown and duplicate slugs and respect the route limit");
 assert.deepEqual(differentComparisonRows([{key:"same",values:["1","1"]},{key:"different",values:["1","2"]}],true).map(row=>row.key),["different"],"difference-only comparison must preserve only differing verified rows");
 const coverage=teamCoverage([{id:"A",elementSlugs:["fire"],work:{kindling:2},partnerSkillId:"shared"},{id:"B",elementSlugs:["fire","grass"],work:{kindling:3,planting:1},partnerSkillId:"shared"}]);
@@ -128,6 +131,17 @@ assert.deepEqual(condensingData.stages.map(stage=>stage.required),[2,4,8,16],"co
 assert.deepEqual(condensingPlan(condensingData.stages,0,1,0),{incremental:2,cumulative:2,owned:0,remaining:2},"the first condensation stage must require two matching Pals");
 assert.deepEqual(condensingPlan(condensingData.stages,1,4,10),{incremental:28,cumulative:30,owned:10,remaining:18},"condensing must sum only selected stages and subtract owned matching Pals once");
 assert.throws(()=>condensingPlan(condensingData.stages,2,2,0),/Invalid condensing range/,"invalid condensation ranges must fail closed");
+const alpaca=palData.pals.find(pal=>pal.id==="Alpaca");
+assert.ok(alpaca,"the IV golden case Pal must remain in the current catalog");
+const ivNeutral={base:alpaca.hp,level:80,iv:0,stars:0,soulRank:0,friendshipRank:0};
+assert.equal(calculateIvStat("hp",ivNeutral,ivData),4500,"the verified neutral Alpaca HP golden case must retain exact float32 rounding");
+assert.equal(calculateIvStat("attack",{...ivNeutral,base:alpaca.attack},ivData),550,"the verified neutral Alpaca attack golden case must retain exact float32 rounding");
+assert.equal(calculateIvStat("defense",{...ivNeutral,base:alpaca.defense},ivData),590,"the verified neutral Alpaca defense golden case must retain exact float32 rounding");
+assert.equal(calculateIvStat("hp",{base:alpaca.hp,level:50,iv:100,stars:0,soulRank:0,friendshipRank:8},ivData),4844,"the verified friendship and max-IV boundary must retain exact float32 rounding");
+assert.ok(findIvRange("hp",4844,{base:alpaca.hp,level:50,stars:0,soulRank:0,friendshipRank:8},ivData).includes(100),"inverse IV matching must include the measured exact IV");
+assert.deepEqual(findIvRange("hp",-1,{base:alpaca.hp,level:50,stars:0,soulRank:0,friendshipRank:8},ivData),[],"invalid displayed stats must fail closed");
+assert.equal(Object.keys(ivCopy).length,locales.length,"IV calculator copy must cover every supported locale");
+for(const locale of locales){assert.deepEqual(Object.keys(ivCopy[locale]).sort(),Object.keys(ivCopy["en-US"]).sort(),`${locale} IV copy must retain field parity`);assert.ok(Object.values(ivCopy[locale]).every(value=>value.trim()),`${locale} IV copy must be complete`)}
 const pathRows=[
   [0,1,9,"WILDCARD","WILDCARD"],
   [0,0,3,"WILDCARD","WILDCARD"],
@@ -319,9 +333,11 @@ assert.match(builtChecker,/JavaScript chunks exceed 500 KB/,"the production arti
 for(const field of ["sourceCount","eligibleCount","normalizedCount","localizedNameCount","localizedNameTarget","localizedDescriptionCount","localizedDescriptionTarget","imageCount","imageTarget","relationshipCount","searchCovered","collectionRoute","detailRouteFamily","detailIndexableUrls","detailPrerenderedUrls","duplicateCount","orphanCount","invalidSlugCount","exceptions"])assert.ok(coverageReporter.includes(field),`coverage reports must retain ${field}`);
 assert.match(packageJson.scripts.check,/npm run check:coverage.*npm run build/s,"the full check must validate domain coverage before building");
 assert.match(packageJson.scripts.check,/check:blocked-calculators.*check:coverage.*check:update-rehearsal/s,"the full check must preserve blocked calculator and patch-rehearsal gates");
-assert.match(blockedCalculatorAudit,/capture.*iv.*production.*status:"blocked"/s,"unsupported exact calculators must retain explicit private blocked decisions");
-assert.match(ivFriendshipDriver,/database:GetHPBySaveParameter\(save\).*database:GetShotAttackBySaveParameter\(save\).*database:GetDefenseBySaveParameter\(save\).*live and database friendship routes disagree/s,"IV friendship evidence must compare the live Pal and database calculation routes at every boundary");
-assert.match(ivFriendshipBridgeVerifier,/sessionPaths=\[1,2\].*initialized-pal-bridge-session-\$\{index\}\.log.*expectedPoints\.length\*3.*liveAndDatabaseRoutesMatch:true/s,"IV friendship bridge verification must require two complete independent sessions and every stat comparison");
+assert.match(blockedCalculatorAudit,/domain:"capture"[\s\S]*domain:"production"[\s\S]*status:"blocked"/s,"unsupported exact calculators must retain explicit private blocked decisions");
+assert.match(blockedCalculatorAudit,/publicRoutes\.has\("calculators\/iv"\)[\s\S]*published:\[\{domain:"iv"/s,"the verified IV calculator must leave the blocked set only with a public route and artifact gate");
+assert.match(ivFriendshipDriver,/local pal_ids = \{ __PAL_IDS__ \}.*save\.CharacterID = FName\(id\).*parameter:GetMaxHP\(\).*parameter:GetShotAttack\(\).*parameter:GetDefense\(\).*species-complete/s,"IV friendship evidence must measure every injected Pal ID through initialized live stat getters");
+assert.doesNotMatch(ivFriendshipDriver,/Get(?:HP|ShotAttack|Defense)BySaveParameter/,"IV friendship evidence must not marshal a reflected live save struct into database UFunctions");
+assert.match(ivFriendshipBridgeVerifier,/sessionPaths=\[1,2\].*iv-formula-session-\$\{index\}\.log.*species-complete\|299\|11.*grid-complete\|Alpaca\|10500.*exactFloat32FormulaMatch:true.*independentSessionPayloadsMatch:true/s,"IV verification must require two complete all-species and formula-grid sessions with exact float32 agreement");
 assert.match(initializedParameterRunner,/Start-Process -FilePath \$ClientLauncher.*-PassThru.*Start-Sleep -Seconds 15.*\$activeClient.*Automatic client startup did not remain active.*evidence watcher is still running/s,"The initialized-parameter runner must detect a transient launcher and keep the manual-start watcher alive");
 assert.doesNotMatch(initializedParameterRunner,/-connect=|Start-Process -FilePath \$ClientLauncher[^\n]*-WindowStyle Hidden/,"The owner-controlled Palworld client must open visibly without an automatic connection request");
 assert.match(initializedParameterRunner,/Get-Process -Id \$clientProcess\.Id.*\$actualPath\.Equals\(\$expectedPath.*Stop-Process -Id \$candidate\.Id/s,"Client cleanup must target only the exact process returned by the runner after path verification");
@@ -411,7 +427,8 @@ assert.match(routeManifest,/path:"calculators\/base".*mode:"hybrid".*indexable:t
 assert.match(routeManifest,/path:"calculators\/pal-compare".*mode:"prerendered".*indexable:true.*pal-comparison/,"Pal comparison must be an implemented indexable route");
 assert.match(routeManifest,/path:"calculators\/team-builder".*mode:"prerendered".*indexable:true.*pal-team-coverage/,"team coverage must be an implemented indexable route");
 assert.match(routeManifest,/path:"calculators\/condensing".*mode:"prerendered".*indexable:true.*pal-condensing-calculator/,"condensing must be an implemented indexable route");
-assert.doesNotMatch(routeManifest,/calculators\/(?:capture|iv|production)/,"blocked exact calculators must not appear in routing, navigation, canonical metadata, or sitemaps");
+assert.doesNotMatch(routeManifest,/calculators\/(?:capture|production)/,"blocked exact calculators must not appear in routing, navigation, canonical metadata, or sitemaps");
+assert.ok(routeFamilies.some(family=>family.path==="calculators/iv"&&family.mode==="prerendered"&&family.indexable),"the verified IV calculator must be an indexable prerendered route");
 assert.match(routeManifest,/prefix:"database\/quests".*dataset:"quests".*prerender:"priority".*priorityLimit:5/,"Quest details must use a deterministic high-value priority prerender policy");
 assert.ok(routeFamilies.every(family=>family.indexable&&family.searchIntent),"every collection route must declare its indexability and search intent");
 assert.ok(entityRouteFamilies.every(family=>family.sitemap&&family.searchIntent&&["all","priority"].includes(family.prerender)),"every entity family must declare one sitemap and deterministic prerender policy");
@@ -680,9 +697,9 @@ assert.equal(seoHreflang("es-419"),"es","Latin American Spanish must keep its ro
 assert.ok(indexableGroups.pals.every(url=>/^https:\/\/palworld-helper\.woofy\.blog\/[a-z]{2}(?:-[A-Z0-9]+)?\/pals\/\d{3,}b?-[a-z0-9-]+$/.test(url)),"Pal sitemap URLs must use Paldeck-based public slugs");
 const rawSeoIds=new Set([...palData.pals,...itemData.items,...skillData.activeSkills,...skillData.passiveSkills,...skillData.partnerSkills].map(entity=>entity.id));
 assert.ok(!Object.values(indexableGroups).flat().some(url=>rawSeoIds.has(decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).at(-1)||""))),"Sitemaps must not expose raw game-object IDs");
-assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73304,"typed SEO groups must enumerate every implemented localized URL");
+assert.equal(Object.values(indexableGroups).reduce((sum,urls)=>sum+urls.length,0),73304+locales.length,"typed SEO groups must include the localized IV route in addition to the verified entity baseline");
 assert.deepEqual(Object.fromEntries(Object.entries(prerenderSelection).map(([key,value])=>[key,value.length])),{pals:299,items:75,activeSkills:40,passiveSkills:30,partnerSkills:30,npcs:40,dungeons:28,technologies:20,structures:5,conditions:7,expeditions:18,quests:5},"hybrid prerender selection must retain its deterministic family limits");
-assert.equal(prerenderEntries.length,10693,"collection and priority detail prerenders must preserve expansion headroom");
+assert.equal(prerenderEntries.length,10693+locales.length,"collection and priority detail prerenders must include the localized IV route while preserving expansion headroom");
 const koreanHomeEntry=prerenderEntries.find(entry=>entry.locale==="ko-KR"&&entry.kind==="collection"&&entry.route===""),koreanHomeModel=renderRouteModel(koreanHomeEntry,seoData,prerenderSelection),koreanHomeHtml=renderHtmlDocument(indexHtml,koreanHomeEntry,koreanHomeModel);
 assert.match(koreanHomeHtml,/필요한 정보를 빠르게 찾고, 다시 팰월드로\./,"Home initial HTML must contain the localized redesigned hero");
 assert.equal((koreanHomeHtml.match(/data-home-action=/g)||[]).length,6,"Home initial HTML must contain all six task shortcuts");

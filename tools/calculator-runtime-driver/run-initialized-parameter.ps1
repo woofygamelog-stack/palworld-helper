@@ -24,10 +24,22 @@ $targets = @(
 $logPath = Join-Path $ue4ssTarget "UE4SS.log"
 $settingsPath = Join-Path $resolvedServerRoot "Mods\PalModSettings.ini"
 $outputPath = [IO.Path]::GetFullPath((Join-Path $repositoryRoot $Output))
+$palsPath = Join-Path $repositoryRoot "public\data\pals.json"
 
-foreach ($required in @($serverExe, (Join-Path $ue4ssTarget "UE4SS.dll"), (Join-Path $modSource "Info.json"), (Join-Path $modSource "Scripts\main.lua"))) {
+foreach ($required in @($serverExe, (Join-Path $ue4ssTarget "UE4SS.dll"), (Join-Path $modSource "Info.json"), (Join-Path $modSource "Scripts\main.lua"), $palsPath)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Required runtime input is missing: $required" }
 }
+
+$palsJson = Get-Content -LiteralPath $palsPath -Raw
+$palIdMatches = [regex]::Matches($palsJson, '\{"i":\d+,"id":"([A-Za-z0-9_]+)"')
+$palIds = @($palIdMatches | ForEach-Object { $_.Groups[1].Value })
+if ($palIds.Count -ne 299) { throw "Expected 299 current Pal records, found $($palIds.Count)." }
+if (@($palIds | Sort-Object -Unique).Count -ne $palIds.Count) { throw "The current Pal catalog contains duplicate IDs." }
+$luaTemplatePath = Join-Path $modSource "Scripts\main.lua"
+$luaTemplate = Get-Content -LiteralPath $luaTemplatePath -Raw
+if ([regex]::Matches($luaTemplate, '__PAL_IDS__').Count -ne 1) { throw "The initialized-parameter Lua template must contain exactly one __PAL_IDS__ token." }
+$quotedPalIds = @($palIds | ForEach-Object { '"' + $_ + '"' }) -join ', '
+$generatedLua = $luaTemplate.Replace('__PAL_IDS__', $quotedPalIds)
 
 function Stop-IsolatedServer {
     Get-Process -ErrorAction SilentlyContinue | Where-Object {
@@ -53,7 +65,7 @@ function Stop-IsolatedClient {
 foreach ($target in $targets) {
     New-Item -ItemType Directory -Path (Join-Path $target "Scripts") -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $modSource "Info.json") -Destination (Join-Path $target "Info.json") -Force
-    Copy-Item -LiteralPath (Join-Path $modSource "Scripts\main.lua") -Destination (Join-Path $target "Scripts\main.lua") -Force
+    [IO.File]::WriteAllText((Join-Path $target "Scripts\main.lua"), $generatedLua, [Text.UTF8Encoding]::new($false))
 }
 foreach ($modsPath in @((Join-Path $ue4ssTarget "Mods\mods.txt"), (Join-Path $ue4ssWorkshop "Mods\mods.txt"))) {
     $modsText = Get-Content -LiteralPath $modsPath -Raw
@@ -100,6 +112,8 @@ try {
     }
     if (-not ($lines -match 'PAL_INITIALIZED_PARAMETER\|complete')) { throw "Initialized-parameter evidence timed out before a post-join Pal parameter was observed. If the client launched but did not join automatically, manually join 127.0.0.1:8392 and enter the loaded world, then rerun the session." }
     if (-not ($lines -match 'PAL_INITIALIZED_PARAMETER\|observed\|')) { throw "Initialized-parameter evidence completed without a valid observed parameter." }
+    if (-not ($lines -match 'PAL_INITIALIZED_PARAMETER\|species-complete\|299\|11')) { throw "Initialized-parameter evidence completed without the expected 299 Pal by 11 friendship-rank matrix." }
+    if (-not ($lines -match 'PAL_INITIALIZED_PARAMETER\|grid-complete\|Alpaca\|10500')) { throw "Initialized-parameter evidence completed without the expected 10,500-case IV interaction grid." }
     if ($lines -match 'PAL_INITIALIZED_PARAMETER\|error\|') { throw "Initialized-parameter evidence contains runtime inspection errors." }
     New-Item -ItemType Directory -Path (Split-Path -Parent $outputPath) -Force | Out-Null
     [IO.File]::WriteAllLines($outputPath, $lines, [Text.UTF8Encoding]::new($false))

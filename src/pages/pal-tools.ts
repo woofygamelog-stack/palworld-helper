@@ -3,11 +3,13 @@ import type {Messages} from "../i18n.ts";
 import {activeSkillOwner} from "../public-slugs.ts";
 import {condensingPlan,differentComparisonRows,normalizePalSelection,teamCoverage,type CondensingStage} from "../pal-tools.ts";
 import {palToolsCopy} from "../pal-tools-i18n.ts";
+import {ivCopy} from "../iv-i18n.ts";
+import {calculateIvStat,findIvRange,type IvData,type IvStat} from "../iv-calculator.ts";
 import {palProfileCopy} from "../pal-profile-i18n.ts";
 import {ownedPalsCopy} from "../owned-pals-i18n.ts";
 import {exportOwnedPalLedger,importOwnedPalLedger,ownedPalCount,writeOwnedPalLedger,type OwnedPalEntry,type OwnedPalLedger} from "../owned-pals.ts";
 
-export type PalToolKind="compare"|"team"|"condensing";
+export type PalToolKind="compare"|"team"|"condensing"|"iv";
 type Work=Record<string,number>;
 type Pal={id:string;dex:number;variant:boolean;names:Record<Locale,string>;hp:number;attack:number;defense:number;rarity:number;nocturnal:boolean;movement:{slowWalk:number;walk:number;run:number;rideSprint:number|null;transport:number|null;swim:number;swimDash:number;stamina:number};support:number;food:number;maleProbability:number;work:Work;elementSlugs:string[];guaranteedPassiveIds:string[]};
 type PalData={pals:Pal[];workSuitabilities:{id:string;names:Record<Locale,string>}[]};
@@ -16,7 +18,7 @@ type SkillData={elements:Named[];activeSkills:(Named&{elementId:string;power:num
 type MapData={bosses:{palId:string}[];habitats:{pals:{palId:string}[]}[]};
 export type CondensingData={meta:{schema:number;gameBuild:string;verification:"verified";maxStars:number;stageCount:number};stages:CondensingStage[]};
 
-type SharedContext={locale:Locale;defaultLocale:Locale;messages:Messages;data:PalData|null;skillData:SkillData|null;mapData:MapData|null;condensingData:CondensingData|null;ownedLedger:OwnedPalLedger;location:Location;href:(path:string)=>string;escape:(value:string)=>string;palSlug:(pal:Pal)=>string};
+type SharedContext={locale:Locale;defaultLocale:Locale;messages:Messages;data:PalData|null;skillData:SkillData|null;mapData:MapData|null;condensingData:CondensingData|null;ivData:IvData|null;ownedLedger:OwnedPalLedger;location:Location;href:(path:string)=>string;escape:(value:string)=>string;palSlug:(pal:Pal)=>string};
 type RenderContext=SharedContext&{setMeta:(title:string,description?:string)=>void;hero:(title:string)=>string};
 type BindContext=SharedContext&{document:Document;history:History;storage:Pick<Storage,"getItem"|"setItem"|"removeItem">;render:()=>void;trackOnce:(key:string,name:string,params:Record<string,string>)=>unknown};
 
@@ -31,7 +33,7 @@ function tabs(active:PalToolKind,context:SharedContext){
   const {messages:m,locale,href,escape:esc}=context,copy=palToolsCopy[locale];
   const entries=[
     ["breeding","/calculators/breeding",m.breeding],["crafting","/calculators/crafting",m.crafting],["base","/calculators/base",m.calculators],
-    ["compare","/calculators/pal-compare",copy.compareTitle],["team","/calculators/team-builder",copy.teamTitle],["condensing","/calculators/condensing",copy.condensingTitle]
+    ["iv","/calculators/iv",ivCopy[locale].title],["compare","/calculators/pal-compare",copy.compareTitle],["team","/calculators/team-builder",copy.teamTitle],["condensing","/calculators/condensing",copy.condensingTitle]
   ];
   return `<nav class="section-tabs calculator-tabs" aria-label="${esc(m.calculators)}">${entries.map(([id,path,label])=>`<a href="${href(path)}" data-link ${id===active?'aria-current="page"':""}>${esc(label)}</a>`).join("")}</nav>`;
 }
@@ -77,11 +79,23 @@ function condensingPage(context:RenderContext){
   context.setMeta(copy.condensingTitle,copy.condensingIntro);
   return `${context.hero(copy.condensingTitle)}<section class="section calculator-workspace pal-tool-page">${tabs("condensing",context)}<p class="collection-intro">${esc(copy.condensingIntro)}</p><div class="panel"><div class="condensing-controls"><label>${esc(copy.currentStars)}<select data-condense-from>${[0,1,2,3].map(value=>`<option value="${value}" ${value===from?"selected":""}>${value}</option>`).join("")}</select></label><label>${esc(copy.targetStars)}<select data-condense-to>${[1,2,3,4].filter(value=>value>from).map(value=>`<option value="${value}" ${value===to?"selected":""}>${value}</option>`).join("")}</select></label><label>${esc(copy.ownedPals)}<input data-condense-owned type="number" min="0" max="9999" step="1" value="${owned}"></label></div>${plan?`<div class="condensing-summary"><article><span>${esc(copy.incremental)}</span><strong data-condense-incremental>${plan.incremental.toLocaleString(context.locale)}</strong></article><article><span>${esc(copy.cumulative)}</span><strong>${plan.cumulative.toLocaleString(context.locale)}</strong></article><article><span>${esc(copy.remaining)}</span><strong data-condense-remaining>${plan.remaining.toLocaleString(context.locale)}</strong></article></div><h2>${esc(copy.rankTable)}</h2><div class="pal-tool-table"><table><thead><tr><th>${esc(copy.currentStars)}</th><th>${esc(copy.targetStars)}</th><th>${esc(copy.incremental)}</th><th>${esc(copy.cumulative)}</th></tr></thead><tbody>${context.condensingData!.stages.map(stage=>`<tr><td>${stage.fromStars}</td><td>${stage.toStars}</td><td>${stage.required}</td><td>${stage.cumulative}</td></tr>`).join("")}</tbody></table></div>`:""}</div>${ownedPalsPanel(context)}</section>`;
 }
-export function renderPalToolPage(kind:PalToolKind,context:RenderContext){return kind==="compare"?comparePage(context):kind==="team"?teamPage(context):condensingPage(context)}
+function ivPage(context:RenderContext){
+  const copy=ivCopy[context.locale],params=new URLSearchParams(context.location.search),pals=context.data?.pals||[],requested=params.get("pal"),pal=pals.find(entry=>context.palSlug(entry)===requested)||pals[0],level=Math.min(80,Math.max(1,Number(params.get("level"))||50)),stars=Math.min(4,Math.max(0,Number(params.get("stars"))||0)),friendship=Math.min(10,Math.max(0,Number(params.get("friendship"))||0)),esc=context.escape;
+  context.setMeta(copy.title,copy.intro);
+  if(!pal||!context.ivData)return `${context.hero(copy.title)}<section class="section calculator-workspace pal-tool-page">${tabs("iv",context)}</section>`;
+  const options=[...pals].sort((a,b)=>new Intl.Collator(context.locale,{numeric:true}).compare(name(a,context),name(b,context))||a.dex-b.dex).map(entry=>`<option value="${esc(context.palSlug(entry))}" ${entry.id===pal.id?"selected":""}>#${entry.dex}${entry.variant?"B":""} ${esc(name(entry,context))}</option>`).join("");
+  const statRows=(["hp","attack","defense"] as IvStat[]).map(stat=>{
+    const base=pal[stat],soul=Math.min(4,Math.max(0,Number(params.get(`soul-${stat}`))||0)),raw=params.get(stat),displayed=raw!==null&&raw!==""?Number(raw):null,input={base,level,stars,soulRank:soul,friendshipRank:friendship},minimum=calculateIvStat(stat,{...input,iv:0},context.ivData!),maximum=calculateIvStat(stat,{...input,iv:100},context.ivData!),matches=displayed===null?[]:findIvRange(stat,displayed,input,context.ivData!),label=stat==="hp"?context.messages.hp:stat==="attack"?context.messages.attack:context.messages.defense,result=displayed===null?copy.enter:matches.length===0?copy.impossible:matches.length===1?`${copy.unique}: ${matches[0]}`:`${copy.range}: ${matches[0]}–${matches.at(-1)}`;
+    return `<article class="iv-stat-row"><h2>${esc(label)}</h2><label>${esc(copy.observed)}<input data-iv-param="${stat}" type="number" min="0" step="1" value="${displayed??""}" placeholder="${minimum}–${maximum}"></label><label>${esc(copy.soul)}<select data-iv-param="soul-${stat}">${[0,1,2,3,4].map(value=>`<option value="${value}" ${value===soul?"selected":""}>${value}</option>`).join("")}</select></label><p><span>${esc(copy.displayRange)}</span><strong>${minimum.toLocaleString(context.locale)}–${maximum.toLocaleString(context.locale)}</strong></p><p class="notice" role="status"><span>${esc(copy.possibleIv)}</span><strong>${esc(result)}</strong></p></article>`;
+  }).join("");
+  return `${context.hero(copy.title)}<section class="section calculator-workspace pal-tool-page">${tabs("iv",context)}<p class="collection-intro">${esc(copy.intro)}</p><div class="panel iv-controls"><label>${esc(copy.pal)}<select data-iv-param="pal">${options}</select></label><label>${esc(copy.level)}<input data-iv-param="level" type="number" min="1" max="80" step="1" value="${level}"></label><label>${esc(copy.stars)}<select data-iv-param="stars">${[0,1,2,3,4].map(value=>`<option value="${value}" ${value===stars?"selected":""}>${value}</option>`).join("")}</select></label><label>${esc(copy.friendship)}<select data-iv-param="friendship">${context.ivData.friendshipRanks.map(row=>`<option value="${row.rank}" ${row.rank===friendship?"selected":""}>${row.rank}</option>`).join("")}</select></label></div><div class="iv-results">${statRows}</div><aside class="panel"><h2>${esc(copy.limitations)}</h2><p>${esc(copy.limitationsBody)}</p><p>${esc(copy.verifiedNote)}</p></aside></section>`;
+}
+export function renderPalToolPage(kind:PalToolKind,context:RenderContext){return kind==="compare"?comparePage(context):kind==="team"?teamPage(context):kind==="iv"?ivPage(context):condensingPage(context)}
 
 function updateSelection(context:BindContext,mutate:(slugs:string[])=>string[]){const params=new URLSearchParams(context.location.search),slugs=params.get("pals")?.split(",").filter(Boolean)||[],next=mutate(slugs);if(next.length)params.set("pals",next.join(","));else params.delete("pals");context.history.pushState({},"",`${context.location.pathname}${params.size?`?${params}`:""}`);context.render()}
 function updateParams(context:BindContext,values:Record<string,string|null>){const params=new URLSearchParams(context.location.search);for(const [key,value] of Object.entries(values))if(value===null)params.delete(key);else params.set(key,value);context.history.replaceState({},"",`${context.location.pathname}?${params}`);context.render()}
 export function bindPalToolPage(kind:PalToolKind,context:BindContext){
+  if(kind==="iv"){const update=()=>{const values:Record<string,string|null>={};context.document.querySelectorAll<HTMLInputElement|HTMLSelectElement>("[data-iv-param]").forEach(control=>values[control.dataset.ivParam!]=control.value||null);updateParams(context,values)};context.document.querySelectorAll("[data-iv-param]").forEach(control=>control.addEventListener("change",update));context.trackOnce("pal-tool:iv","tool_use",{tool:"pal_iv"});return}
   context.document.querySelector("[data-add-pal]")?.addEventListener("click",()=>{const picker=context.document.querySelector<HTMLSelectElement>("[data-pal-picker]");if(picker?.value)updateSelection(context,slugs=>[...slugs,picker.value])});
   context.document.querySelectorAll<HTMLElement>("[data-remove-pal]").forEach(button=>button.addEventListener("click",()=>updateSelection(context,slugs=>slugs.filter(slug=>slug!==button.dataset.removePal))));
   context.document.querySelector<HTMLInputElement>("[data-differences-only]")?.addEventListener("change",event=>updateParams(context,{diff:(event.currentTarget as HTMLInputElement).checked?"1":null}));

@@ -5,8 +5,8 @@ import {collectionRoutes,entityRouteFamilies,supportedLocales} from "../src/rout
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo-static.mjs";
 
 const readJson=file=>readFile(file,"utf8").then(JSON.parse);
-const [palData,itemData,skillData,mapData,mapPoints,npcData,dungeonData,technologyData,structureData,expeditionData,questData,healthData,elementData,condensingData]=await Promise.all([
-  "pals","items","skills","map-markers","map-points","npcs","dungeons","technology","structures","expeditions","quests","health","elements","condensing"
+const [palData,itemData,skillData,mapData,mapPoints,npcData,dungeonData,technologyData,structureData,expeditionData,questData,healthData,elementData,condensingData,ivData]=await Promise.all([
+  "pals","items","skills","map-markers","map-points","npcs","dungeons","technology","structures","expeditions","quests","health","elements","condensing","iv"
 ].map(name=>readJson(`public/data/${name}.json`)));
 
 const seoData={palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData};
@@ -41,6 +41,7 @@ const definitions=[
   {domain:"medicines",entities:healthData.medicines,source:healthData.meta.medicineCount,names:e=>e.names,descriptions:e=>e.descriptions,images:e=>useful(e.image),relationships:healthData.medicines.reduce((sum,e)=>sum+e.cures.length+e.recipe.ingredients.length,0),orphans:healthData.medicines.filter(e=>e.recipe.ingredients.some(ingredient=>!itemIds.has(ingredient.itemId))).length,search:true,collection:"database/health"},
   {domain:"elements",entities:elementData.elements,source:elementData.meta.elementCount,names:e=>e.names,descriptions:false,images:e=>useful(e.icon),relationships:elementData.relations.length,orphans:elementData.relations.filter(e=>!elementSlugs.has(e.attacker)||!elementSlugs.has(e.defender)).length,search:true,collection:"database/elements"},
   {domain:"condensing-stages",entities:condensingData.stages,source:condensingData.meta.stageCount,localization:false,images:false,relationships:condensingData.stages.length,orphans:condensingData.meta.gameBuild===palData.meta.gameBuild?0:1,search:true,collection:"calculators/condensing"},
+  {domain:"iv-stat-profiles",entities:palData.pals,source:ivData.meta.palCount,localization:false,images:false,relationships:palData.pals.length*3,orphans:palData.pals.filter(pal=>!Number.isFinite(ivData.friendshipByBase.hp[String(pal.hp)])||!Number.isFinite(ivData.friendshipByBase.attack[String(pal.attack)])||!Number.isFinite(ivData.friendshipByBase.defense[String(pal.defense)])).length,search:true,collection:"calculators/iv",exceptions:["Exact output excludes passive, food, Alpha, Lucky, raid, and temporary modifiers"]},
 ];
 
 const rows=definitions.map(definition=>{
