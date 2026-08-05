@@ -53,7 +53,7 @@ foreach ($target in $targets) {
 }
 foreach ($modsPath in @((Join-Path $ue4ssTarget "Mods\mods.txt"), (Join-Path $ue4ssWorkshop "Mods\mods.txt"))) {
     $modsText = Get-Content -LiteralPath $modsPath -Raw
-    foreach ($name in @("ElementDamageVerifier", "CalculatorRuntimeProbe", "CalculatorRuntimeEvidence", "CalculatorIVMatrixEvidence", "CalculatorInitializedParameterEvidence")) {
+    foreach ($name in @("ElementDamageVerifier", "CalculatorRuntimeProbe", "CalculatorRuntimeEvidence", "CalculatorIVMatrixEvidence", "CalculatorInitializedParameterEvidence", "CalculatorCaptureEvidence")) {
         $enabled = if ($name -eq "CalculatorInitializedParameterEvidence") { 1 } else { 0 }
         $modsText = [regex]::Replace($modsText, "(?m)^$name\s*:\s*\d+\s*$", "$name : $enabled")
     }

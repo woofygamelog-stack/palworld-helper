@@ -40,8 +40,10 @@ foreach ($target in @($modTarget, $workshopModTarget, $embeddedModTarget)) {
 }
 foreach ($modsPath in @((Join-Path $ue4ssTarget "Mods\mods.txt"), (Join-Path $ue4ssWorkshop "Mods\mods.txt"))) {
     $modsText = Get-Content -LiteralPath $modsPath -Raw
-    $modsText = [regex]::Replace($modsText, '(?m)^CalculatorRuntimeProbe\s*:\s*\d+\s*$', 'CalculatorRuntimeProbe : 0')
-    $modsText = [regex]::Replace($modsText, '(?m)^CalculatorRuntimeEvidence\s*:\s*\d+\s*$', 'CalculatorRuntimeEvidence : 1')
+    foreach ($name in @("CalculatorRuntimeProbe", "CalculatorRuntimeEvidence", "CalculatorIVMatrixEvidence", "CalculatorInitializedParameterEvidence", "CalculatorCaptureEvidence")) {
+        $enabled = if ($name -eq "CalculatorRuntimeEvidence") { 1 } else { 0 }
+        $modsText = [regex]::Replace($modsText, "(?m)^$name\s*:\s*\d+\s*$", "$name : $enabled")
+    }
     if ($modsText -notmatch '(?m)^CalculatorRuntimeEvidence\s*:\s*1\s*$') { $modsText += "`r`nCalculatorRuntimeEvidence : 1`r`n" }
     [IO.File]::WriteAllText($modsPath, $modsText, [Text.UTF8Encoding]::new($false))
 }

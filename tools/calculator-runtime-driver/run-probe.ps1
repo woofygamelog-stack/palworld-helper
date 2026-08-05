@@ -47,14 +47,18 @@ foreach ($target in @($modTarget, $workshopModTarget, $embeddedModTarget)) {
 }
 $modsPath = Join-Path $ue4ssTarget "Mods\mods.txt"
 $modsText = Get-Content -LiteralPath $modsPath -Raw
-$modsText = [regex]::Replace($modsText, '(?m)^CalculatorRuntimeEvidence\s*:\s*\d+\s*$', 'CalculatorRuntimeEvidence : 0')
-$modsText = [regex]::Replace($modsText, '(?m)^CalculatorRuntimeProbe\s*:\s*\d+\s*$', 'CalculatorRuntimeProbe : 1')
+foreach ($name in @("CalculatorRuntimeProbe", "CalculatorRuntimeEvidence", "CalculatorIVMatrixEvidence", "CalculatorInitializedParameterEvidence", "CalculatorCaptureEvidence")) {
+    $enabled = if ($name -eq "CalculatorRuntimeProbe") { 1 } else { 0 }
+    $modsText = [regex]::Replace($modsText, "(?m)^$name\s*:\s*\d+\s*$", "$name : $enabled")
+}
 if ($modsText -notmatch '(?m)^CalculatorRuntimeProbe\s*:\s*1\s*$') { $modsText += "`r`nCalculatorRuntimeProbe : 1`r`n" }
 [IO.File]::WriteAllText($modsPath, $modsText, [Text.UTF8Encoding]::new($false))
 $workshopModsPath = Join-Path $ue4ssWorkshop "Mods\mods.txt"
 $workshopModsText = Get-Content -LiteralPath $workshopModsPath -Raw
-$workshopModsText = [regex]::Replace($workshopModsText, '(?m)^CalculatorRuntimeEvidence\s*:\s*\d+\s*$', 'CalculatorRuntimeEvidence : 0')
-$workshopModsText = [regex]::Replace($workshopModsText, '(?m)^CalculatorRuntimeProbe\s*:\s*\d+\s*$', 'CalculatorRuntimeProbe : 1')
+foreach ($name in @("CalculatorRuntimeProbe", "CalculatorRuntimeEvidence", "CalculatorIVMatrixEvidence", "CalculatorInitializedParameterEvidence", "CalculatorCaptureEvidence")) {
+    $enabled = if ($name -eq "CalculatorRuntimeProbe") { 1 } else { 0 }
+    $workshopModsText = [regex]::Replace($workshopModsText, "(?m)^$name\s*:\s*\d+\s*$", "$name : $enabled")
+}
 if ($workshopModsText -notmatch '(?m)^CalculatorRuntimeProbe\s*:\s*1\s*$') { $workshopModsText += "`r`nCalculatorRuntimeProbe : 1`r`n" }
 [IO.File]::WriteAllText($workshopModsPath, $workshopModsText, [Text.UTF8Encoding]::new($false))
 $settingsText = "[PalModSettings]`r`nbGlobalEnableMod=True`r`nWorkshopRootDir=$workshopRoot`r`nConfigVersion=1.0`r`nActiveModList=UE4SSExperimentalPW`r`nActiveModList=CalculatorRuntimeProbe`r`n"

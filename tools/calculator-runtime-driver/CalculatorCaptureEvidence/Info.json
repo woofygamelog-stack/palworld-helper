@@ -1,0 +1,7 @@
+{
+  "name": "CalculatorCaptureEvidence",
+  "version": "1.0.0",
+  "description": "Private isolated runtime evidence for capture calculations",
+  "author": "Palworld Helper",
+  "dependencies": []
+}
