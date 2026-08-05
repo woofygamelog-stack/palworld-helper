@@ -85,7 +85,7 @@ export const entityRouteFamilies = [
   {prefix:"skills/active",dataset:"activeSkills",mode:"hybrid",prerender:"priority",priorityLimit:40,sitemap:"skills-active",searchIntent:"active-skill-detail"},
   {prefix:"skills/passive",dataset:"passiveSkills",mode:"hybrid",prerender:"priority",priorityLimit:30,sitemap:"skills-passive",searchIntent:"passive-skill-detail"},
   {prefix:"skills/partner",dataset:"partnerSkills",mode:"hybrid",prerender:"priority",priorityLimit:30,sitemap:"skills-partner",searchIntent:"partner-skill-detail"},
-  {prefix:"database/npcs",dataset:"npcs",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"npcs",searchIntent:"npc-detail"},
+  {prefix:"database/npcs",dataset:"npcs",mode:"hybrid",prerender:"priority",priorityLimit:40,sitemap:"npcs",searchIntent:"npc-detail"},
   {prefix:"database/dungeons",dataset:"dungeons",mode:"prerendered",prerender:"all",priorityLimit:0,sitemap:"dungeons",searchIntent:"dungeon-detail"},
   {prefix:"database/technology",dataset:"technologies",mode:"hybrid",prerender:"priority",priorityLimit:20,sitemap:"technology",searchIntent:"technology-detail"},
   {prefix:"database/structures",dataset:"structures",mode:"hybrid",prerender:"priority",priorityLimit:5,sitemap:"structures",searchIntent:"structure-detail"},

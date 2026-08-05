@@ -40,6 +40,23 @@ const palElementSlugs=id=>{
   if(slugs.length<1||slugs.length>2||slugs.some(value=>!value))throw new Error(`Invalid Pal elements for ${id}: ${raw.join(", ")}`);
   return slugs;
 };
+const palVerifiedProfile=id=>{
+  const source=palParameters[id];
+  if(!source)throw new Error(`Pal parameter source missing: ${id}`);
+  const numeric=(key,{minimum=0,maximum=Number.MAX_SAFE_INTEGER}={})=>{
+    const value=Number(source[key]);
+    if(!Number.isFinite(value)||value<minimum||value>maximum)throw new Error(`Invalid ${key} for ${id}: ${source[key]}`);
+    return value;
+  };
+  const optionalSpeed=key=>source[key]===-1?null:numeric(key);
+  return {
+    movement:{
+      slowWalk:numeric("SlowWalkSpeed"),walk:numeric("WalkSpeed"),run:numeric("RunSpeed"),rideSprint:optionalSpeed("RideSprintSpeed"),
+      transport:optionalSpeed("TransportSpeed"),swim:numeric("SwimSpeed"),swimDash:numeric("SwimDashSpeed"),stamina:numeric("Stamina")
+    },
+    support:numeric("Support"),food:numeric("FoodAmount"),maleProbability:numeric("MaleProbability",{maximum:100})
+  };
+};
 const characterAliases={GhostAnglerFish:"GhostAnglerfish",GhostAnglerFish_Fire:"GhostAnglerfish_Fire",Mothmon:"Mothman",SnowTigerBeastMan:"SnowTigerBeastman"};
 const palSourceById=new Map(db.Pals.map(pal=>[pal.InternalName,pal]));
 const hasKoreanFinalConsonant=value=>{const character=[...value].at(-1)||"",code=character.charCodeAt(0);return code>=0xac00&&code<=0xd7a3&&(code-0xac00)%28!==0};
@@ -60,12 +77,15 @@ if (breeding.Breeding.length < 30000) throw new Error(`Unexpected breeding row c
 const missingLocal = db.Pals.filter(p => !localNameMap.has(p.InternalName)).map(p => p.InternalName);
 if (missingLocal.length) throw new Error(`IDs missing from local game export: ${missingLocal.join(", ")}`);
 
-const pals = [...db.Pals].sort((a,b) => a.InternalName.localeCompare(b.InternalName)).map((p,index) => ({
-  i:index, id:p.InternalName, dex:p.Id.PalDexNo, variant:p.Id.IsVariant, names:Object.fromEntries(Object.entries(localeMap).map(([from,to]) => [to,p.LocalizedNames[from]])),
-  descriptions:localizedDescription(`PAL_LONG_DESC_${p.InternalName}`), shortDescriptions:localizedExtracted(shortDescriptions,`PAL_SHORT_DESC_${p.InternalName}`),
-  power:p.BreedingPower, rarity:p.Rarity, size:p.Size, nocturnal:p.Nocturnal, hp:p.Hp, attack:p.Attack, defense:p.Defense,
-  work:p.WorkSuitability, elementSlugs:palElementSlugs(p.InternalName), guaranteedPassiveIds:p.GuaranteedPassivesInternalIds||[]
-}));
+const pals = [...db.Pals].sort((a,b) => a.InternalName.localeCompare(b.InternalName)).map((p,index) => {
+  const profile=palVerifiedProfile(p.InternalName);
+  return {
+    i:index, id:p.InternalName, dex:p.Id.PalDexNo, variant:p.Id.IsVariant, names:Object.fromEntries(Object.entries(localeMap).map(([from,to]) => [to,p.LocalizedNames[from]])),
+    descriptions:localizedDescription(`PAL_LONG_DESC_${p.InternalName}`), shortDescriptions:localizedExtracted(shortDescriptions,`PAL_SHORT_DESC_${p.InternalName}`),
+    power:p.BreedingPower, rarity:p.Rarity, size:p.Size, nocturnal:p.Nocturnal, hp:p.Hp, attack:p.Attack, defense:p.Defense,
+    ...profile,work:p.WorkSuitability, elementSlugs:palElementSlugs(p.InternalName), guaranteedPassiveIds:p.GuaranteedPassivesInternalIds||[]
+  };
+});
 const palPortraitSource = path.join(sourceRoot,"PalCalc.UI","Resources","Pals");
 const palPortraitTarget = path.join(root,"public","assets","pals");
 await mkdir(palPortraitTarget,{recursive:true});
@@ -92,7 +112,7 @@ if (uniquePairKeys.size !== pairs.length) throw new Error(`Duplicate gender-awar
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
 const generatedAt=new Date().toISOString();
 const output = {
-  meta:{schema:1,gameBuild,sourceDbVersion:db.Version,generatedAt,palCount:pals.length,palPortraitCount,breedingCount:pairs.length,localIdMatchCount:pals.length},
+  meta:{schema:2,gameBuild,sourceDbVersion:db.Version,generatedAt,verification:"verified",palCount:pals.length,palPortraitCount,breedingCount:pairs.length,localIdMatchCount:pals.length,profileCount:pals.length,movementCoverage:{rideSprint:pals.filter(pal=>pal.movement.rideSprint!==null).length,transport:pals.filter(pal=>pal.movement.transport!==null).length}},
   workSuitabilities,pals,pairs
 };
 await mkdir(path.join(root,"public","data"),{recursive:true});
@@ -100,5 +120,5 @@ await writeFile(path.join(root,"public","data","pals.json"),JSON.stringify(outpu
 await mkdir(path.join(root,"public","assets","work-suitability"),{recursive:true});
 for(const work of workSuitabilities)await copyFile(path.join(extractedRoot,"work-suitability-icons",`${work.id}.webp`),path.join(root,"public","assets","work-suitability",`${work.id}.webp`));
 await mkdir(path.join(root,"private","provenance"),{recursive:true});
-await writeFile(path.join(root,"private","provenance","pals.json"),JSON.stringify({schema:1,gameBuild,generatedAt,sourceType:"community-generated data cross-checked against installed game export; element assignments from installed game files",sourceRevision:"be2ec7a95c521dea6591469c051e7cb0f6658065",sourcePaths:{database:path.relative(root,dbPath),breeding:path.relative(root,breedingPath),localExport:path.relative(root,localExport),palParameters:path.relative(root,path.join(elementExtractedRoot,"pal-parameters.raw.json"))},hashes:{db:sha256(dbBytes),breeding:sha256(breedingBytes),localExport:sha256(localBytes),palParameters:sha256(palParameterBytes)},verification:{palIdsMatched:pals.length,palIdsMissing:missingLocal.length,palElementsMatched:pals.filter(pal=>pal.elementSlugs.length>0).length,breedingRows:pairs.length}},null,2));
+await writeFile(path.join(root,"private","provenance","pals.json"),JSON.stringify({schema:2,gameBuild,generatedAt,sourceType:"community-generated data cross-checked against installed game export; element assignments and Pal profile values from installed game files",sourceRevision:"be2ec7a95c521dea6591469c051e7cb0f6658065",sourcePaths:{database:path.relative(root,dbPath),breeding:path.relative(root,breedingPath),localExport:path.relative(root,localExport),palParameters:path.relative(root,path.join(elementExtractedRoot,"pal-parameters.raw.json"))},hashes:{db:sha256(dbBytes),breeding:sha256(breedingBytes),localExport:sha256(localBytes),palParameters:sha256(palParameterBytes)},verification:{palIdsMatched:pals.length,palIdsMissing:missingLocal.length,palElementsMatched:pals.filter(pal=>pal.elementSlugs.length>0).length,palProfilesMatched:pals.length,profileFields:["movement.slowWalk","movement.walk","movement.run","movement.rideSprint","movement.transport","movement.swim","movement.swimDash","movement.stamina","support","food","maleProbability"],breedingRows:pairs.length}},null,2));
 console.log(`Imported ${pals.length} Pals, ${palPortraitCount} portraits and ${pairs.length} breeding rows; ${missingLocal.length} local ID mismatches.`);

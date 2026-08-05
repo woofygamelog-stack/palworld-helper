@@ -68,6 +68,7 @@ try{
     await page.locator(".pal-card h2 a[data-link]").first().click();
     await page.waitForURL(url=>url.pathname.startsWith("/en-US/pals/"));
     await page.locator(".pal-detail").waitFor({state:"visible"});
+    assert.ok(await page.locator(".pal-profile .detail-stats div").count()>=10,"Pal details must expose the verified movement, support, food, and gender profile");
     assert.equal(await page.locator('.contextual-guide-link a[href="/en-US/guides/breeding"]').count(),1,"Pal details must expose the related breeding guide");
     assert.equal(palChunkRequests.length,1,"Pal details must reuse the loaded collection module");
     await page.goBack({waitUntil:"networkidle"});
@@ -121,6 +122,9 @@ try{
     await page.waitForURL(url=>url.pathname==="/en-US/database");
     await page.locator("#item-search").waitFor({state:"visible"});
     assert.ok(await page.locator(".item-card").count()>0,"the Item collection must render verified entries");
+    assert.equal(await page.locator(".item-card:not([hidden])").count(),96,"the Item collection must initially expose one bounded page");
+    await page.locator("#item-more").click();
+    assert.equal(await page.locator(".item-card:not([hidden])").count(),192,"the Item collection must reveal the next bounded page on demand");
     assert.equal(itemChunkRequests.length,1,"Item page code must load exactly once on first route entry");
     await page.locator(".item-card h2 a[data-link]").first().click();
     await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
@@ -224,6 +228,33 @@ try{
     assert.match(page.url(),/diff=1/,"difference-only comparison state must be URL-restorable");
   });
 
+  await run("owned-pal-ledger",async()=>{
+    await page.evaluate(()=>localStorage.removeItem("pw-owned-pals:v1"));
+    await visit("/en-US/calculators/pal-compare");
+    await page.locator("[data-owned-pal]").waitFor({state:"visible"});
+    const palId=await page.locator('[data-owned-pal] option:not([value=""])').first().getAttribute("value");
+    assert.ok(palId,"owned Pal ledger must list valid Pals");
+    await page.locator("[data-owned-pal]").selectOption(palId);
+    await page.locator("[data-owned-male]").fill("2");
+    await page.locator("[data-owned-female]").fill("1");
+    await page.locator("[data-owned-unknown]").fill("0");
+    await page.locator("[data-owned-stars]").selectOption("3");
+    await page.locator("[data-owned-favorite]").check();
+    await page.locator("[data-owned-save]").click();
+    await page.waitForFunction(()=>document.querySelectorAll(".owned-pals tbody tr").length===1);
+    const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem("pw-owned-pals:v1")||"null"));
+    assert.deepEqual({schema:stored.schema,male:stored.entries[0].male,female:stored.entries[0].female,unknown:stored.entries[0].unknown,highestStars:stored.entries[0].highestStars,favorite:stored.entries[0].favorite},{schema:1,male:2,female:1,unknown:0,highestStars:3,favorite:true},"owned Pal state must persist only bounded structured fields");
+    await page.locator("[data-owned-use]").click();
+    await page.waitForFunction(()=>document.querySelectorAll(".pal-selection-list article").length===1);
+    await visit("/en-US/calculators/base");
+    assert.equal(await page.locator("#base-owned").isEnabled(),true,"base planner must detect the shared owned-Pal ledger");
+    await page.locator("#base-owned").check();
+    assert.match(page.url(),/owned=1/,"base planner owned-only mode must be URL-restorable");
+    await visit("/en-US/calculators/breeding-path");
+    await page.locator("#path-owned-list").waitFor({state:"visible"});
+    assert.equal(await page.locator("#path-owned-list .breeding-owned-chip").count(),1,"breeding paths must initialize from the shared owned-Pal ledger");
+  });
+
   await run("team-builder",async()=>{
     await visit("/ko-KR/calculators/team-builder");
     for(let count=1;count<=2;count++){
@@ -246,7 +277,7 @@ try{
     await page.waitForFunction(()=>document.querySelector("[data-condense-remaining]")?.textContent?.trim()==="18");
     assert.equal((await page.locator("[data-condense-incremental]").textContent())?.trim(),"28","one-to-four-star condensation must require 28 matching Pals");
     assert.equal((await page.locator("[data-condense-remaining]").textContent())?.trim(),"18","owned matching Pals must be subtracted exactly once");
-    assert.equal(await page.locator(".pal-tool-table tbody tr").count(),4,"condensing must expose the four verified stage rows");
+    assert.equal(await page.locator(".pal-tool-page > .panel:not(.owned-pals) .pal-tool-table tbody tr").count(),4,"condensing must expose the four verified stage rows");
     assert.match(page.url(),/from=1.*to=4.*owned=10/,"condensing inputs must be URL-restorable");
   });
 
@@ -266,6 +297,11 @@ try{
     await firstProgress.click();
     assert.match(await page.evaluate(()=>localStorage.getItem("pw-map-progress:palpagos")||""),/boss:/,"map completion state must remain in world-specific local storage");
     await page.locator('[data-map-panel="filters"]').click();
+    assert.equal(await page.locator('[data-point-layer="camp"]').count(),1,"verified enemy camps must be available as a map layer");
+    assert.equal(await page.locator('[data-point-layer="note"]').count(),1,"collectible notes must be available as a map layer");
+    assert.equal(await page.locator('[data-point-layer="supplyDrop"]').count(),1,"possible supply drop zones must be available as a map layer");
+    assert.equal(await page.locator('[data-point-layer="oilRig"]').count(),1,"the oil rig must be available as a map layer");
+    assert.match(await page.locator(".map-verification-note").textContent(),/possible drop zones/i,"supply markers must explain that they are possible zones rather than live crates");
     await page.locator("#map-unfinished-only").check();
     assert.equal(await page.locator('.map-result.is-complete:not([hidden])').count(),0,"unfinished-only mode must hide locally completed results");
     await page.locator("#map-unfinished-only").uncheck();
@@ -551,6 +587,7 @@ try{
     assert.equal(new URL(page.url()).search,"","sensitive server values must not be written to the URL");
     assert.doesNotMatch(await page.evaluate(()=>JSON.stringify(localStorage)),/local-secret-only/,"sensitive server values must not be written to local storage");
     await page.locator("#ini-file").setInputFiles({name:"PalWorldSettings.ini",mimeType:"text/plain",buffer:Buffer.from("[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerPlayerMaxNum=16,UnknownKey=1)")});
+    await page.waitForFunction(()=>document.querySelector('input[name="ServerPlayerMaxNum"][type="number"]')?.value==="16");
     assert.equal(await page.locator('input[name="ServerPlayerMaxNum"][type="number"]').inputValue(),"16","the lazy server route must import official settings locally");
     assert.match(await page.locator("#ini-warnings").textContent(),/UnknownKey/,"the local INI import must report unsupported keys");
     const downloadPromise=page.waitForEvent("download");

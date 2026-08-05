@@ -25,6 +25,7 @@ import {guideNavLabel} from "../src/guide-nav-i18n.ts";
 import {guidePageModel} from "../src/pages/guides.ts";
 import {palToolsCopy} from "../src/pal-tools-i18n.ts";
 import {breedingPathCopy} from "../src/breeding-path-i18n.ts";
+import {palProfileCopy} from "../src/pal-profile-i18n.ts";
 
 export const productionOrigin="https://palworld-helper.woofy.blog";
 export const defaultLocale="en-US";
@@ -69,7 +70,7 @@ export function createEntityDatasets({palData,itemData,skillData,npcData,dungeon
 }
 
 function relationScores({palData,itemData,skillData,npcData,dungeonData,technologyData,structureData,expeditionData,questData}){
-  const item=new Map(),active=new Map(),passive=new Map(),partner=new Map(),technology=new Map(),structure=new Map(),quest=new Map();
+  const item=new Map(),active=new Map(),passive=new Map(),partner=new Map(),npcScore=new Map(),technology=new Map(),structure=new Map(),quest=new Map();
   for(const recipe of itemData.recipes){addCount(item,recipe.productId,14);for(const ingredient of recipe.ingredients)addCount(item,ingredient.itemId,4)}
   for(const drop of itemData.drops)addCount(item,drop.itemId,8);
   for(const dungeon of dungeonData.dungeons){
@@ -80,8 +81,11 @@ function relationScores({palData,itemData,skillData,npcData,dungeonData,technolo
   for(const entry of questData.quests){for(const reward of entry.rewards.items)addCount(item,reward.itemId,10);addCount(quest,entry.slug,(entry.kind==="main"?40:0)+entry.objectiveGroups.reduce((sum,group)=>sum+group.steps.length,0)*8+entry.rewards.items.length*4+(entry.previousSlugs.length+entry.nextSlugs.length)*2)}
   for(const npc of npcData.npcs){
     const offers=npc.merchant?.type==="items"?(npc.merchant.offers||[]):npc.merchant?.type==="item-profiles"?npc.merchant.profiles.flatMap(profile=>profile.offers||[]):[];
+    const palOffers=npc.merchant?.type==="pals"?npc.merchant.profiles.flatMap(profile=>profile.palIds||[]):[];
+    const eventSteps=npc.events?.steps||[];
+    addCount(npcScore,npc.slug,(npc.kind==="merchant"?40:0)+(npc.kind==="quest"?32:0)+(npc.kind==="combat"?24:0)+offers.length*5+palOffers.length*4+eventSteps.length*8+npc.encounters.length*3+npc.roles.length*2);
     for(const offer of offers)addCount(item,offer.itemId,6);
-    for(const step of npc.events?.steps||[]){if(step.requestItemId)addCount(item,step.requestItemId,5);for(const reward of step.rewards||[])addCount(item,reward.itemId,6)}
+    for(const step of eventSteps){if(step.requestItemId)addCount(item,step.requestItemId,5);for(const reward of step.rewards||[])addCount(item,reward.itemId,6)}
   }
   for(const pal of palData.pals)for(const id of pal.guaranteedPassiveIds||[])addCount(passive,id,18);
   for(const skill of skillData.activeSkills){addCount(active,skill.id,(skill.power>0?4:0)+(skill.canInherit?3:0)+(skill.hasSkillFruit?5:0))}
@@ -89,7 +93,7 @@ function relationScores({palData,itemData,skillData,npcData,dungeonData,technolo
   for(const skill of skillData.partnerSkills)addCount(partner,skill.id,12);
   for(const entry of technologyData.technologies){addCount(technology,entry.slug,entry.unlocks.length*3+entry.dependents.length*8+(entry.prerequisite?10:0)+(entry.towerBossRequired?8:0)+(entry.labResearch?12:0));if(entry.prerequisite)addCount(technology,entry.prerequisite.slug,12)}
   for(const entry of structureData.structures)addCount(structure,entry.slug,entry.materials.length*3+entry.technologies.length*10+(entry.production?20:0)+(entry.energy?5:0));
-  return {items:item,activeSkills:active,passiveSkills:passive,partnerSkills:partner,technologies:technology,structures:structure,quests:quest};
+  return {items:item,activeSkills:active,passiveSkills:passive,partnerSkills:partner,npcs:npcScore,technologies:technology,structures:structure,quests:quest};
 }
 
 export function selectPrerenderEntities(data){
@@ -182,13 +186,14 @@ function collectionModel(route,locale,data,selection,registry){
 }
 
 function palModel(locale,pal,data){
-  const {palData,itemData,skillData,dungeonData}=data,m=messages(locale),title=localized(pal,locale),description=localizedDescription(pal,locale)||m.tagline,documentTitle=`#${pal.dex}${pal.variant?"B":""} ${title}`,metaDescription=seoDescription(description,[`${m.hp} ${pal.hp}`,`${m.attack} ${pal.attack}`,`${m.defense} ${pal.defense}`,`${m.rarity} ${pal.rarity}`]),itemsById=new Map(itemData.items.map(item=>[item.id,item])),passives=new Map(skillData.passiveSkills.map(skill=>[skill.id,skill]));
+  const {palData,itemData,skillData,dungeonData}=data,m=messages(locale),profile=palProfileCopy[locale],title=localized(pal,locale),description=localizedDescription(pal,locale)||m.tagline,documentTitle=`#${pal.dex}${pal.variant?"B":""} ${title}`,metaDescription=seoDescription(description,[`${m.hp} ${pal.hp}`,`${m.attack} ${pal.attack}`,`${m.defense} ${pal.defense}`,`${m.rarity} ${pal.rarity}`]),itemsById=new Map(itemData.items.map(item=>[item.id,item])),passives=new Map(skillData.passiveSkills.map(skill=>[skill.id,skill]));
   const workById=new Map(palData.workSuitabilities.map(work=>[work.id,work])),work=Object.entries(pal.work).filter(([,level])=>level>0).sort((a,b)=>b[1]-a[1]).map(([id,level])=>`${localized(workById.get(id),locale)} ${level}`).join(" · ");
   const itemLinks=itemData.drops.filter(drop=>drop.palId===pal.id).map(drop=>{const item=itemsById.get(drop.itemId);return item?{href:href(locale,`items/${encodeURIComponent(item.id)}`),label:localized(item,locale),image:`/assets/items/${encodeURIComponent(item.id)}.webp`}:null});
   const dungeonLinks=dungeonData.dungeons.filter(dungeon=>dungeon.encounterGroups.some(group=>group.members.some(member=>member.palId===pal.id))).map(dungeon=>({href:href(locale,`database/dungeons/${dungeon.slug}`),label:localized(dungeon,locale),image:"/assets/map-icons/dungeon.webp"}));
   const passiveLinks=(pal.guaranteedPassiveIds||[]).map(id=>passives.get(id)).filter(Boolean).map(skill=>({href:href(locale,`skills/passive/${encodeURIComponent(skill.id)}`),label:localized(skill,locale)}));
   const facts=details([[m.hp,pal.hp],[m.attack,pal.attack],[m.defense,pal.defense],[m.rarity,pal.rarity],[m.work,work],[m.nocturnal,pal.nocturnal?m.yes:m.no]]);
-  const body=`${hero(m,title)}<article class="entity-detail pal-detail panel"><img class="detail-image" src="/assets/pals/${encodeURIComponent(pal.id)}.png" alt="${esc(title)}" width="240" height="240"><div class="entity-detail-content">${breadcrumb(locale,"pals",m.palDex,title)}<p class="pal-number">#${pal.dex}${pal.variant?"B":""}</p><p class="entity-description">${esc(description)}</p>${facts}${passiveLinks.length?`<section class="detail-section"><h2>${esc(skillLabels[locale].passive)}</h2>${relationLinks(passiveLinks)}</section>`:""}${itemLinks.length?`<section class="detail-section"><h2>${esc(m.itemDatabase)}</h2>${relationLinks(uniqueLinks(itemLinks))}</section>`:""}${dungeonLinks.length?`<section class="detail-section"><h2>${esc(dungeonCopy[locale].title)}</h2>${relationLinks(dungeonLinks)}</section>`:""}<div class="detail-actions"><a class="button primary" href="${href(locale,"calculators/breeding")}">${esc(m.openBreed)}</a><a class="button" href="${href(locale,"map")}?pal=${encodeURIComponent(pal.id)}">${esc(m.map)}</a></div></div></article>`;
+  const profileFacts=details([[profile.support,pal.support],[profile.food,pal.food],[profile.maleProbability,`${pal.maleProbability.toLocaleString(locale)}%`],[profile.femaleProbability,`${(100-pal.maleProbability).toLocaleString(locale)}%`],[profile.slowWalk,pal.movement.slowWalk],[profile.walk,pal.movement.walk],[profile.run,pal.movement.run],[profile.rideSprint,pal.movement.rideSprint],[profile.transport,pal.movement.transport],[profile.swim,pal.movement.swim],[profile.swimDash,pal.movement.swimDash],[profile.stamina,pal.movement.stamina]].filter(([,value])=>value!==null));
+  const body=`${hero(m,title)}<article class="entity-detail pal-detail panel"><img class="detail-image" src="/assets/pals/${encodeURIComponent(pal.id)}.png" alt="${esc(title)}" width="240" height="240"><div class="entity-detail-content">${breadcrumb(locale,"pals",m.palDex,title)}<p class="pal-number">#${pal.dex}${pal.variant?"B":""}</p><p class="entity-description">${esc(description)}</p>${facts}<section class="detail-section pal-profile"><h2>${esc(profile.profile)}</h2>${profileFacts}<p class="section-note">${esc(profile.sourceValueNote)}</p></section>${passiveLinks.length?`<section class="detail-section"><h2>${esc(skillLabels[locale].passive)}</h2>${relationLinks(passiveLinks)}</section>`:""}${itemLinks.length?`<section class="detail-section"><h2>${esc(m.itemDatabase)}</h2>${relationLinks(uniqueLinks(itemLinks))}</section>`:""}${dungeonLinks.length?`<section class="detail-section"><h2>${esc(dungeonCopy[locale].title)}</h2>${relationLinks(dungeonLinks)}</section>`:""}<div class="detail-actions"><a class="button primary" href="${href(locale,"calculators/breeding")}">${esc(m.openBreed)}</a><a class="button" href="${href(locale,"map")}?pal=${encodeURIComponent(pal.id)}">${esc(m.map)}</a></div></div></article>`;
   return {title,documentTitle,description:metaDescription,body,type:"WebPage",parent:{route:"pals",label:m.palDex}};
 }
 

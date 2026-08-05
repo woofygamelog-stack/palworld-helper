@@ -44,7 +44,8 @@ var keywords = new[]
     "Bounty", "Wanted", "NPCSpawner", "Merchant", "Trader", "TreasureBoxSpawner", "ItemChest",
     "PalEgg", "Lifmunk", "Effigy", "SkillFruit", "MapObjectSpawner", "ResourceSpawner",
     "OreSpawner", "Coal", "Sulfur", "Quartz", "OilField", "Paldium", "Berry", "Mushroom", "MonoNPCSpawner",
-    "FishingSpot", "RandomIncidentSpawner", "Statue", "Lifmunk", "ItemPickupTower", "PalLevelObject"
+    "FishingSpot", "RandomIncidentSpawner", "Statue", "Lifmunk", "ItemPickupTower", "PalLevelObject",
+    "NPCCampSpawner", "LevelObject_Note", "SupplySpawner", "ArenaLevelInstance", "RaidBossAreaEntrancePoint", "OilrigMachineStartPoint"
 };
 var typeCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 var actors = new List<object>();

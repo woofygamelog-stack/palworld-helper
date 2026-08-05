@@ -3,11 +3,11 @@ import path from "node:path";
 import { dungeonPublicDefinitions } from "./dungeon-public-config.mjs";
 
 const root=process.cwd(),build=process.env.PAL_GAME_BUILD||"24467282";
-const preferred=process.env.PAL_ACTOR_SOURCE||path.join(root,"private","extracted",`build-${build}-map-actor-chunks-v2`);
+const preferred=process.env.PAL_ACTOR_SOURCE||path.join(root,"private","extracted",`build-${build}-map-actor-chunks-v3`);
 const chunks=fs.existsSync(preferred)?preferred:path.join(root,"private","extracted",`build-${build}-map-actor-chunks`);
 if(!fs.existsSync(chunks))throw new Error("Private cooked-world actor chunks are required.");
 const files=fs.readdirSync(chunks).filter(file=>file.endsWith(".raw.json")).sort();
-if(files.length!==10)throw new Error(`Expected 10 complete actor chunks, found ${files.length}`);
+if(files.length<1)throw new Error("At least one complete actor chunk is required.");
 const worlds=JSON.parse(fs.readFileSync(path.join(root,"public","data","map-markers.json"),"utf8")).worlds;
 const npcData=JSON.parse(fs.readFileSync(path.join(root,"public","data","npcs.json"),"utf8"));
 const npcAt=new Map(npcData.npcs.flatMap(npc=>npc.encounters.map(encounter=>[`${encounter.x}|${encounter.y}|${encounter.z}`,npc])));
@@ -24,7 +24,8 @@ const icon={
   treasure:"/assets/map-icons/treasure.webp",npc:"/assets/map-icons/npc.webp",merchant:"/assets/map-icons/merchant.webp",
   palMerchant:"/assets/map-icons/merchant.webp",fishing:"/assets/map-icons/fishing.webp",randomEvent:"/assets/map-icons/random-event.webp",
   dungeon:"/assets/map-icons/dungeon.webp",bounty:"/assets/map-icons/wanted.webp",collectibleShrine:"/assets/map-icons/pal-statue.webp",
-  palStatue:"/assets/map-icons/pal-statue.webp"
+  palStatue:"/assets/map-icons/pal-statue.webp",camp:"/assets/map-icons/npc.webp",
+  note:"/assets/map-icons/treasure.webp",supplyDrop:"/assets/map-icons/treasure.webp",oilRig:"/assets/map-icons/oil-rig.webp"
 };
 const actorSubtype=type=>type.replace(/^BP_/i,"").replace(/_C$/i,"");
 const keyOf=value=>value?.Key||"";
@@ -55,6 +56,10 @@ function classify(actor){
   if(/IcePegasusStatue/i.test(type))return {category:"palStatue",subtype:"frostallion"};
   if(/Anubisstatue/i.test(type))return {category:"palStatue",subtype:"anubis"};
   if(/JetDragonStatue/i.test(type))return {category:"palStatue",subtype:"jetragon"};
+  if(/^BP_NPCCampSpawner_(?!DLC3_AreaBarrier).+_C$/i.test(type)&&actor.properties?.CampSpawnerName)return {category:"camp",subtype:"enemy-camp"};
+  if(/^BP_LevelObject_Note_C$/i.test(type)&&keyOf(actor.properties?.NoteRowName))return {category:"note",subtype:"collectible-note"};
+  if(/^BP_SupplySpawner_.+_C$/i.test(type))return {category:"supplyDrop",subtype:"possible-drop-zone"};
+  if(/^BP_OilrigMachineStartPoint_C$/i.test(type))return {category:"oilRig",subtype:"oil-rig"};
   if(z>-20000&&/(?:DungeonFixedEntrance|DungeonPortalMarker|DungeonExit_grassLand)/i.test(type)){const rotating=/DungeonPortalMarker/i.test(type),areaIds=rotating?(actor.properties?.SpawnAreaIds?.map(value=>value.Key).filter(Boolean)||defaultPortalAreas):[],nameId=rotating?dungeonSpawnAreas[areaIds[0]]?.DungeonNameTextId:actor.properties?.DungeonNameRowHandle?.RowName||fixedDefaultNameByType[type],definition=dungeonPublicDefinitions[nameId];return {category:"dungeon",subtype:rotating?"rotation-candidate":"fixed-entrance",...(definition?{dungeonSlug:definition.slug}:{})}}
   if(z>-20000&&/MonoNPCSpawner/i.test(type)){
     if(actor.properties?.ParentComponent)return null;

@@ -36,11 +36,13 @@ import {guideNavLabel} from "./guide-nav-i18n";
 import {palToolsCopy} from "./pal-tools-i18n";
 import {breedingPathCopy} from "./breeding-path-i18n";
 import type {CondensingData,PalToolKind} from "./pages/pal-tools";
+import {readOwnedPalLedger} from "./owned-pals";
 
 type Work=Record<string,number>;
 type CalculatorKind="breeding"|"breeding-path"|"crafting"|"base";
 const knownCollectionRoutes=new Set([...collectionRoutes,...previewRoutes].map(path=>path?`/${path}`:"/"));
-type Pal={i:number;id:string;dex:number;variant:boolean;names:Record<Locale,string>;descriptions:Record<Locale,string>;shortDescriptions:Record<Locale,string>;power:number;rarity:number;size:string;nocturnal:boolean;hp:number;attack:number;defense:number;work:Work;elementSlugs:string[];guaranteedPassiveIds:string[];image?:boolean};
+type PalMovement={slowWalk:number;walk:number;run:number;rideSprint:number|null;transport:number|null;swim:number;swimDash:number;stamina:number};
+type Pal={i:number;id:string;dex:number;variant:boolean;names:Record<Locale,string>;descriptions:Record<Locale,string>;shortDescriptions:Record<Locale,string>;power:number;rarity:number;size:string;nocturnal:boolean;hp:number;attack:number;defense:number;movement:PalMovement;support:number;food:number;maleProbability:number;work:Work;elementSlugs:string[];guaranteedPassiveIds:string[];image?:boolean};
 type WorkSuitability={id:string;names:Record<Locale,string>;icon:string};
 type PalData={meta:{gameBuild:string;sourceDbVersion:string;palCount:number;breedingCount:number;localIdMatchCount:number};workSuitabilities:WorkSuitability[];pals:Pal[];pairs:BreedingRow[]};
 type Item={id:string;names:Record<Locale,string>;descriptions:Record<Locale,string>;type:string;subtype:string;rank:number;rarity:number;maxStack:number;weight:number;price:number;image?:boolean;unlocksItemId?:string};
@@ -248,8 +250,8 @@ function content(){
   if(structureMatch)return structuresPageModule.value?.renderStructuresPage(decodeURIComponent(structureMatch[1]),{locale,defaultLocale,messages:m,structureData,itemData,structureLoadError,href,escape:esc,setMeta,hero,databaseTabs,placeholder})||"";
   if(partnerMatch)return skillsPageRoute("partner",decodeURIComponent(partnerMatch[1]));
   if(skillMatch)return skillsPageRoute(skillMatch[1] as "active"|"passive",decodeURIComponent(skillMatch[2]));
-  if(palToolKind)return palToolsPageModule.value?.renderPalToolPage(palToolKind,{locale,defaultLocale,messages:m,data,skillData,mapData,condensingData,location,href,escape:esc,palSlug:pal=>publicSlug(slugRegistry(),"pals",pal.id),setMeta,hero})||"";
-  if(calculatorKind)return calculatorsPage.value?.renderCalculatorPage(calculatorKind,{locale,defaultLocale,messages:m,data,itemData,href,escape:esc,setMeta,hero})||"";
+  if(palToolKind)return palToolsPageModule.value?.renderPalToolPage(palToolKind,{locale,defaultLocale,messages:m,data,skillData,mapData,condensingData,ownedLedger:readOwnedPalLedger(localStorage,new Set(data?.pals.map(pal=>pal.id)||[])),location,href,escape:esc,palSlug:pal=>publicSlug(slugRegistry(),"pals",pal.id),setMeta,hero})||"";
+  if(calculatorKind)return calculatorsPage.value?.renderCalculatorPage(calculatorKind,{locale,defaultLocale,messages:m,data,itemData,ownedLedger:readOwnedPalLedger(localStorage,new Set(data?.pals.map(pal=>pal.id)||[])),href,escape:esc,setMeta,hero})||"";
   if(isGuideRoute(current))return guidesPageModule.value?.renderGuidesPage({locale,route:current,href,setMeta})||"";
   if(!knownCollectionRoutes.has(current))return placeholder("404");
   if(skillCollection)return skillsPageRoute(skillCollection[1] as "active"|"passive"|"partner",null);
@@ -291,9 +293,9 @@ function bind(){
   shellInteractionCleanup=bindShellInteractions({document,onLocaleChange:nextLocale=>{const next=nextLocale as Locale,preserved=preservedLocaleSearch(location.search);trackEvent("language_change",{locale:next});localStorage.setItem("pw-locale",next);location.href=`${localizePath(next,route())}${preserved?`?${preserved}`:""}`},syncTheme:themeController.sync,applyTheme:themeController.apply,ensureGlobalSearchData,renderGlobalSearch:renderAllGlobalSearch,navigate});
   if(route()==="/server-tools/settings-generator")serverSettingsPage.value?.bindServerSettingsPage({document,locale,clipboard:navigator.clipboard,trackEvent,trackOnce});
   const calculatorKind=calculatorKindForRoute();
-  if(calculatorKind)calculatorsPage.value?.bindCalculatorPage(calculatorKind,{document,history,location,locale,defaultLocale,messages:m,data,itemData,href,escape:esc,navigate,renderIcon:icon,publicAssetUrl,trackEvent,trackOnce});
+  if(calculatorKind)calculatorsPage.value?.bindCalculatorPage(calculatorKind,{document,history,location,locale,defaultLocale,messages:m,data,itemData,ownedLedger:readOwnedPalLedger(localStorage,new Set(data?.pals.map(pal=>pal.id)||[])),href,escape:esc,navigate,renderIcon:icon,publicAssetUrl,trackEvent,trackOnce});
   const palToolKind=palToolKindForRoute();
-  if(palToolKind)palToolsPageModule.value?.bindPalToolPage(palToolKind,{document,history,location,locale,defaultLocale,messages:m,data,skillData,mapData,condensingData,href,escape:esc,palSlug:pal=>publicSlug(slugRegistry(),"pals",pal.id),render,trackOnce});
+  if(palToolKind)palToolsPageModule.value?.bindPalToolPage(palToolKind,{document,history,location,locale,defaultLocale,messages:m,data,skillData,mapData,condensingData,ownedLedger:readOwnedPalLedger(localStorage,new Set(data?.pals.map(pal=>pal.id)||[])),storage:localStorage,href,escape:esc,palSlug:pal=>publicSlug(slugRegistry(),"pals",pal.id),render,trackOnce});
   if(route()==="/map")mapPageModule.value?.bindMapPage({document,history,location,locale,defaultLocale,messages:m,data,itemData,mapData,npcData,dungeonData,href,escape:esc,renderIcon:icon,levelLabel:dropLabels[locale].level,copy:uiCopy[locale],render,trackEvent,resolvePalSegment:segment=>resolvePublicSlug(slugRegistry(),"pals",segment),palSlug:pal=>publicSlug(slugRegistry(),"pals",pal.id)});
   if(route()==="/database/elements")elementsPageModule.value?.bindElementsPage({document,window,history,location,data,render,trackEvent});
 }
@@ -323,7 +325,7 @@ function ensureRouteData(){
   if(isSkills||current.startsWith("/pals/")||isElements)ensureSkillData();
   if(current==="/map"||current.startsWith("/pals/")||current.startsWith("/items/")||isDungeon)ensureDungeonData();
   if(current==="/calculators/pal-compare"||current==="/calculators/team-builder"){ensurePalData();ensureSkillData();ensureMapData()}
-  if(current==="/calculators/condensing")ensureCondensingData();
+  if(current==="/calculators/condensing"){ensurePalData();ensureCondensingData()}
 }
 function ensureRouteModule(){const current=route();if(current==="/server-tools/settings-generator")void serverSettingsPage.load();if(calculatorKindForRoute(current))void calculatorsPage.load();if(palToolKindForRoute(current))void palToolsPageModule.load();if(current==="/map")void mapPageModule.load();if(current==="/database/elements")void elementsPageModule.load();if(isTechnologyRoute(current))void technologyPageModule.load();if(isStructureRoute(current))void structuresPageModule.load();if(isExpeditionRoute(current))void expeditionsPageModule.load();if(isQuestRoute(current))void questsPageModule.load();if(isHealthRoute(current))void healthPageModule.load();if(isNpcRoute(current))void npcPageModule.load();if(isDungeonRoute(current))void dungeonsPageModule.load();if(isItemRoute(current))void itemsPageModule.load();if(isPalRoute(current))void palsPageModule.load();if(isSkillRoute(current))void skillsPageModule.load();if(isGuideRoute(current))void guidesPageModule.load()}
 function routeModuleReady(){const current=route();return (current!=="/server-tools/settings-generator"||serverSettingsPage.ready())&&(!calculatorKindForRoute(current)||calculatorsPage.ready())&&(!palToolKindForRoute(current)||palToolsPageModule.ready())&&(current!=="/map"||mapPageModule.ready())&&(current!=="/database/elements"||elementsPageModule.ready())&&(!isTechnologyRoute(current)||technologyPageModule.ready())&&(!isStructureRoute(current)||structuresPageModule.ready())&&(!isExpeditionRoute(current)||expeditionsPageModule.ready())&&(!isQuestRoute(current)||questsPageModule.ready())&&(!isHealthRoute(current)||healthPageModule.ready())&&(!isNpcRoute(current)||npcPageModule.ready())&&(!isDungeonRoute(current)||dungeonsPageModule.ready())&&(!isItemRoute(current)||itemsPageModule.ready())&&(!isPalRoute(current)||palsPageModule.ready())&&(!isSkillRoute(current)||skillsPageModule.ready())&&(!isGuideRoute(current)||guidesPageModule.ready())}
@@ -348,7 +350,7 @@ function routeDataReady(){
   if(current==="/calculators"||current==="/calculators/breeding"||current==="/calculators/breeding-path"||current==="/calculators/base")return Boolean(data);
   if(current==="/calculators/crafting")return Boolean(itemData);
   if(current==="/calculators/pal-compare"||current==="/calculators/team-builder")return Boolean(data&&skillData&&mapData);
-  if(current==="/calculators/condensing")return Boolean(condensingData);
+  if(current==="/calculators/condensing")return Boolean(data&&condensingData);
   return true;
 }
 function render(){locale=resolveLocale(location.pathname);m=messages(locale);ensureRouteModule();ensureRouteData();if(route()==="/database/health"||route().startsWith("/database/health/"))ensureHealthData();if(!routeModuleReady()||preservingPrerender&&!routeDataReady())return;preservingPrerender=false;app.removeAttribute("data-prerender-route");const shell=shellMarkup();app.innerHTML=publicAssetHtml(`<a class="skip-link" href="#main">${m.skip}</a>${shell.header}${shell.mobile}${shell.dialogs}<main id="main">${content()}</main>${footer()}`);document.querySelector("style[data-prerender-style]")?.remove();bind();integrationRuntime.requestEligibleAd();ensureRouteData()}
