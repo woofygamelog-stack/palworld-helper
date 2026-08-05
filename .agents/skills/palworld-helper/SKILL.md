@@ -109,7 +109,7 @@ For this project:
 
 - Recheck the live official Palworld Server Guide before adding or retaining any server key. Support categorized basic/advanced editing, local INI import, validation, default diff, conflicts, security/performance warnings, and platform instructions without storing or transmitting user content.
 - Publish capture probability as exact only after verifying the current build's constants, modifier order, caps, and rounding with authoritative inputs and golden cases. Otherwise keep it unavailable or explicitly experimental.
-- Before any calculator or mechanics verification that launches an isolated server and real client, read and follow [references/live-client-runtime-verification.md](references/live-client-runtime-verification.md). Treat command-line auto-connect as best effort only. In the owner's current environment, ask the owner to manually join the displayed local address after the client opens, and wait for post-join evidence markers rather than inferring connection from the client process.
+- Before any calculator or mechanics verification that launches an isolated server and real client, read and follow [references/live-client-runtime-verification.md](references/live-client-runtime-verification.md). In the owner's current environment, launch the client once in a visible window without `-connect`, ask the owner to manually join the displayed local address, and wait for post-join evidence markers rather than inferring connection from the client process. If the launcher does not leave a client running, keep the watcher alive and ask the owner to open Palworld from Steam; do not cycle through alternate launch methods.
 
 ## Prepare commits and releases
 

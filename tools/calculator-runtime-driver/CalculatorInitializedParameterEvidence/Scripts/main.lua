@@ -26,6 +26,22 @@ local function clean(value)
     return tostring(unwrap(value)):gsub("[\r\n|]", " ")
 end
 
+local function cdo(class_path)
+    local class = StaticFindObject(class_path)
+    return is_valid(class) and class:GetCDO() or nil
+end
+
+local function database_for_world(utility)
+    local worlds_ok, worlds = pcall(FindAllOf, "World")
+    if worlds_ok and worlds then
+        for _, world in ipairs(worlds) do
+            local ok, value = pcall(function() return utility:GetDatabaseCharacterParameter(world) end)
+            if ok and is_valid(value) then return value end
+        end
+    end
+    return nil
+end
+
 local function remember_return_value(...)
     local values = { ... }
     for index = #values, 1, -1 do
@@ -59,6 +75,10 @@ local function inspect_parameter(parameter, handle)
         baseline_defense
     ))
     local save = parameter.SaveParameter
+    local utility = cdo("/Script/Pal.PalUtility")
+    if not is_valid(utility) then error("Pal utility is unavailable") end
+    local database = database_for_world(utility)
+    if not is_valid(database) then error("character parameter database is unavailable") end
     local original = {
         level = unwrap(save.Level), rank = unwrap(save.Rank),
         hp_soul = unwrap(save.Rank_HP), attack_soul = unwrap(save.Rank_Attack), defense_soul = unwrap(save.Rank_Defence),
@@ -92,12 +112,20 @@ local function inspect_parameter(parameter, handle)
             local hp = tonumber(unwrap(parameter:GetMaxHP()))
             local attack = tonumber(unwrap(parameter:GetShotAttack()))
             local defense = tonumber(unwrap(parameter:GetDefense()))
-            if actual_point == nil or rank == nil or not hp or not attack or not defense then
+            local database_hp = tonumber(unwrap(database:GetHPBySaveParameter(save)))
+            local database_attack = tonumber(unwrap(database:GetShotAttackBySaveParameter(save)))
+            local database_defense = tonumber(unwrap(database:GetDefenseBySaveParameter(save)))
+            if actual_point == nil or rank == nil or not hp or not attack or not defense or not database_hp or not database_attack or not database_defense then
                 error("post-initialization lookup returned a non-numeric value")
+            end
+            if hp ~= database_hp or attack ~= database_attack or defense ~= database_defense then
+                error(string.format("live and database friendship routes disagree at point %d", point))
             end
             if actual_point ~= original_friendship then changed = true end
             log(string.format("friendship|%d|%d|%d|%d|%d|%d", point, actual_point, rank, hp, attack, defense))
+            log(string.format("database-friendship|%d|%d|%d|%d", point, database_hp, database_attack, database_defense))
         end
+        log(string.format("database-bridge-complete|%d", #points))
     end)
     pcall(function()
         save.FriendshipPoint = original_friendship

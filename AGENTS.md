@@ -46,11 +46,12 @@
 ## Live client/server runtime verification
 
 - For any isolated verification that needs a real Palworld client, read and follow `.agents/skills/palworld-helper/references/live-client-runtime-verification.md` before starting processes.
-- Do not assume that launching the client with `-connect=127.0.0.1:<port>` joins the isolated server. In the current owner environment, the client launch can succeed while the automatic join does not; the owner manually selects and joins the local server after the client is ready.
-- Start the isolated server and evidence watcher first, launch the client second, then tell the owner the exact local address and wait for the owner to complete the manual join and enter the loaded world. Do not repeatedly relaunch the client while waiting for that action.
+- Do not pass `-connect=127.0.0.1:<port>` when launching the verification client. In the current owner environment, open the client once in a visible window and let the owner manually select and join the local server.
+- Start the isolated server and evidence watcher first, launch the visible client second, then tell the owner the exact local address and wait for the owner to complete the manual join and enter the loaded world. Do not repeatedly relaunch the client or try alternate executables while waiting for that action.
+- After the startup grace period, verify that an actual client process remains under the expected installation root. If the launcher exits without leaving a client, keep the server and watcher running, classify the state as manual client startup pending, and ask the owner to open Palworld from Steam before joining the local address.
 - A running or responsive client process, elapsed time, window appearance, or launch command exit status is not connection evidence. Require the verification mod's post-join observation marker and final `complete` marker, and reject sessions containing an error marker or missing required coverage.
 - Size the session timeout for client startup plus manual joining and world loading. A timeout before a post-join marker is an incomplete session, not proof that the driver or game formula failed.
-- For two independent runtime sessions, fully stop only the isolated server and client processes started for the session, restart them cleanly, and have the owner manually join again. Keep all connection logs, runtime evidence, machine paths, and server files under ignored `private/` storage.
+- For two independent runtime sessions, fully stop only the isolated server and the exact client PID returned by the runner when its executable path still matches. Never sweep by name, installation root, or start time, and never stop a manually opened or unproven child client. Restart the isolated server cleanly and have the owner manually join again. Keep all connection logs, runtime evidence, machine paths, and server files under ignored `private/` storage.
 
 ## Localization
 

@@ -36,14 +36,18 @@ function Stop-IsolatedServer {
     } | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }
 }
 
-$clientStartTime = $null
+$clientProcess = $null
 function Stop-IsolatedClient {
-    if (-not $clientStartTime) { return }
-    $clientRoot = [IO.Path]::GetFullPath((Split-Path -Parent $ClientLauncher)).TrimEnd('\') + '\'
-    Get-Process -ErrorAction SilentlyContinue | Where-Object {
-        try { $_.Path -and $_.StartTime -ge $clientStartTime -and ([IO.Path]::GetFullPath($_.Path)).StartsWith($clientRoot, [StringComparison]::OrdinalIgnoreCase) }
-        catch { $false }
-    } | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }
+    if (-not $clientProcess) { return }
+    $candidate = Get-Process -Id $clientProcess.Id -ErrorAction SilentlyContinue
+    if (-not $candidate) { return }
+    try {
+        $expectedPath = [IO.Path]::GetFullPath($ClientLauncher)
+        $actualPath = [IO.Path]::GetFullPath($candidate.Path)
+        if ($actualPath.Equals($expectedPath, [StringComparison]::OrdinalIgnoreCase)) {
+            Stop-Process -Id $candidate.Id -Force -ErrorAction SilentlyContinue
+        }
+    } catch { }
 }
 
 foreach ($target in $targets) {
@@ -71,8 +75,18 @@ try {
         if (-not (Test-Path -LiteralPath $ClientLauncher -PathType Leaf)) { throw "Palworld client launcher is missing: $ClientLauncher" }
         Start-Sleep -Seconds 20
         $clientStartTime = Get-Date
-        Start-Process -FilePath $ClientLauncher -ArgumentList "-connect=127.0.0.1:8392 -NoSplash -windowed -ResX=640 -ResY=360" -WorkingDirectory (Split-Path -Parent $ClientLauncher) -WindowStyle Hidden | Out-Null
-        Write-Output "Palworld client launched. Automatic joining is not reliable; manually join 127.0.0.1:8392 and enter the loaded world."
+        $clientProcess = Start-Process -FilePath $ClientLauncher -ArgumentList "-NoSplash -windowed -ResX=960 -ResY=540" -WorkingDirectory (Split-Path -Parent $ClientLauncher) -PassThru
+        Start-Sleep -Seconds 15
+        $clientRoot = [IO.Path]::GetFullPath((Split-Path -Parent $ClientLauncher)).TrimEnd('\') + '\'
+        $activeClient = Get-Process -ErrorAction SilentlyContinue | Where-Object {
+            try { $_.Path -and $_.StartTime -ge $clientStartTime -and ([IO.Path]::GetFullPath($_.Path)).StartsWith($clientRoot, [StringComparison]::OrdinalIgnoreCase) }
+            catch { $false }
+        } | Select-Object -First 1
+        if ($activeClient) {
+            Write-Output "Palworld client process is active. Manually join 127.0.0.1:8392 and enter the loaded world; no automatic connection was requested."
+        } else {
+            Write-Output "Automatic client startup did not remain active. Open Palworld manually from Steam, then join 127.0.0.1:8392 and enter the loaded world; the evidence watcher is still running."
+        }
     }
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     $lines = @()

@@ -185,6 +185,9 @@ const elementRunner = await readFile("scripts/run-element-damage-verification.ps
 const e2eSmoke = await readFile("tests/e2e-smoke.mjs", "utf8");
 const coverageReporter = await readFile("scripts/report-coverage.mjs", "utf8");
 const blockedCalculatorAudit = await readFile("scripts/audit-blocked-calculators.mjs", "utf8");
+const ivFriendshipDriver = await readFile("tools/calculator-runtime-driver/CalculatorInitializedParameterEvidence/Scripts/main.lua", "utf8");
+const ivFriendshipBridgeVerifier = await readFile("scripts/verify-iv-friendship-bridge.mjs", "utf8");
+const initializedParameterRunner = await readFile("tools/calculator-runtime-driver/run-initialized-parameter.ps1", "utf8");
 const updateRehearsal = await readFile("scripts/rehearse-update-diff.mjs", "utf8");
 
 const pageMetadata=buildPageMetadata({locale:"ko-KR",locales:["en-US","ko-KR"],defaultLocale:"en-US",route:"/pals/lamball",siteName:"Palworld Helper",origin:"https://palworld-helper.woofy.blog",resolved:{title:"램볼",description:"  검증된   팰 정보  "},localizePath:(locale,path)=>`/${locale}${path}`,hreflang:locale=>locale==="en-US"?"en":locale,structuredData:{"@type":"WebPage"}});
@@ -317,6 +320,12 @@ for(const field of ["sourceCount","eligibleCount","normalizedCount","localizedNa
 assert.match(packageJson.scripts.check,/npm run check:coverage.*npm run build/s,"the full check must validate domain coverage before building");
 assert.match(packageJson.scripts.check,/check:blocked-calculators.*check:coverage.*check:update-rehearsal/s,"the full check must preserve blocked calculator and patch-rehearsal gates");
 assert.match(blockedCalculatorAudit,/capture.*iv.*production.*status:"blocked"/s,"unsupported exact calculators must retain explicit private blocked decisions");
+assert.match(ivFriendshipDriver,/database:GetHPBySaveParameter\(save\).*database:GetShotAttackBySaveParameter\(save\).*database:GetDefenseBySaveParameter\(save\).*live and database friendship routes disagree/s,"IV friendship evidence must compare the live Pal and database calculation routes at every boundary");
+assert.match(ivFriendshipBridgeVerifier,/sessionPaths=\[1,2\].*initialized-pal-bridge-session-\$\{index\}\.log.*expectedPoints\.length\*3.*liveAndDatabaseRoutesMatch:true/s,"IV friendship bridge verification must require two complete independent sessions and every stat comparison");
+assert.match(initializedParameterRunner,/Start-Process -FilePath \$ClientLauncher.*-PassThru.*Start-Sleep -Seconds 15.*\$activeClient.*Automatic client startup did not remain active.*evidence watcher is still running/s,"The initialized-parameter runner must detect a transient launcher and keep the manual-start watcher alive");
+assert.doesNotMatch(initializedParameterRunner,/-connect=|Start-Process -FilePath \$ClientLauncher[^\n]*-WindowStyle Hidden/,"The owner-controlled Palworld client must open visibly without an automatic connection request");
+assert.match(initializedParameterRunner,/Get-Process -Id \$clientProcess\.Id.*\$actualPath\.Equals\(\$expectedPath.*Stop-Process -Id \$candidate\.Id/s,"Client cleanup must target only the exact process returned by the runner after path verification");
+assert.doesNotMatch(initializedParameterRunner,/Get-Process[\s\S]{0,300}StartTime -ge[\s\S]{0,300}Stop-Process/,"Client cleanup must not sweep manually opened processes by start time");
 assert.match(updateRehearsal,/added,changed,removed,unresolved.*affectedRoutes/s,"the update rehearsal must report every diff state and affected routes");
 assert.doesNotMatch(main, /class="consent"|consentBanner\(\)|data-consent/, "the global consent banner must not be rendered");
 assert.doesNotMatch(`${styles}\n${featureStyles}`, /\.consent(?:\{|\s)/, "removed consent banner styles must not remain");

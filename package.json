@@ -49,6 +49,7 @@
     "data:verify:breeding": "node scripts/verify-breeding-evidence.mjs",
     "data:verify:calculator-runtime": "node scripts/verify-calculator-runtime-evidence.mjs",
     "data:verify:iv-runtime": "node scripts/verify-iv-runtime-evidence.mjs",
+    "data:verify:iv-friendship-bridge": "node scripts/verify-iv-friendship-bridge.mjs",
     "data:verify:capture-runtime": "node scripts/verify-capture-runtime-evidence.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run check:i18n && npm run check:item-images && npm test && npm run check:blocked-calculators && npm run check:coverage && npm run check:update-rehearsal && npm run build && npm run check:route-budget && npm run test:e2e && npm run test:visual",
     "check:deployment": "node --experimental-strip-types scripts/check-deployment.mjs",
