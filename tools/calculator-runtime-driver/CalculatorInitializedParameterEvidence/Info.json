@@ -1,0 +1,7 @@
+{
+  "name": "CalculatorInitializedParameterEvidence",
+  "version": "1.0.0",
+  "description": "Private isolated runtime evidence for initialized calculator parameters",
+  "author": "Palworld Helper",
+  "dependencies": []
+}
