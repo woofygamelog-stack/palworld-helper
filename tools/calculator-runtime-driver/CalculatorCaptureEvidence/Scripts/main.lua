@@ -87,6 +87,20 @@ local function run_capture(target, thrower)
     end
     utility:SetHPByRateToCharacter(target.actor, 1.0)
     log("coverage|" .. tostring(case_count))
+    local save = target.parameter.SaveParameter
+    local original_level = tonumber(unwrap(save.Level))
+    if not original_level then error("target level is unavailable") end
+    local level_case_count = 0
+    for _, requested_level in ipairs({ 1, 2, 10, 50, 65, 80 }) do
+        save.Level = requested_level
+        local actual_level = tonumber(unwrap(target.parameter:GetLevel()))
+        local capture_rate = tonumber(unwrap(game_setting:CalcCaptureRate(7.0, target.handle, thrower.handle, false)))
+        if actual_level ~= requested_level or not capture_rate then error("target level boundary calculation failed") end
+        level_case_count = level_case_count + 1
+        log(string.format("level-case|%s|%d|%d|%.9g", target.id, requested_level, actual_level, capture_rate))
+    end
+    save.Level = original_level
+    log("level-coverage|" .. tostring(level_case_count))
     log("complete")
     completed = true
 end

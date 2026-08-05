@@ -4,7 +4,7 @@ import path from "node:path";
 
 const root=process.cwd();
 const evidenceRoot=path.join(root,"private","verification","calculators","build-24467282");
-const sessionPaths=[1,2].map(index=>path.join(evidenceRoot,`capture-grid-session-${index}.log`));
+const sessionPaths=[1,2].map(index=>path.join(evidenceRoot,`capture-level-session-${index}.log`));
 const hpRates=[1,0.75,0.5,0.25,0.1,0.01];
 const sphereLevels=[0,1,7,20,38,50,100];
 const sneakStates=[false,true];
@@ -13,7 +13,7 @@ const payload=text=>text.split(/\r?\n/).map(line=>line.slice(line.indexOf("PAL_C
 const texts=await Promise.all(sessionPaths.map(file=>readFile(file,"utf8")));
 const sessions=texts.map((text,sessionIndex)=>{
   const lines=payload(text);
-  if(!lines.includes("PAL_CAPTURE_EVIDENCE|coverage|84")||!lines.includes("PAL_CAPTURE_EVIDENCE|complete")||lines.some(line=>line.startsWith("PAL_CAPTURE_EVIDENCE|error|")))throw new Error(`Capture session ${sessionIndex+1} is incomplete.`);
+  if(!lines.includes("PAL_CAPTURE_EVIDENCE|coverage|84")||!lines.includes("PAL_CAPTURE_EVIDENCE|level-coverage|6")||!lines.includes("PAL_CAPTURE_EVIDENCE|complete")||lines.some(line=>line.startsWith("PAL_CAPTURE_EVIDENCE|error|")))throw new Error(`Capture session ${sessionIndex+1} is incomplete.`);
   const rows=lines.filter(line=>line.startsWith("PAL_CAPTURE_EVIDENCE|case|")).map(line=>{
     const [targetId,targetLevelText,throwerId,throwerLevelText,hpText,sphereText,sneakText,statusText,rateText]=line.split("|").slice(2);
     const row={targetId,targetLevel:Number(targetLevelText),throwerId,throwerLevel:Number(throwerLevelText),hpRate:Number(hpText),sphereLevel:Number(sphereText),sneak:sneakText==="true",statusRate:Number(statusText),captureRate:Number(rateText)};
@@ -41,10 +41,17 @@ const sessions=texts.map((text,sessionIndex)=>{
       previous=rate;
     }
   }
-  return {targetId:rows[0].targetId,targetLevel:rows[0].targetLevel,throwerId:rows[0].throwerId,throwerLevel:rows[0].throwerLevel,cases:rows.length,payloadSha256:createHash("sha256").update(lines.filter(line=>line.startsWith("PAL_CAPTURE_EVIDENCE|case|")).join("\n")).digest("hex")};
+  const levelRows=lines.filter(line=>line.startsWith("PAL_CAPTURE_EVIDENCE|level-case|")).map(line=>{
+    const [targetId,requestedText,actualText,rateText]=line.split("|").slice(2);
+    return {targetId,requestedLevel:Number(requestedText),actualLevel:Number(actualText),captureRate:Number(rateText)};
+  });
+  const expectedLevels=[1,2,10,50,65,80];
+  if(levelRows.length!==expectedLevels.length||levelRows.some((row,index)=>row.targetId!==rows[0].targetId||row.requestedLevel!==expectedLevels[index]||row.actualLevel!==row.requestedLevel||!Number.isFinite(row.captureRate)||row.captureRate<0||row.captureRate>1))throw new Error(`Capture level boundaries are incomplete in session ${sessionIndex+1}.`);
+  return {targetId:rows[0].targetId,targetLevel:rows[0].targetLevel,throwerId:rows[0].throwerId,throwerLevel:rows[0].throwerLevel,gridCases:rows.length,levelCases:levelRows.length,payloadSha256:createHash("sha256").update(lines.filter(line=>line.startsWith("PAL_CAPTURE_EVIDENCE|case|")||line.startsWith("PAL_CAPTURE_EVIDENCE|level-case|")).join("\n")).digest("hex")};
 });
 if(new Set(sessions.map(session=>`${session.targetId}|${session.targetLevel}`)).size!==sessions.length)throw new Error("Independent capture sessions must vary the target identity or level.");
 
-const report={schema:1,status:"verified-partial",gameBuild:"24467282",independentSessions:true,totalCases:sessions.reduce((sum,session)=>sum+session.cases,0),axes:{hpRates,sphereLevels,sneakStates},sessions,verifiedBehavior:{sphereLevelNondecreasing:true,lowerHpNondecreasing:true,returnRange:[0,1]},remaining:["target level boundaries","capture passives and status effects","world capture-rate settings","rare-Pal behavior","public calculation artifact and localized route"]};
+const gridCases=sessions.reduce((sum,session)=>sum+session.gridCases,0),levelCases=sessions.reduce((sum,session)=>sum+session.levelCases,0);
+const report={schema:1,status:"verified-partial",gameBuild:"24467282",independentSessions:true,totalCases:gridCases+levelCases,gridCases,levelCases,axes:{hpRates,sphereLevels,sneakStates,targetLevels:[1,2,10,50,65,80]},sessions,verifiedBehavior:{sphereLevelNondecreasing:true,lowerHpNondecreasing:true,requestedTargetLevelApplied:true,returnRange:[0,1]},remaining:["capture passives and status effects","world capture-rate settings","rare-Pal behavior","public calculation artifact and localized route"]};
 await writeFile(path.join(evidenceRoot,"capture-runtime-report.json"),`${JSON.stringify(report,null,2)}\n`);
 console.log(`Verified ${report.totalCases} capture runtime cases across two independent sessions.`);
