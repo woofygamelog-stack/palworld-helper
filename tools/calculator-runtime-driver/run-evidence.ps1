@@ -1,7 +1,7 @@
 param(
     [string]$ServerRoot = "private\runtime\palserver",
     [string]$Output = "private\verification\calculators\build-24467282\runtime-evidence.log",
-    [ValidateRange(30, 300)][int]$TimeoutSeconds = 120
+    [ValidateRange(30, 900)][int]$TimeoutSeconds = 120
 )
 
 $ErrorActionPreference = "Stop"

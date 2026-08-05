@@ -6,6 +6,8 @@ const root=process.cwd();
 const evidenceRoot=path.join(root,"private","verification","calculators","build-24467282");
 const sessionPaths=[1,2].map(index=>path.join(evidenceRoot,`iv-rank-matrix-session-${index}.log`));
 const soulPaths=["runtime-evidence-expanded.log","runtime-evidence-equivalence.log"].map(file=>path.join(evidenceRoot,file));
+const friendshipPaths=[1,2].map(index=>path.join(evidenceRoot,`initialized-pal-session-${index}.log`));
+const interactionPaths=[1,2].map(index=>path.join(evidenceRoot,`initialized-parameter-session-${index}.log`));
 const palData=JSON.parse(await readFile(path.join(root,"public","data","pals.json"),"utf8"));
 const friendshipRanks=JSON.parse(await readFile(path.join(root,"private","extracted","build-24467282-calculators","friendship-ranks.raw.json"),"utf8"));
 const expectedBuild="24467282";
@@ -104,6 +106,49 @@ for(const rank of [0,4]){
   }
 }
 
+const initializedPayload=(text,kind)=>text.split(/\r?\n/).map(line=>line.slice(line.indexOf("PAL_INITIALIZED_PARAMETER|"))).filter(line=>line.startsWith(`PAL_INITIALIZED_PARAMETER|${kind}|`));
+const friendshipTexts=await Promise.all(friendshipPaths.map(file=>readFile(file,"utf8")));
+const expectedPointRanks=new Map(friendshipRows.map(row=>[row.RequiredPoint,row.FriendshipRank]));
+const expectedPoints=[-10000,-1000,-1,0,5999,6000,12999,13000,20999,21000,29999,30000,39999,40000,54999,55000,79999,80000,109999,110000,149999,150000,199999,200000];
+const friendshipSessions=friendshipTexts.map((text,sessionIndex)=>{
+  const profiles=initializedPayload(text,"profile");
+  const lines=initializedPayload(text,"friendship");
+  if(profiles.length!==1||lines.length!==expectedPoints.length||!text.includes("PAL_INITIALIZED_PARAMETER|complete"))throw new Error(`Friendship session ${sessionIndex+1} is incomplete.`);
+  const profile=profiles[0].split("|").slice(2);
+  if(!palById.has(profile[0]))throw new Error(`Friendship session ${sessionIndex+1} did not use a current Pal: ${profile[0]}.`);
+  const rows=lines.map(line=>{
+    const values=line.split("|").slice(2).map(Number);
+    if(values.length!==6||values.some(value=>!Number.isInteger(value)))throw new Error(`Invalid friendship row in session ${sessionIndex+1}.`);
+    const [requestedPoint,actualPoint,rank,hp,attack,defense]=values;
+    return {requestedPoint,actualPoint,rank,hp,attack,defense};
+  });
+  if(rows.some((row,index)=>row.requestedPoint!==expectedPoints[index]||row.actualPoint!==row.requestedPoint))throw new Error(`Friendship points drifted in session ${sessionIndex+1}.`);
+  for(const row of rows){
+    const expectedRank=expectedPointRanks.has(row.requestedPoint)?expectedPointRanks.get(row.requestedPoint):friendshipRows.findLast(value=>value.RequiredPoint<=row.requestedPoint)?.FriendshipRank;
+    if(row.rank!==expectedRank)throw new Error(`Friendship rank mismatch at ${row.requestedPoint} in session ${sessionIndex+1}.`);
+  }
+  const rankRows=new Map(rows.filter(row=>expectedPointRanks.has(row.requestedPoint)).map(row=>[row.rank,row]));
+  const neutral=rankRows.get(0);
+  for(const rank of [-3,-2,-1])if(["hp","attack","defense"].some(field=>rankRows.get(rank)[field]!==neutral[field]))throw new Error(`Negative friendship changed stats in session ${sessionIndex+1}.`);
+  for(const field of ["hp","attack","defense"])for(let rank=1;rank<=10;rank++)if(rankRows.get(rank)[field]<=rankRows.get(rank-1)[field])throw new Error(`Positive friendship ${field} is not strictly increasing in session ${sessionIndex+1}.`);
+  return {palId:profile[0],rows};
+});
+if(new Set(friendshipSessions.map(session=>session.palId)).size!==2)throw new Error("Independent friendship sessions must use two different Pals.");
+
+const interactionTexts=await Promise.all(interactionPaths.map(file=>readFile(file,"utf8")));
+const interactionPayloads=interactionTexts.map(text=>initializedPayload(text,"grid").join("\n"));
+const interactionHashes=interactionPayloads.map(value=>createHash("sha256").update(value).digest("hex"));
+if(interactionHashes[0]!==interactionHashes[1])throw new Error("Independent friendship interaction grids do not match byte-for-byte.");
+const interactionRows=interactionPayloads[0].split("\n").filter(Boolean).map(line=>line.split("|").slice(2).map(Number));
+if(interactionRows.length!==6*5*5*5*14||interactionRows.some(row=>row.length!==8||row.some(value=>!Number.isInteger(value))))throw new Error("Friendship interaction grid coverage is incomplete.");
+const interactionByKey=new Map(interactionRows.map(row=>[row.slice(0,5).join("|"),row.slice(5)]));
+for(const level of [1,2,10,50,65,80])for(const talent of [0,1,50,99,100])for(let condensing=0;condensing<=4;condensing++)for(let soul=0;soul<=4;soul++){
+  const neutral=interactionByKey.get(`${level}|${talent}|${condensing}|${soul}|0`);
+  for(const rank of [-3,-2,-1])if(interactionByKey.get(`${level}|${talent}|${condensing}|${soul}|${rank}`).some((value,index)=>value!==neutral[index]))throw new Error(`Negative friendship interaction drifted at ${level}|${talent}|${condensing}|${soul}.`);
+  for(let rank=1;rank<=10;rank++)if(interactionByKey.get(`${level}|${talent}|${condensing}|${soul}|${rank}`).some((value,index)=>value<interactionByKey.get(`${level}|${talent}|${condensing}|${soul}|${rank-1}`)[index]))throw new Error(`Positive friendship interaction decreased at ${level}|${talent}|${condensing}|${soul}|${rank}.`);
+  if(interactionByKey.get(`${level}|${talent}|${condensing}|${soul}|10`).some((value,index)=>value<=neutral[index]))throw new Error(`Maximum friendship did not increase every stat at ${level}|${talent}|${condensing}|${soul}.`);
+}
+
 const normalizedOutput={
   meta:{schema:1,verification:"verified",scope:"friendship-rank-0",palCount:palData.meta.palCount,levelRange:[1,80],condensingRankRange:[0,4],ivRange:[0,100],soulRankRange:[0,4],friendshipRankRange:[0,0]},
   encoding:{kind:"row-u16le-first-u8-deltas-base64",levelCount:80,rankCount:5,talentCount:101,rowBytes:102,order:"level-major, condensing-rank-minor"},
@@ -119,7 +164,7 @@ const report={
   sessionFileSha256:sessionTexts.map(value=>createHash("sha256").update(value).digest("hex")),
   coverage:{representativePals:representatives.length,levels:80,condensingRanks:5,ivValues:101,rawRuntimeCases:27*80*5*101,dimensions:dimensionCoverage},
   equivalence:{sameBaseCrossSpecies:true,independentSessions:true,soulApplication:"floor after condensing result",soulGoldenCases:7},
-  friendship:{sourceRanks:friendshipRows.map(row=>({rank:row.FriendshipRank,requiredPoint:row.RequiredPoint})),sourceTableComplete:true,runtimeCasesVerified:false,publicScope:"rank-0-only"},
+  friendship:{sourceRanks:friendshipRows.map(row=>({rank:row.FriendshipRank,requiredPoint:row.RequiredPoint})),sourceTableComplete:true,runtimeCasesVerified:true,independentSessions:true,palGoldenCases:friendshipSessions.length*expectedPoints.length,palIds:friendshipSessions.map(session=>session.palId),interactionCasesPerSession:interactionRows.length,interactionSessionPayloadSha256:interactionHashes,negativeRanksDoNotReduceStats:true,positiveRanksNondecreasingWithVerifiedMaximumIncrease:true,verifiedAxes:{levels:[1,2,10,50,65,80],talents:[0,1,50,99,100],condensingRanks:[0,4],soulRanks:[0,4],friendshipRanks:[-3,10]},publicScope:"evidence-complete-public-artifact-pending"},
   normalizedOutput:{path:path.relative(root,normalizedPath).replaceAll("\\","/"),sha256:createHash("sha256").update(`${JSON.stringify(normalizedOutput)}\n`).digest("hex"),publicationReady:false}
 };
 await writeFile(path.join(evidenceRoot,"iv-runtime-report.json"),`${JSON.stringify(report,null,2)}\n`);

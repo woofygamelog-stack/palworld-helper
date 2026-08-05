@@ -72,7 +72,7 @@ local function relevant(name)
         , ":CreateIndividual", ":CreateIndividualByFixedID", ":SetupSaveParameter",
         ":GetInitializedOtomoSaveParameter", ":GetCharacterParameterStorageSubsystem",
         ":GetDatabaseCharacterParameter", ":SetHPByRateToCharacter", ":SetHPByRateToHandle",
-        ":SetHPPercent", ":GetHP", ":GetLevel"
+        ":SetHPPercent", ":GetHP", ":GetLevel", "Friendship", "FriendShip", "ChooseFriend"
     }) do
         if string.find(name, token, 1, true) then return true end
     end
@@ -84,6 +84,7 @@ local function inventory()
         "/Game/Pal/Blueprint/System/BP_PalGameSetting",
         "/Game/Pal/Blueprint/Character/Component/BP_PalCharacterParameterStorageSubsystem",
         "/Game/Pal/Blueprint/Character/Component/BP_PalDatabaseCharacterParameter",
+        "/Game/Pal/Blueprint/UI/UserInterface/MainMenu/Pal/WBP_MainMenu_PalSkillInfo",
         "/Game/Pal/Blueprint/MapObject/BuildObject/BP_BuildObject_BreedFarm",
         "/Game/Pal/Blueprint/Character/Monster/PalActorBP/SheepBall/BP_SheepBall.BP_SheepBall_C"
     }) do
