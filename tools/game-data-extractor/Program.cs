@@ -427,7 +427,7 @@ if (mode == "calculator")
 {
     var assetKeywords = new[]
     {
-        "Breed", "Combi", "Egg", "Capture", "PalSphere", "Talent", "Individual", "Rankup", "Soul",
+        "Breed", "Combi", "Egg", "Capture", "PalSphere", "Talent", "Individual", "Rankup", "Soul", "Friendship",
         "WorkSpeed", "WorkSuitability", "WorkAmount", "Product", "Craft", "StatusCalculator", "CharacterParameter", "GameSetting"
     };
     var calculatorAssets = provider.Files.Keys
@@ -461,7 +461,7 @@ if (mode == "calculator")
         .ToArray();
     var mappingKeywords = new[]
     {
-        "Breed", "Combi", "Capture", "Sphere", "Talent", "Individual", "Rankup", "Soul", "WorkSpeed",
+        "Breed", "Combi", "Capture", "Sphere", "Talent", "Individual", "Rankup", "Soul", "Friendship", "WorkSpeed",
         "WorkSuitability", "WorkAmount", "Craft", "Product", "HP", "Attack", "Defense", "Level"
     };
     Write("calculator-assets.raw.json", calculatorAssets);
@@ -472,6 +472,7 @@ if (mode == "calculator")
     Write("calculator-runtime-blueprint-exports.raw.json", runtimeBlueprintPackages);
     Write("pal-parameters.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalMonsterParameter"));
     Write("pal-blueprint-classes.raw.json", DumpTable("Pal/Content/Pal/DataTable/Character/DT_PalBPClass"));
+    Write("friendship-ranks.raw.json", DumpTable("Pal/Content/Pal/DataTable/Friendship/DT_FriendshipRankTable"));
     Write("items.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemDataTable"));
     Write("recipes.raw.json", DumpTable("Pal/Content/Pal/DataTable/Item/DT_ItemRecipeDataTable"));
 

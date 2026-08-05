@@ -116,18 +116,28 @@ local function run_actor_observations(utility, database, game_setting, save_util
 end
 
 local function run_constructed_observations(database)
-    local cases = {
-        { id = "SheepBall", level = 1, talent = 0, rank = 0, soul = 0 },
-        { id = "SheepBall", level = 1, talent = 100, rank = 0, soul = 0 },
-        { id = "SheepBall", level = 50, talent = 0, rank = 0, soul = 0 },
-        { id = "SheepBall", level = 50, talent = 50, rank = 0, soul = 0 },
-        { id = "SheepBall", level = 65, talent = 100, rank = 0, soul = 0 },
-        { id = "SheepBall", level = 65, talent = 100, rank = 4, soul = 0 },
-        { id = "SheepBall", level = 65, talent = 100, rank = 0, soul = 4 },
-        { id = "SheepBall", level = 65, talent = 100, rank = 4, soul = 4 },
-        { id = "BlackMetalDragon", level = 1, talent = 0, rank = 0, soul = 0 },
-        { id = "BlackMetalDragon", level = 65, talent = 100, rank = 4, soul = 4 },
-    }
+    local cases = {}
+    for _, id in ipairs({ "SheepBall", "BlackMetalDragon" }) do
+        for _, level in ipairs({ 1, 2, 10, 50, 65 }) do
+            for _, talent in ipairs({ 0, 1, 50, 99, 100 }) do
+                cases[#cases + 1] = { id = id, level = level, talent = talent, rank = 0, soul = 0 }
+            end
+        end
+    end
+    for _, rank in ipairs({ 1, 2, 3, 4 }) do
+        cases[#cases + 1] = { id = "SheepBall", level = 65, talent = 100, rank = rank, soul = 0 }
+    end
+    for _, soul in ipairs({ 1, 2, 3, 4 }) do
+        cases[#cases + 1] = { id = "SheepBall", level = 65, talent = 100, rank = 0, soul = soul }
+    end
+    cases[#cases + 1] = { id = "SheepBall", level = 65, talent = 100, rank = 4, soul = 4 }
+    for _, id in ipairs({ "Bastet", "BerryGoat" }) do
+        for _, level in ipairs({ 1, 50, 65 }) do
+            for _, talent in ipairs({ 0, 100 }) do
+                cases[#cases + 1] = { id = id, level = level, talent = talent, rank = 0, soul = 0 }
+            end
+        end
+    end
     for _, case in ipairs(cases) do
         local save = {
             CharacterID = FName(case.id),
@@ -148,6 +158,7 @@ local function run_constructed_observations(database)
         local craft = tonumber(unwrap(database:GetCraftSpeedBySaveParameter(save)))
         log(string.format("constructed-stat|%s|%d|%d|%d|%d|%d|%d|%d|%d", case.id, case.level, case.talent, case.rank, case.soul, hp, shot, defense, craft))
     end
+
 end
 
 local function run()

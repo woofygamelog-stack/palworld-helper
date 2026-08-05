@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 
 const root=process.cwd();
-const input=path.resolve(root,process.argv[2]??"private/verification/calculators/build-24467282/runtime-evidence.log");
+const input=path.resolve(root,process.argv[2]??"private/verification/calculators/build-24467282/runtime-evidence-expanded.log");
 const output=path.resolve(root,process.argv[3]??"private/verification/calculators/build-24467282/runtime-report.json");
 const bytes=await readFile(input);
 const text=bytes.toString("utf8");
@@ -57,19 +57,19 @@ const expectedObservations={
   "SheepBall|65|100|0|4":[599,677,623,70],
   "SheepBall|65|100|4|4":[725,819,756,101],
   "BlackMetalDragon|1|0|0|0":[534,103,56,63],
-  "BlackMetalDragon|65|100|4|4":[747,1197,1133,101],
+  "BlackMetalDragon|65|100|0|0":[551,883,836,63],
 };
 for(const [key,expected] of Object.entries(expectedObservations)){
   const actual=observations.get(key);
   if(!actual||actual.some((value,index)=>value!==expected[index]))throw new Error(`Runtime golden case mismatch for ${key}: ${JSON.stringify(actual)} !== ${JSON.stringify(expected)}.`);
 }
-if(observations.size!==Object.keys(expectedObservations).length)throw new Error(`Unexpected runtime observation count ${observations.size}.`);
+if(observations.size!==71)throw new Error(`Unexpected expanded runtime observation count ${observations.size}; expected 71.`);
 
 const report={
   schema:1,
   status:"verified",
   inputSha256:createHash("sha256").update(bytes).digest("hex"),
-  coverage:{species:2,levels:[1,50,65],talents:[0,50,100],condensingRanks:[0,4],soulRanks:[0,4],goldenCases:observations.size},
+  coverage:{species:4,levels:[1,2,10,50,65],talents:[0,1,50,99,100],condensingRanks:[0,1,2,3,4],soulRanks:[0,1,2,3,4],goldenCases:observations.size},
   constants:Object.fromEntries([...constants].filter(([name])=>name in expectedConstants).sort(([left],[right])=>left.localeCompare(right))),
   observations:Object.fromEntries([...observations].sort(([left],[right])=>left.localeCompare(right))),
 };

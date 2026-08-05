@@ -1,0 +1,9 @@
+{
+  "name": "CalculatorIVMatrixEvidence",
+  "version": "1.0.0",
+  "description": "Build-scoped IV forward-matrix observations",
+  "authors": ["Woofy"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": []
+}
