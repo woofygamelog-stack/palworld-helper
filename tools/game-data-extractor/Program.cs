@@ -184,6 +184,7 @@ object DumpDungeonLevelActors(JObject dungeonLevels)
 object DumpCandidateDataTables(IEnumerable<string> assetFiles)
 {
     var tables = new SortedDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    var skipped = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     var errors = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     foreach (var assetFile in assetFiles.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
     {
@@ -192,6 +193,12 @@ object DumpCandidateDataTables(IEnumerable<string> assetFiles)
             : assetFile;
         try
         {
+            if (!provider.TryLoadPackage(assetFile, out var package) || package is null) throw new InvalidDataException("Package could not be loaded.");
+            if (!package.GetExports().Any(value => value is UDataTable))
+            {
+                skipped[assetPath] = "Package has no UDataTable export.";
+                continue;
+            }
             tables[assetPath] = DumpTable(assetPath);
         }
         catch (Exception error)
@@ -199,7 +206,7 @@ object DumpCandidateDataTables(IEnumerable<string> assetFiles)
             errors[assetPath] = error.Message;
         }
     }
-    return new { candidateCount = tables.Count + errors.Count, extractedCount = tables.Count, failedCount = errors.Count, tables, errors };
+    return new { candidateCount = tables.Count + skipped.Count + errors.Count, extractedCount = tables.Count, skippedCount = skipped.Count, failedCount = errors.Count, tables, skipped, errors };
 }
 
 object DumpPackageExports(IEnumerable<string> assetFiles)
@@ -428,7 +435,8 @@ if (mode == "calculator")
     var assetKeywords = new[]
     {
         "Breed", "Combi", "Egg", "Capture", "PalSphere", "Talent", "Individual", "Rankup", "Soul", "Friendship",
-        "WorkSpeed", "WorkSuitability", "WorkAmount", "Product", "Craft", "StatusCalculator", "CharacterParameter", "GameSetting"
+        "WorkSpeed", "WorkSuitability", "WorkAmount", "WorkProgress", "WorkHard", "Product", "Craft", "StatusCalculator",
+        "CharacterParameter", "GameSetting", "WorkerSick", "PassiveSkill", "Research", "BaseCampPassiveEffect", "LabResearch"
     };
     var calculatorAssets = provider.Files.Keys
         .Where(path => path.StartsWith("Pal/Content/Pal/", StringComparison.OrdinalIgnoreCase))
@@ -452,21 +460,31 @@ if (mode == "calculator")
         "BP_PalSphere_ThrowObject.uasset", "BP_BuildObject_BreedFarm.uasset", "BP_PalWorkProgressManager.uasset",
         "BP_ActionWork.uasset", "BP_ActionCommonWork.uasset", "BP_BuildObject_WorkBench.uasset", "BP_SkillEffect_GeneralWork.uasset"
     };
-    var runtimeBlueprintAssets = calculatorAssets
+    var runtimeBlueprintAssets = provider.Files.Keys
+        .Where(path => path.StartsWith("Pal/Content/Pal/", StringComparison.OrdinalIgnoreCase))
+        .Where(path => path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
         .Where(path => path.Contains("/Blueprint/", StringComparison.OrdinalIgnoreCase))
         .Where(path => !path.Contains("/UI/", StringComparison.OrdinalIgnoreCase))
         .Where(path => runtimeAssetNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
         .ToArray();
+    var runtimeBlueprintMissingNames = runtimeAssetNames
+        .Except(runtimeBlueprintAssets.Select(Path.GetFileName), StringComparer.OrdinalIgnoreCase)
+        .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
     var mappingKeywords = new[]
     {
         "Breed", "Combi", "Capture", "Sphere", "Talent", "Individual", "Rankup", "Soul", "Friendship", "WorkSpeed",
-        "WorkSuitability", "WorkAmount", "Craft", "Product", "HP", "Attack", "Defense", "Level"
+        "WorkSuitability", "WorkSuitabilityOption", "WorkAmount", "WorkProgress", "Craft", "Product", "PassiveSkill",
+        "WorkerSick", "Research", "BaseCampPassiveEffect", "CharacterManager", "ParameterStorage", "HP", "Attack",
+        "Defense", "Level"
     };
     Write("calculator-assets.raw.json", calculatorAssets);
-    Write("calculator-tables.raw.json", DumpCandidateDataTables(candidateTableAssets));
+    var calculatorTables = JObject.FromObject(DumpCandidateDataTables(candidateTableAssets));
+    Write("calculator-tables.raw.json", calculatorTables);
     Write("calculator-runtime-blueprint-assets.raw.json", runtimeBlueprintAssets);
+    Write("calculator-runtime-blueprint-missing.raw.json", runtimeBlueprintMissingNames);
     Write("calculator-mapping-definitions.raw.json", FindCalculatorMappingDefinitions(mappingKeywords));
     var runtimeBlueprintPackages = JObject.FromObject(DumpPackageExports(runtimeBlueprintAssets));
     Write("calculator-runtime-blueprint-exports.raw.json", runtimeBlueprintPackages);
@@ -484,14 +502,20 @@ if (mode == "calculator")
     var mappingHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mappings)));
     Write("calculator-manifest.json", new
     {
-        schema = 1,
+        schema = 3,
         mode,
         extractedAt = DateTimeOffset.UtcNow,
         mappingHash,
         pakFiles,
         candidateAssetCount = calculatorAssets.Length,
         candidateTableCount = candidateTableAssets.Length,
+        candidateTableExtractedCount = calculatorTables["extractedCount"]?.Value<int>() ?? 0,
+        candidateTableSkippedCount = calculatorTables["skippedCount"]?.Value<int>() ?? 0,
+        candidateTableFailureCount = calculatorTables["failedCount"]?.Value<int>() ?? 0,
+        runtimeBlueprintRequestedCount = runtimeAssetNames.Length,
         runtimeBlueprintCandidateCount = runtimeBlueprintAssets.Length,
+        runtimeBlueprintMissingCount = runtimeBlueprintMissingNames.Length,
+        runtimeBlueprintMissingNames,
         runtimeBlueprintExtractedCount = runtimeBlueprintPackages["extractedCount"]?.Value<int>() ?? 0,
         runtimeBlueprintFailureCount = runtimeBlueprintPackages["failedCount"]?.Value<int>() ?? 0
     });

@@ -38,6 +38,17 @@ A responsive client window, high CPU use, elapsed time, server process health, o
 - If the timeout expires before a post-join marker, report an incomplete/manual-join-pending session. Do not label it a formula failure, runtime contradiction, or successful empty observation.
 - If a post-join marker appears but required cases or `complete` do not, report the exact driver/runtime error separately from connection state.
 
+## Crash isolation and baseline recovery
+
+- Treat a server process exit during or immediately after manual join as a runtime incident, not a failed connection. Check the application crash event, the last evidence marker, and the exact enabled driver before asking the owner to reconnect.
+- If the same driver reaches a native access violation before its first post-join marker, quarantine that driver immediately. Disable it before the next server start and do not repeat the unchanged join sequence.
+- Restore a baseline session with every experimental calculator driver disabled. Require the real dedicated-server child process, the expected UDP port, a post-join save/world update, and continued process survival before moving verification to another route.
+- Keep the recovered baseline server running for the owner. Design and inspect the replacement driver without restarting that stable session, and announce any later intentional restart before disconnecting it.
+- Do not call broad live-object enumeration, actor getters, or character-creation hooks safe merely because the call is wrapped in `pcall`; native access violations can terminate the process before Lua emits an error marker. Reuse only a build-matched observation path that has its own clean-session evidence, and add one risky call family at a time.
+- Keep launcher lifetime separate from server lifetime. Before yielding the task, detach or end only the launcher/watcher and verify that the exact dedicated-server child PID still owns the expected UDP port.
+- A `complete` marker and an immediate port check verify only immediate observation. Keep the server under an explicit post-observation dwell for at least two minutes, then recheck the exact child PID and UDP port before calling the session stable.
+- Do not run game-archive extraction, repository-scale builds, or another memory- and I/O-heavy workload during the post-observation dwell. Concurrent load makes a later exit attribution invalid; record it as unknown and repeat the isolated dwell.
+
 ## Independent sessions and cleanup
 
 - Each independent golden session requires a clean isolated-server start and a fresh client connection. The owner manually joins again for every session.
