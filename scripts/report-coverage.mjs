@@ -2,6 +2,9 @@ import {createHash} from "node:crypto";
 import {mkdir,readFile,writeFile} from "node:fs/promises";
 import path from "node:path";
 import {collectionRoutes,entityRouteFamilies,supportedLocales} from "../src/route-manifest.ts";
+import {mapExtraLabels} from "../src/map-extra-labels.ts";
+import {mapLayerLabels} from "../src/map-labels.ts";
+import {mapPointCategoryDefinitions} from "../src/map-point-categories.ts";
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo-static.mjs";
 
 const readJson=file=>readFile(file,"utf8").then(JSON.parse);
@@ -13,6 +16,7 @@ const seoData={palData,itemData,skillData,npcData,dungeonData,technologyData,hea
 const groups=buildIndexableGroups(seoData,productionOrigin),{selected,registry}=buildPrerenderEntries(seoData);
 const familyByDataset=new Map(entityRouteFamilies.map(family=>[family.dataset,family]));
 const itemIds=new Set(itemData.items.map(item=>item.id)),palIds=new Set(palData.pals.map(pal=>pal.id)),technologySlugs=new Set(technologyData.technologies.map(entry=>entry.slug)),questSlugs=new Set(questData.quests.map(entry=>entry.slug)),medicineSlugs=new Set(healthData.medicines.map(entry=>entry.slug)),elementSlugs=new Set(elementData.elements.map(entry=>entry.slug));
+const itemById=new Map(itemData.items.map(item=>[item.id,item]));
 const useful=value=>typeof value==="string"&&value.trim().length>0;
 const localized=value=>value&&supportedLocales.every(locale=>useful(value[locale]));
 const duplicateCount=(entities,key)=>entities.length-new Set(entities.map(key)).size;
@@ -81,7 +85,33 @@ for(const row of rows){
   if(row.duplicateCount||row.orphanCount||row.invalidSlugCount)failures.push(`${row.domain}: duplicate=${row.duplicateCount}, orphan=${row.orphanCount}, invalidSlug=${row.invalidSlugCount}`);
 }
 
-const report={schema:1,gameBuild:palData.meta.gameBuild,localeCount:supportedLocales.length,domainCount:rows.length,indexableUrlCount:Object.values(groups).reduce((sum,urls)=>sum+urls.length,0),rows};
+const mapCategoryCoverage=mapPointCategoryDefinitions.map(definition=>{
+  const entities=mapPoints.points.filter(point=>point.category===definition.id),labelValues=supportedLocales.map(locale=>definition.labelSource==="item"?itemById.get(definition.labelKey)?.names?.[locale]:definition.labelSource==="extra"?mapExtraLabels[locale]?.[definition.labelKey]:mapLayerLabels[locale]?.[definition.labelKey]);
+  return {
+    category:definition.id,
+    group:definition.group,
+    sourceCount:mapPoints.counts[definition.id]??0,
+    normalizedCount:entities.length,
+    localizedLabelCount:labelValues.filter(useful).length,
+    localizedLabelTarget:supportedLocales.length,
+    iconCount:entities.filter(entity=>useful(entity.icon)).length,
+    iconTarget:entities.length,
+    relationshipCount:entities.filter(entity=>entity.npcSlug||entity.dungeonSlug).length,
+    worldCounts:Object.fromEntries(mapData.worlds.map(world=>[world.id,entities.filter(entity=>entity.worldId===world.id).length])),
+    labelSource:definition.labelSource,
+    itemId:definition.labelSource==="item"?definition.labelKey:null,
+  };
+});
+for(const row of mapCategoryCoverage){
+  if(row.normalizedCount!==row.sourceCount)failures.push(`map/${row.category}: normalized ${row.normalizedCount}/${row.sourceCount}`);
+  if(row.localizedLabelCount!==row.localizedLabelTarget)failures.push(`map/${row.category}: localized labels ${row.localizedLabelCount}/${row.localizedLabelTarget}`);
+  if(row.iconCount!==row.iconTarget)failures.push(`map/${row.category}: icons ${row.iconCount}/${row.iconTarget}`);
+}
+const mapResourceItemMappings=mapCategoryCoverage.filter(row=>row.labelSource==="item").map(row=>({category:row.category,itemId:row.itemId,resolved:itemIds.has(row.itemId),localizedLabelCount:row.localizedLabelCount,localizedLabelTarget:row.localizedLabelTarget}));
+for(const mapping of mapResourceItemMappings)if(!mapping.resolved)failures.push(`map/${mapping.category}: unresolved item label ${mapping.itemId}`);
+const mapWorldCoverage=mapData.worlds.map(world=>({worldId:world.id,categoryCount:mapCategoryCoverage.filter(row=>row.worldCounts[world.id]>0).length,pointCount:mapCategoryCoverage.reduce((sum,row)=>sum+row.worldCounts[world.id],0)}));
+
+const report={schema:2,gameBuild:palData.meta.gameBuild,localeCount:supportedLocales.length,domainCount:rows.length,indexableUrlCount:Object.values(groups).reduce((sum,urls)=>sum+urls.length,0),mapCategoryCount:mapCategoryCoverage.length,mapPointCount:mapCategoryCoverage.reduce((sum,row)=>sum+row.normalizedCount,0),mapWorldCoverage,mapCategoryCoverage,mapResourceItemMappings,rows};
 report.contentHash=createHash("sha256").update(JSON.stringify(report)).digest("hex");
 const output=path.resolve("private","planning","domain-coverage.json");
 await mkdir(path.dirname(output),{recursive:true});

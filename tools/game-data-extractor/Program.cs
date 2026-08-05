@@ -458,7 +458,9 @@ if (mode == "calculator")
         "BP_PalGameSetting.uasset", "BP_PalDatabaseCharacterParameter.uasset", "BP_PalCharacterParameterStorageSubsystem.uasset",
         "BP_PalCaptureBodyBase.uasset", "BP_PalCaptureJudgeObject.uasset", "BP_ThrowCaptureObjectBase.uasset",
         "BP_PalSphere_ThrowObject.uasset", "BP_BuildObject_BreedFarm.uasset", "BP_PalWorkProgressManager.uasset",
-        "BP_ActionWork.uasset", "BP_ActionCommonWork.uasset", "BP_BuildObject_WorkBench.uasset", "BP_SkillEffect_GeneralWork.uasset"
+        "BP_ActionWork.uasset", "BP_ActionCommonWork.uasset", "BP_BuildObject_WorkBench.uasset", "BP_SkillEffect_GeneralWork.uasset",
+        "BP_BuildObject_WorkSpeedIncrease1.uasset", "BP_BuildObject_BaseCampWorkHard.uasset",
+        "BP_BuildObject_BaseCampWorkHard_02.uasset", "BP_BuildObject_BaseCampWorkHard_03.uasset"
     };
     var runtimeBlueprintAssets = provider.Files.Keys
         .Where(path => path.StartsWith("Pal/Content/Pal/", StringComparison.OrdinalIgnoreCase))

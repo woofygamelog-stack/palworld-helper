@@ -93,7 +93,7 @@ The extractor initializes Oodle from its application output. Do not copy or comm
 
 Importers may accept environment variables so refreshes do not require changing checked-in absolute paths. Never commit a local installation or staging path.
 
-For calculator refreshes, require calculator manifest schema 3 and treat the exact runtime Blueprint request list separately from keyword-based discovery. The manifest and `calculator-runtime-blueprint-missing.raw.json` must reconcile requested, found, extracted, and failed counts. Candidate table counts must also reconcile extracted tables, packages explicitly skipped because they contain no `UDataTable` export, and genuine extraction failures; genuine failures remain blocking. A missing requested Blueprint keeps its dependent formula path unavailable; do not silently accept a smaller candidate set merely because all found packages decoded.
+For calculator refreshes, require calculator manifest schema 3 and treat the exact runtime Blueprint request list separately from keyword-based discovery. The exact list includes the production work-speed facility and all three base-camp work-hard facility definitions in addition to the core calculator/runtime definitions. The manifest and `calculator-runtime-blueprint-missing.raw.json` must reconcile requested, found, extracted, and failed counts. Candidate table counts must also reconcile extracted tables, packages explicitly skipped because they contain no `UDataTable` export, and genuine extraction failures; genuine failures remain blocking. A missing requested Blueprint keeps its dependent formula path unavailable; do not silently accept a smaller candidate set merely because all found packages decoded.
 
 ## Public disclosure boundary
 

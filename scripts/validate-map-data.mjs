@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import {mapPointCategoryById,mapPointCategoryDefinitions} from "../src/map-point-categories.ts";
 
 const data=JSON.parse(fs.readFileSync("public/data/map-markers.json","utf8"));
 const pointData=JSON.parse(fs.readFileSync("public/data/map-points.json","utf8"));
@@ -12,8 +13,15 @@ const surfaceResourceAnchors={
   quartz:{x:-571012.44,y:129335.625}
 };
 if(pointData.points.length!==Object.values(pointData.counts).reduce((sum,count)=>sum+count,0))throw new Error("Map point count mismatch");
+const publishedCategories=Object.keys(pointData.counts).sort(),contractCategories=mapPointCategoryDefinitions.map(definition=>definition.id).sort();
+if(JSON.stringify(publishedCategories)!==JSON.stringify(contractCategories))throw new Error(`Map category contract mismatch: published=${publishedCategories.join(",")} contract=${contractCategories.join(",")}`);
+for(const definition of mapPointCategoryDefinitions){
+  if(definition.iconPath&&!fs.existsSync(`public${definition.iconPath}`))throw new Error(`Missing contracted icon for ${definition.id}`);
+  if(!definition.iconPath&&!definition.iconPrefix)throw new Error(`Missing icon contract for ${definition.id}`);
+}
 const pointIds=new Set();
-for(const point of pointData.points){const world=worldById.get(point.worldId);if(!world)throw new Error(`Unknown point world ${point.id}`);if(point.x<world.minX||point.x>world.maxX||point.y<world.minY||point.y>world.maxY)throw new Error(`Out-of-bounds point ${point.id}`);if(pointIds.has(point.id))throw new Error(`Duplicate point ${point.id}`);if(!point.icon?.startsWith("/assets/")||!fs.existsSync(`public${point.icon}`))throw new Error(`Missing point icon ${point.id}`);if(/BP_|_C$|Spawner|LevelObject/i.test(point.subtype))throw new Error(`Internal actor type leaked through ${point.id}`);if(point.category in surfaceResourceCounts&&(!Number.isFinite(point.z)||point.z<=-20000))throw new Error(`Underground resource leaked through ${point.id}`);pointIds.add(point.id)}
+for(const point of pointData.points){const world=worldById.get(point.worldId),definition=mapPointCategoryById.get(point.category);if(!world)throw new Error(`Unknown point world ${point.id}`);if(!definition)throw new Error(`Unknown point category ${point.id}`);if(point.x<world.minX||point.x>world.maxX||point.y<world.minY||point.y>world.maxY)throw new Error(`Out-of-bounds point ${point.id}`);if(pointIds.has(point.id))throw new Error(`Duplicate point ${point.id}`);if(!point.icon?.startsWith("/assets/")||!fs.existsSync(`public${point.icon}`))throw new Error(`Missing point icon ${point.id}`);if(definition.iconPath&&point.icon!==definition.iconPath)throw new Error(`Unexpected point icon ${point.id}`);if(definition.iconPrefix&&!point.icon.startsWith(definition.iconPrefix))throw new Error(`Unexpected point icon family ${point.id}`);if(typeof point.subtype!=="string"||!point.subtype.trim()||point.subtype.length>80)throw new Error(`Invalid public subtype ${point.id}`);if(/BP_|_C$|Spawner|LevelObject|(?:Ã.|Â.)|[�]/i.test(point.subtype))throw new Error(`Internal or malformed subtype leaked through ${point.id}`);if(point.category in surfaceResourceCounts&&(!Number.isFinite(point.z)||point.z<=-20000))throw new Error(`Underground resource leaked through ${point.id}`);pointIds.add(point.id)}
+for(const definition of mapPointCategoryDefinitions){const normalizedCount=pointData.points.filter(point=>point.category===definition.id).length;if(normalizedCount!==pointData.counts[definition.id])throw new Error(`Category count mismatch for ${definition.id}: ${normalizedCount}/${pointData.counts[definition.id]}`)}
 for(const [category,count] of Object.entries({redBerry:1939,mushroom:274,oil:185,egg:1816,skillFruit:47,...surfaceResourceCounts,npc:100,merchant:19,palMerchant:6,fishing:546,randomEvent:87,dungeon:31,bounty:33,collectibleShrine:104,palStatue:11,camp:55,note:49,supplyDrop:480,oilRig:1}))if(pointData.counts[category]!==count)throw new Error(`Unexpected ${category} count ${pointData.counts[category]}`);
 const exactSubtypeCounts={"enemy-camp":55,"collectible-note":49,"possible-drop-zone":480,"oil-rig":1};
 for(const [subtype,count] of Object.entries(exactSubtypeCounts))if(pointData.points.filter(point=>point.subtype===subtype).length!==count)throw new Error(`Unexpected ${subtype} count`);
@@ -50,4 +58,4 @@ const restored={x:palpagos.maxX-projected.top/100*(palpagos.maxX-palpagos.minX),
 if(Math.abs(restored.x-chillet.x)>0.01||Math.abs(restored.y-chillet.y)>0.01)fail("map-image inverse projection drift");
 const palIds=new Set(JSON.parse(fs.readFileSync("public/data/pals.json","utf8")).pals.map(pal=>pal.id));
 if(data.bosses.some(marker=>!palIds.has(marker.palId)))fail("boss marker has an unknown Pal reference");
-console.log(`Validated ${data.bosses.length} bosses, ${data.habitats.length} habitats and ${data.fastTravel?.length||0} fast-travel markers across ${data.worlds.length} maps.`);
+console.log(`Validated ${data.bosses.length} bosses, ${data.habitats.length} habitats, ${data.fastTravel?.length||0} fast-travel markers and ${pointData.points.length} points in ${mapPointCategoryDefinitions.length} categories across ${data.worlds.length} maps.`);

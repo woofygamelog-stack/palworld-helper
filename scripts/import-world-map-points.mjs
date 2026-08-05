@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { dungeonPublicDefinitions } from "./dungeon-public-config.mjs";
+import {mapPointCategoryById} from "../src/map-point-categories.ts";
 
 const root=process.cwd(),build=process.env.PAL_GAME_BUILD||"24467282";
 const preferred=process.env.PAL_ACTOR_SOURCE||path.join(root,"private","extracted",`build-${build}-map-actor-chunks-v3`);
@@ -17,16 +18,6 @@ const dungeonSpawnAreas=JSON.parse(fs.readFileSync(path.join(dungeonSource,"dung
 const dungeonClassDefaults=JSON.parse(fs.readFileSync(path.join(dungeonSource,"dungeon-class-defaults.raw.json"),"utf8"));
 const defaultPortalAreas=(dungeonClassDefaults["portal-grass-1"]?.SpawnAreaIds||[]).map(value=>value.Key).filter(Boolean);
 const fixedDefaultNameByType={BP_DungeonFixedEntrance_grass_1_C:dungeonClassDefaults["fixed-grass-1"]?.DungeonNameRowHandle?.RowName,BP_DungeonFixedEntrance_grass_5_C:dungeonClassDefaults["fixed-grass-5"]?.DungeonNameRowHandle?.RowName,BP_DungeonFixedEntrance_grass_6_C:dungeonClassDefaults["fixed-grass-6"]?.DungeonNameRowHandle?.RowName,BP_DungeonFixedEntrance_grass_7_C:dungeonClassDefaults["fixed-grass-7"]?.DungeonNameRowHandle?.RowName};
-const icon={
-  redBerry:"/assets/items/Berries.webp",mushroom:"/assets/items/Mushroom.webp",oil:"/assets/items/CrudeOil.webp",
-  egg:"/assets/items/Egg.webp",skillFruit:"/assets/items/SkillCard_AirCanon.webp",ore:"/assets/items/CopperOre.webp",
-  coal:"/assets/items/Coal.webp",sulfur:"/assets/items/Sulfur.webp",quartz:"/assets/items/Quartz.webp",
-  treasure:"/assets/map-icons/treasure.webp",npc:"/assets/map-icons/npc.webp",merchant:"/assets/map-icons/merchant.webp",
-  palMerchant:"/assets/map-icons/merchant.webp",fishing:"/assets/map-icons/fishing.webp",randomEvent:"/assets/map-icons/random-event.webp",
-  dungeon:"/assets/map-icons/dungeon.webp",bounty:"/assets/map-icons/wanted.webp",collectibleShrine:"/assets/map-icons/pal-statue.webp",
-  palStatue:"/assets/map-icons/pal-statue.webp",camp:"/assets/map-icons/npc.webp",
-  note:"/assets/map-icons/treasure.webp",supplyDrop:"/assets/map-icons/treasure.webp",oilRig:"/assets/map-icons/oil-rig.webp"
-};
 const actorSubtype=type=>type.replace(/^BP_/i,"").replace(/_C$/i,"");
 const keyOf=value=>value?.Key||"";
 const title=value=>value.replace(/_/g," ").replace(/([a-z])([A-Z])/g,"$1 $2").replace(/\b\w/g,letter=>letter.toUpperCase());
@@ -38,7 +29,7 @@ function publicSubtype(category,type){
   if(category==="treasure"){const match=type.match(/Treasure_(.+?)_C$/i);return match?title(match[1]).replace(/\b0(\d)\b/g,"$1"):"Treasure chest"}
   return category;
 }
-function pointIcon(kind){if(kind.category!=="egg")return icon[kind.category];const match=kind.subtype.match(/^(.+?) · Grade (\d+)$/),region=match?.[1].toLowerCase()||"grass",grade=String(Math.min(5,Math.max(1,Number(match?.[2])||1))).padStart(2,"0"),element=region.includes("worldtree")?"WorldTree":region.includes("volcan")?"Fire":region.includes("glacier")?"Ice":region.includes("desert")?"Earth":region.includes("sky")?"Electricity":region.includes("tenraku")?"Dark":"Leaf";return `/assets/items/PalEgg_${element}_${grade}.webp`}
+function pointIcon(kind){const definition=mapPointCategoryById.get(kind.category);if(!definition)throw new Error(`Unknown public map category ${kind.category}`);if(kind.category!=="egg")return definition.iconPath;const match=kind.subtype.match(/^(.+?) · Grade (\d+)$/),region=match?.[1].toLowerCase()||"grass",grade=String(Math.min(5,Math.max(1,Number(match?.[2])||1))).padStart(2,"0"),element=region.includes("worldtree")?"WorldTree":region.includes("volcan")?"Fire":region.includes("glacier")?"Ice":region.includes("desert")?"Earth":region.includes("sky")?"Electricity":region.includes("tenraku")?"Dark":"Leaf";return `${definition.iconPrefix}${element}_${grade}.webp`}
 function classify(actor){
   const type=actor.actorType,z=Number(actor.location?.Z),human=keyOf(actor.properties?.HumanName),unique=keyOf(actor.properties?.UniqueName);
   const simple=[
