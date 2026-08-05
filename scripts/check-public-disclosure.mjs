@@ -1,4 +1,4 @@
-import {readFile,readdir,stat} from "node:fs/promises";
+import {mkdir,readFile,readdir,stat,writeFile} from "node:fs/promises";
 import path from "node:path";
 
 const root=process.cwd();
@@ -59,4 +59,9 @@ for(const file of files){
 }
 
 if(violations.length)throw new Error(`Public disclosure audit failed:\n${violations.join("\n")}`);
+if(!process.argv.includes("--source-only")){
+  const reportPath=path.join(root,"private","planning","public-disclosure-report.json");
+  await mkdir(path.dirname(reportPath),{recursive:true});
+  await writeFile(reportPath,`${JSON.stringify({schema:1,generatedAt:new Date().toISOString(),artifactCount:files.length,status:"passed"},null,2)}\n`);
+}
 console.log(`Public disclosure audit passed for ${files.length} source and built text artifacts.`);

@@ -371,7 +371,8 @@ assert.match(main,/outbound_contact.*destination:"community_issues"/,"Contact cl
 assert.match(styles,/\.footer-utility a\{[^}]*min-height:44px[^}]*overflow-wrap:anywhere/,"Footer actions must keep accessible targets and resist overflow");
 assert.match(seoStatic,/renderFooter\(locale,m\.footer\)/,"Prerendered pages must use the shared footer");
 assert.match(packageJson.devDependencies.wrangler, /^\d+\.\d+\.\d+$/, "Wrangler must be pinned exactly for reproducible deployments");
-assert.equal(packageJson.scripts["release:check"], "npm run check && npm run check:determinism && npm run deploy:dry-run", "the release check must include the full build, deterministic-output, and Wrangler dry-run gates");
+assert.equal(packageJson.scripts["release:evidence"], "node scripts/generate-release-evidence.mjs", "the release evidence must be generated from the completed local release gates");
+assert.equal(packageJson.scripts["release:check"], "npm run check && npm run check:determinism && npm run deploy:dry-run && npm run release:evidence", "the release check must include the full build, deterministic-output, Wrangler dry-run, and evidence gates");
 assert.equal(packageJson.scripts["test:visual"], "node tests/visual-regression.mjs", "the standard check must expose the visual regression suite");
 assert.ok(routeFamilies.some(family=>family.path==="calculators/breeding-path"&&family.mode==="prerendered"&&family.indexable),"the completed breeding-path workflow must be an indexable prerendered route");
 assert.match(calculatorsSource,/URLSearchParams[\s\S]*palPublicSlug[\s\S]*owned[\s\S]*weights/s,"breeding-path share state must use public Pal slugs and explicit scoring weights");

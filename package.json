@@ -51,7 +51,8 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run check:i18n && npm run check:item-images && npm test && npm run check:blocked-calculators && npm run check:coverage && npm run check:update-rehearsal && npm run build && npm run check:route-budget && npm run test:e2e && npm run test:visual",
     "check:deployment": "node --experimental-strip-types scripts/check-deployment.mjs",
     "deploy:dry-run": "npm run check:deployment && wrangler deploy --dry-run",
-    "release:check": "npm run check && npm run check:determinism && npm run deploy:dry-run",
+    "release:evidence": "node scripts/generate-release-evidence.mjs",
+    "release:check": "npm run check && npm run check:determinism && npm run deploy:dry-run && npm run release:evidence",
     "deploy:production": "npm run release:check && wrangler deploy"
   },
   "devDependencies": {

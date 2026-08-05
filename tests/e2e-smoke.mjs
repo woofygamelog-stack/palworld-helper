@@ -277,6 +277,7 @@ try{
     await page.locator("#map-pin-x").fill("0");
     await page.locator("#map-pin-y").fill("0");
     await page.locator("#map-pin-form button[type=submit]").click();
+    await page.waitForFunction(()=>localStorage.getItem("pw-map-pins:palpagos")?.includes("Local test pin"));
     assert.match(await page.evaluate(()=>localStorage.getItem("pw-map-pins:palpagos")||""),/Local test pin/,"personal pins must remain in world-specific local storage");
     await page.locator("#local-pin-layer").uncheck();
     assert.equal(new URL(page.url()).searchParams.get("pins"),"0","local-pin visibility must restore from URL state");
