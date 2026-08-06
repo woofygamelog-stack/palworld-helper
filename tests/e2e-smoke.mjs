@@ -315,6 +315,16 @@ try{
     assert.equal(await page.locator('[data-map-result="ore"] a[href*="/items/"]').count(),1555,"resource results must link to the localized item detail route");
     assert.equal(await page.locator('[data-map-result="ore"] .map-result-tool').count(),1555,"resource results must link onward to the crafting workflow");
     await page.locator("[data-map-reset]").click();
+    await page.locator('[data-map-quick="npc"]').click();
+    const linkedNpcMarker=page.locator('.map-point-marker[data-map-category="npc"][data-map-detail-href*="/database/npcs/"]').first();
+    await linkedNpcMarker.focus();
+    await linkedNpcMarker.press("Enter");
+    assert.equal(await page.locator("#map-marker-detail").isVisible(),true,"keyboard marker activation must open the detail panel");
+    assert.equal(await page.locator('#map-marker-detail a[href*="/database/npcs/"]').count(),1,"the marker detail panel must expose the same NPC detail route as the result list");
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator("#map-marker-detail").isHidden(),true,"Escape must close the marker detail panel");
+    assert.equal(await linkedNpcMarker.evaluate(marker=>marker===document.activeElement),true,"closing the marker detail panel must restore focus to its marker");
+    await page.locator("[data-map-reset]").click();
     await page.locator('[data-map-panel="filters"]').click();
     await page.locator('button[data-map-world="tree"]').click();
     await page.waitForFunction(()=>document.querySelector(".map-stage")?.getAttribute("data-map-world")==="tree");
