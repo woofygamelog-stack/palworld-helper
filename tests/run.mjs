@@ -760,6 +760,7 @@ assert.match(staticGenerator,/sitemapindex.*sitemaps\/\$\{name\}\.xml/s,"the bui
 assert.match(builtChecker,/hybrid-prerender-plus-spa/,"built-output verification must enforce the hybrid rendering architecture");
 assert.match(seoStatic,/descriptionScore.*scoreMap.*localeCompare/s,"priority prerender selection must use stable content and relationship scoring with an ID tie-breaker");
 assert.match(main,/preservingPrerender&&!routeDataReady\(\)/,"the app must preserve initial HTML until route data is ready");
+assert.match(main,/current==="\/map"\)return Boolean\(itemData&&data&&mapData&&npcData&&\(dungeonData\|\|dungeonLoadError\)\)/,"the map must not accept local input before all relationship data can render without a destructive refresh");
 assert.match(main,/resolveEntitySegment.*resolved\.legacy.*history\.replaceState/s,"legacy raw-ID detail URLs must normalize to their public slug without becoming canonical URLs");
 assert.match(main,/function publicAssetUrl.*const publicAssetHtml/s,"runtime HTML must translate internal asset filenames to public image slugs");
 assert.match(staticGenerator,/assetMoves.*registry\.byId\.pals.*registry\.byId\.items.*rename\(from,to\)/s,"production assets must be renamed to public Pal and item slugs without increasing the file count");
@@ -1204,6 +1205,9 @@ const renderedMap=renderMapPage(mapRenderContext);
 assert.match(renderedMap,/id="planning-map"[\s\S]*id="habitat-layer"/,"the lazy map renderer must produce the interactive map surface");
 assert.match(renderedMap,/id="map-result-list"[\s\S]*Test Pal/,"the lazy map renderer must preserve the equivalent searchable result list");
 assert.match(renderedMap,/id="boss-layer" type="checkbox" checked/,"the lazy map renderer must keep the verified boss layer enabled by default");
+const restoredMap=renderMapPage({...mapRenderContext,location:{...mapRenderContext.location,search:"?boss=0&travel=1"}});
+assert.doesNotMatch(restoredMap,/id="boss-layer" type="checkbox" checked/,"the map renderer must restore a disabled boss layer before binding interactions");
+assert.match(restoredMap,/id="fast-travel-layer" type="checkbox" checked/,"the map renderer must restore fast travel before binding interactions");
 const sourceElementSlug=id=>({Normal:"neutral",Fire:"fire",Water:"water",Leaf:"grass",Electricity:"electric",Ice:"ice",Earth:"ground",Dark:"dark",Dragon:"dragon"})[id]||"";
 const renderedElements=renderElementsPage({locale:"en-US",defaultLocale:"en-US",messages:messages("en-US"),data:palData,skillData,elementData,location:{search:"?attack=fire&defend=grass,water"},href:path=>`/en-US${path}`,escape:value=>value,sourceElementSlug,setMeta:()=>{},hero:title=>`<header><h1>${title}</h1></header>`,databaseTabs:()=>"<nav></nav>",elementLoadError:false});
 assert.match(renderedElements,/id="element-attacker"[\s\S]*id="element-defender-secondary"[\s\S]*class="element-formula"/,"the lazy element renderer must produce the verified dual-element comparison workflow");

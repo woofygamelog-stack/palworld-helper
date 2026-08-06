@@ -336,7 +336,7 @@ function routeModuleReady(){const current=route();return (current!=="/server-too
 function routeDataReady(){
   const current=route(),isNpcDetail=current.startsWith("/database/npcs/"),isDungeon=current==="/database/dungeons"||current.startsWith("/database/dungeons/"),isTechnology=current==="/database/technology"||current.startsWith("/database/technology/"),isStructure=current==="/database/structures"||current.startsWith("/database/structures/"),isExpedition=current==="/database/expeditions"||current.startsWith("/database/expeditions/"),isQuest=current==="/database/quests"||current.startsWith("/database/quests/"),isHealth=current==="/database/health"||current.startsWith("/database/health/");
   if(current==="/"||current==="/server-tools/settings-generator")return true;
-  if(current==="/map")return Boolean(itemData&&data&&mapData&&(dungeonData||dungeonLoadError));
+  if(current==="/map")return Boolean(itemData&&data&&mapData&&npcData&&(dungeonData||dungeonLoadError));
   if(current==="/pals")return Boolean(data&&(elementData||elementLoadError));
   if(current.startsWith("/pals/"))return Boolean(data&&itemData&&skillData&&(elementData||elementLoadError)&&(dungeonData||dungeonLoadError));
   if(current==="/database")return Boolean(itemData);

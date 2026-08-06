@@ -384,6 +384,26 @@ try{
     page.off("request",recordMapChunk);
   });
 
+  await run("map-url-state",async()=>{
+    await visit("/en-US/map?layers=egg&unfinished=1&boss=0&travel=1");
+    await page.locator(".map-viewport").waitFor({state:"visible"});
+    await page.waitForFunction(()=>document.querySelectorAll('[data-map-result="egg"]').length===1786);
+    assert.equal(await page.locator('[data-point-layer="egg"]').isChecked(),true,"a direct map URL must restore its selected point layer");
+    assert.equal(await page.locator("#map-unfinished-only").isChecked(),true,"a direct map URL must restore unfinished-only mode");
+    assert.equal(await page.locator("#boss-layer").isChecked(),false,"a direct map URL must restore the disabled default boss layer");
+    assert.equal(await page.locator("#fast-travel-layer").isChecked(),true,"a direct map URL must restore the fast-travel layer");
+    assert.equal(await page.locator('[data-map-result="boss"]:not([hidden])').count(),0,"restored disabled boss state must apply to the equivalent result list");
+    assert.equal(await page.locator('[data-map-result="fastTravel"]:not([hidden])').count(),137,"restored fast-travel state must apply to every verified result");
+    await page.locator('[data-map-panel="filters"]').click();
+    await page.locator("#map-search").fill("private local query");
+    assert.equal(page.url().includes("private%20local%20query")||page.url().includes("private+local+query"),false,"free-form map searches must never enter restorable URL state");
+    await page.locator("#boss-layer").check();
+    await page.locator("#fast-travel-layer").uncheck();
+    const normalizedState=new URL(page.url()).searchParams;
+    assert.equal(normalizedState.has("boss"),false,"restoring the default boss layer must remove its URL override");
+    assert.equal(normalizedState.has("travel"),false,"disabling fast travel must remove its URL override");
+  });
+
   await run("home-elements-back",async()=>{
     const elementChunkRequests=[];
     const recordElementChunk=request=>{if(/\/elements-[^/]+\.js$/.test(new URL(request.url()).pathname))elementChunkRequests.push(request.url())};
