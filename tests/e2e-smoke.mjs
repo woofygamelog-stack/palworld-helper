@@ -121,6 +121,7 @@ try{
     await itemLink.click();
     await page.waitForURL(url=>url.pathname==="/en-US/database");
     await page.locator("#item-search").waitFor({state:"visible"});
+    await page.locator(".item-card").first().waitFor({state:"visible"});
     assert.ok(await page.locator(".item-card").count()>0,"the Item collection must render verified entries");
     assert.equal(await page.locator(".item-card:not([hidden])").count(),96,"the Item collection must initially expose one bounded page");
     await page.locator("#item-more").click();
@@ -364,9 +365,9 @@ try{
     await page.locator('.map-result.is-complete [data-map-progress]').first().click();
     await page.evaluate(()=>localStorage.removeItem("pw-map-progress:palpagos"));
     await page.locator('[data-map-panel="filters"]').click();
-    await page.locator("#map-pin-name").fill("Local test pin");
     await page.locator("#map-pin-x").fill("0");
     await page.locator("#map-pin-y").fill("0");
+    await page.locator("#map-pin-name").fill("Local test pin");
     await page.locator("#map-pin-form button[type=submit]").click();
     await page.waitForFunction(()=>localStorage.getItem("pw-map-pins:palpagos")?.includes("Local test pin"));
     assert.match(await page.evaluate(()=>localStorage.getItem("pw-map-pins:palpagos")||""),/Local test pin/,"personal pins must remain in world-specific local storage");
@@ -460,7 +461,7 @@ try{
     await itemUnlock.click();
     await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
     await page.locator(".item-detail").waitFor({state:"visible"});
-    assert.ok(await page.locator(`.item-technology-relations a[href="${technologyDetailPath}"]`).count(),"the unlocked Item must expose the reciprocal Technology backlink");
+    await page.locator(`.item-technology-relations a[href="${technologyDetailPath}"]`).waitFor({state:"visible"});
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname===technologyDetailPath);
     await page.goBack({waitUntil:"networkidle"});
@@ -497,7 +498,7 @@ try{
     await materialLink.click();
     await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
     await page.locator(".item-detail").waitFor({state:"visible"});
-    assert.ok(await page.locator(`.item-structure-relations a[href="${structureDetailPath}"]`).count(),"the construction material must expose the reciprocal Structure backlink");
+    await page.locator(`.item-structure-relations a[href="${structureDetailPath}"]`).waitFor({state:"visible"});
     await page.setViewportSize({width:360,height:800});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),true,"item relationship details must not overflow the mobile viewport");
     await page.setViewportSize({width:1365,height:900});
@@ -517,7 +518,7 @@ try{
 
   await run("home-npcs-detail-back",async()=>{
     const npcChunkRequests=[];
-    const recordNpcChunk=request=>{if(/\/npc-[^/]+\.js$/.test(new URL(request.url()).pathname))npcChunkRequests.push(request.url())};
+    const recordNpcChunk=request=>{if(/\/npc-(?!i18n-)[^/]+\.js$/.test(new URL(request.url()).pathname))npcChunkRequests.push(request.url())};
     page.on("request",recordNpcChunk);
     await visit("/en-US");
     assert.equal(npcChunkRequests.length,0,"NPC page code must stay out of the initial Home request graph");
@@ -527,10 +528,18 @@ try{
     await page.locator("#npc-search").waitFor({state:"visible"});
     assert.ok(await page.locator(".npc-card").count()>0,"the NPC collection must render verified entries");
     assert.equal(npcChunkRequests.length,1,"NPC page code must load exactly once on first route entry");
-    await page.locator(".npc-card h2 a[data-link]").first().click();
+    await page.locator('.npc-card h2 a[href="/en-US/database/npcs/arena-merchant"]').click();
     await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/npcs/"));
     await page.locator(".npc-detail").waitFor({state:"visible"});
     assert.equal(npcChunkRequests.length,1,"NPC details must reuse the loaded collection module");
+    await page.locator('.npc-detail .npc-shop-item').first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.locator('.item-npc-relations a[href="/en-US/database/npcs/arena-merchant"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/npcs/arena-merchant");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database/npcs/arena-merchant");
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/en-US/database/npcs");
     await page.goBack({waitUntil:"networkidle"});
@@ -559,6 +568,15 @@ try{
     await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/dungeons/"));
     await page.locator(".dungeon-detail").waitFor({state:"visible"});
     assert.equal(dungeonChunkRequests.length,1,"Dungeon details must reuse the loaded collection module");
+    const dungeonPath=new URL(page.url()).pathname;
+    await page.locator('.dungeon-detail a[href^="/en-US/items/"]').first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.locator(`.dungeon-backlinks a[href="${dungeonPath}"]`).click();
+    await page.waitForURL(url=>url.pathname===dungeonPath);
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname===dungeonPath);
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/en-US/database/dungeons");
     await page.goBack({waitUntil:"networkidle"});
@@ -587,6 +605,15 @@ try{
     await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/expeditions/"));
     await page.locator(".expedition-detail").waitFor({state:"visible"});
     assert.equal(expeditionChunkRequests.length,1,"expedition details must reuse the loaded collection module");
+    const expeditionPath=new URL(page.url()).pathname;
+    await page.locator('.expedition-detail a[href^="/en-US/items/"]').first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.locator(`.item-expedition-section a[href="${expeditionPath}"]`).click();
+    await page.waitForURL(url=>url.pathname===expeditionPath);
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname===expeditionPath);
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/en-US/database/expeditions");
     await page.goBack({waitUntil:"networkidle"});
@@ -611,10 +638,18 @@ try{
     await page.locator("#quest-search").waitFor({state:"visible"});
     assert.ok(await page.locator(".quest-card").count()>0,"the quest collection must render verified entries");
     assert.equal(questChunkRequests.length,1,"quest page code must load exactly once on first route entry");
-    await page.locator(".quest-card h2 a[data-link]").first().click();
+    await page.locator('.quest-card h2 a[href="/en-US/database/quests/panthalus"]').click();
     await page.waitForURL(url=>url.pathname.startsWith("/en-US/database/quests/"));
     await page.locator(".quest-detail").waitFor({state:"visible"});
     assert.equal(questChunkRequests.length,1,"quest details must reuse the loaded collection module");
+    await page.locator('.quest-detail a[href^="/en-US/items/"]').first().click();
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.locator('.item-quest-relations a[href="/en-US/database/quests/panthalus"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/quests/panthalus");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname.startsWith("/en-US/items/"));
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/database/quests/panthalus");
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/en-US/database/quests");
     await page.goBack({waitUntil:"networkidle"});
