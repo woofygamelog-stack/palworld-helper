@@ -11,7 +11,7 @@ const itemIds=new Set(items.items.map(item=>item.id)),technologySlugs=new Set(te
 const byItem=new Map(),relationKeys=new Set();
 const itemRelations=itemId=>{
   if(!itemIds.has(itemId))throw new Error(`Item relationship references an unavailable item: ${itemId}`);
-  if(!byItem.has(itemId))byItem.set(itemId,{unlockedBy:[],constructionMaterialFor:[],producedBy:[]});
+  if(!byItem.has(itemId))byItem.set(itemId,{craftedBy:[],ingredientOf:[],unlockedBy:[],constructionMaterialFor:[],producedBy:[]});
   return byItem.get(itemId);
 };
 const addUnique=(type,itemId,targetSlug,value)=>{
@@ -20,6 +20,13 @@ const addUnique=(type,itemId,targetSlug,value)=>{
   relationKeys.add(key);value();
 };
 
+const recipeIds=new Set();
+for(const recipe of items.recipes){
+  if(recipeIds.has(recipe.id))throw new Error(`Duplicate recipe relationship source: ${recipe.id}`);
+  recipeIds.add(recipe.id);
+  addUnique("crafted-by",recipe.productId,recipe.id,()=>itemRelations(recipe.productId).craftedBy.push(recipe.id));
+  for(const ingredient of recipe.ingredients)addUnique("ingredient-of",ingredient.itemId,recipe.id,()=>itemRelations(ingredient.itemId).ingredientOf.push({recipeId:recipe.id,count:ingredient.count}));
+}
 let duplicateTechnologyUnlockSourceCount=0;
 for(const entry of technology.technologies)for(const unlock of entry.unlocks){
   if(unlock.kind!=="item")continue;
@@ -34,12 +41,15 @@ for(const structure of structures.structures){
 }
 
 for(const relations of byItem.values()){
+  relations.craftedBy.sort();
+  relations.ingredientOf.sort((left,right)=>left.recipeId.localeCompare(right.recipeId));
   relations.unlockedBy.sort();
   relations.constructionMaterialFor.sort((left,right)=>left.slug.localeCompare(right.slug));
   relations.producedBy.sort();
 }
-const technologyUnlockRelationCount=[...byItem.values()].reduce((sum,relations)=>sum+relations.unlockedBy.length,0),structureMaterialRelationCount=[...byItem.values()].reduce((sum,relations)=>sum+relations.constructionMaterialFor.length,0),structureProductionRelationCount=[...byItem.values()].reduce((sum,relations)=>sum+relations.producedBy.length,0);
-if(technology.meta.itemUnlockRelationCount!==383||technologyUnlockRelationCount!==382||duplicateTechnologyUnlockSourceCount!==1||structureMaterialRelationCount!==992||structureProductionRelationCount!==12||byItem.size!==417)throw new Error("Item relationship coverage drifted from the accepted baseline.");
+const recipeOutputRelationCount=[...byItem.values()].reduce((sum,relations)=>sum+relations.craftedBy.length,0),recipeIngredientRelationCount=[...byItem.values()].reduce((sum,relations)=>sum+relations.ingredientOf.length,0),technologyUnlockRelationCount=[...byItem.values()].reduce((sum,relations)=>sum+relations.unlockedBy.length,0),structureMaterialRelationCount=[...byItem.values()].reduce((sum,relations)=>sum+relations.constructionMaterialFor.length,0),structureProductionRelationCount=[...byItem.values()].reduce((sum,relations)=>sum+relations.producedBy.length,0);
+const recipeProductCount=new Set(items.recipes.map(recipe=>recipe.productId)).size,recipeIngredientItemCount=new Set(items.recipes.flatMap(recipe=>recipe.ingredients.map(ingredient=>ingredient.itemId))).size;
+if(items.meta.recipeCount!==1286||recipeIds.size!==1286||recipeOutputRelationCount!==1286||recipeIngredientRelationCount!==3676||recipeProductCount!==1271||recipeIngredientItemCount!==429||technology.meta.itemUnlockRelationCount!==383||technologyUnlockRelationCount!==382||duplicateTechnologyUnlockSourceCount!==1||structureMaterialRelationCount!==992||structureProductionRelationCount!==12||byItem.size!==1476)throw new Error("Item relationship coverage drifted from the accepted baseline.");
 if([...byItem.keys()].some(itemId=>!itemIds.has(itemId)))throw new Error("Item relationship index contains an orphan item.");
 
 const referencedTechnologySlugs=new Set([...byItem.values()].flatMap(relations=>relations.unlockedBy)),referencedStructureSlugs=new Set([...byItem.values()].flatMap(relations=>[...relations.constructionMaterialFor.map(relation=>relation.slug),...relations.producedBy]));
@@ -49,7 +59,7 @@ if(technologyCatalog.length!==referencedTechnologySlugs.size||structureCatalog.l
 
 const generatedAt=new Date(Math.max(...[items,technology,structures].map(data=>Date.parse(data.meta.generatedAt||"1970-01-01T00:00:00.000Z")))).toISOString();
 const output={
-  meta:{schema:1,gameBuild,generatedAt,verification:"verified",localeCount:locales.length,itemCount:items.items.length,linkedItemCount:byItem.size,technologyCount:technologyCatalog.length,structureCount:structureCatalog.length,technologyUnlockSourceReferenceCount:technology.meta.itemUnlockRelationCount,technologyUnlockRelationCount,duplicateTechnologyUnlockSourceCount,structureMaterialRelationCount,structureProductionRelationCount,structureAtlas:structures.meta.atlas},
+  meta:{schema:1,gameBuild,generatedAt,verification:"verified",localeCount:locales.length,itemCount:items.items.length,linkedItemCount:byItem.size,recipeCount:recipeIds.size,recipeProductCount,recipeIngredientItemCount,recipeOutputRelationCount,recipeIngredientRelationCount,technologyCount:technologyCatalog.length,structureCount:structureCatalog.length,technologyUnlockSourceReferenceCount:technology.meta.itemUnlockRelationCount,technologyUnlockRelationCount,duplicateTechnologyUnlockSourceCount,structureMaterialRelationCount,structureProductionRelationCount,structureAtlas:structures.meta.atlas},
   technologies:technologyCatalog,
   structures:structureCatalog,
   byItem:Object.fromEntries([...byItem.entries()].sort(([left],[right])=>left.localeCompare(right)))

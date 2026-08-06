@@ -201,9 +201,21 @@ try{
   });
 
   await run("crafting",async()=>{
-    await visit("/en-US/calculators/crafting");
+    await visit("/en-US/items/air-dash-boots-rank-2-rarity-2");
+    await page.locator(".item-crafting-relations").waitFor({state:"visible"});
+    const calculatorLink=page.locator(".item-recipe-card .button").first(),calculatorUrl=new URL((await calculatorLink.getAttribute("href"))||"",origin);
+    assert.match(calculatorUrl.searchParams.get("target")||"",/^[a-z0-9]+(?:-[a-z0-9]+)*$/,"the crafting handoff must use a public Item slug");
+    assert.equal(calculatorUrl.searchParams.get("recipe"),"1","the crafting handoff must preserve the explicitly selected recipe ordinal");
+    assert.doesNotMatch(calculatorUrl.search,/Accessory_|Recipe_/i,"the crafting handoff must not expose internal identifiers");
+    await page.setViewportSize({width:360,height:800});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),true,"recipe relationship cards must not overflow at 360 CSS pixels");
+    await page.setViewportSize({width:1365,height:900});
+    await calculatorLink.click();
+    await page.waitForURL(url=>url.pathname==="/en-US/calculators/crafting");
     await page.locator("[data-craft-recipe]").waitFor({state:"attached"});
     assert.equal(await page.locator("#craft-output").count(),1,"crafting output must render once");
+    assert.match((await page.locator('[data-craft-recipe] option:checked').textContent())||"",/Air Dash Boots/,"the calculator must restore the selected Item recipe from public URL state");
+    await page.locator(".material-ledger-list").first().waitFor({state:"visible"});
   });
 
   await run("base-planner",async()=>{
