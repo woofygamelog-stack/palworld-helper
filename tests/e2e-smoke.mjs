@@ -757,7 +757,9 @@ try{
     await page.locator('.guide-card a[href="/en-US/guides/server"]').first().click();
     await page.waitForURL(url=>url.pathname==="/en-US/guides/server");
     await page.locator(".guide-detail").waitFor({state:"visible"});
-    assert.equal(await page.locator(".guide-step-number").count(),3,"the server guide must expose its three linked workflow steps");
+    assert.equal(await page.locator(".guide-step-number").count(),4,"the server guide must expose its four linked workflow steps");
+    assert.equal(await page.locator(".guide-preparation li").count(),4,"the server guide must list every tool needed before starting");
+    assert.equal(await page.locator(".guide-result li").count(),4,"the server guide must expose one result checkpoint per workflow step");
     assert.equal(guideChunkRequests.length,1,"guide details must reuse the loaded guide module");
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/en-US/guides");

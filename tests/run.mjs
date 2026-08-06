@@ -57,7 +57,7 @@ import {renderItemsPage} from "../src/pages/items.ts";
 import {renderPalsPage} from "../src/pages/pals.ts";
 import {exportOwnedPalLedger,importOwnedPalLedger,normalizeOwnedPalLedger,ownedPalCount,ownedPalStorageKey,readOwnedPalLedger,writeOwnedPalLedger} from "../src/owned-pals.ts";
 import {renderSkillsPage} from "../src/pages/skills.ts";
-import {guideCopy,guideDefinitions,guideRoute} from "../src/guide-content.ts";
+import {guideCopy,guideDefinitions,guideRoute,guideStructureCopy} from "../src/guide-content.ts";
 import {guidePageModel,renderGuidesPage} from "../src/pages/guides.ts";
 import {condensingPlan,differentComparisonRows,normalizePalSelection,teamCoverage} from "../src/pal-tools.ts";
 import {renderPalToolPage} from "../src/pages/pal-tools.ts";
@@ -262,20 +262,24 @@ assert.equal((koreanHomeMarkup.match(/data-home-action=/g)||[]).length,homeQuick
 assert.equal((koreanHomeMarkup.match(/data-home-group=/g)||[]).length,homeCatalogGroups.length,"Home must render every topic group once");
 assert.equal(guideDefinitions.length,6,"the launch guide catalog must contain six substantial workflow families");
 assert.equal(new Set(guideDefinitions.map(guide=>guide.slug)).size,guideDefinitions.length,"guide slugs must be unique");
-assert.ok(guideDefinitions.every(guide=>guide.related.length>=3&&guide.reviewTrigger),"every guide must connect at least three implemented routes and declare a freshness trigger");
+assert.ok(guideDefinitions.every(guide=>guide.related.length>=4&&guide.reviewTrigger),"every guide must connect at least four implemented routes and declare a freshness trigger");
 for(const locale of locales){
   assert.equal(Object.keys(guideCopy[locale].guides).length,guideDefinitions.length,`${locale} guide copy must cover every guide`);
+  assert.deepEqual(Object.keys(guideStructureCopy[locale]).sort(),Object.keys(guideStructureCopy["en-US"]).sort(),`${locale} guide structure copy must be complete`);
   const hub=guidePageModel(locale,"guides",route=>`/${locale}/${route}`);
   assert.ok(hub&&hub.type==="CollectionPage"&&(hub.body.match(/class="panel guide-card"/g)||[]).length===guideDefinitions.length,`${locale} guide hub must render every guide`);
   for(const guide of guideDefinitions){
     const model=guidePageModel(locale,guideRoute(guide.slug),route=>`/${locale}/${route}`);
     assert.ok(model&&model.type==="Article"&&(model.body.match(/class="guide-step-number"/g)||[]).length===guide.related.length,`${locale} ${guide.id} must render its workflow`);
+    assert.match(model.body,/class="panel guide-intro"[\s\S]*class="panel guide-preparation"[\s\S]*class="guide-workflow"[\s\S]*class="panel guide-result"[\s\S]*class="panel guide-scope"/,`${locale} ${guide.id} must render goal, preparation, procedure, result, and accuracy sections in order`);
+    const resultItems=model.body.match(/<section class="panel guide-result">[\s\S]*?<ul>([\s\S]*?)<\/ul>/)?.[1].match(/<li>/g)||[];
+    assert.equal(resultItems.length,guide.related.length,`${locale} ${guide.id} must render one result checkpoint per step`);
     assert.equal((model.body.match(/<h1>/g)||[]).length,1,`${locale} ${guide.id} must keep one h1`);
   }
 }
 let guideMeta=null;
 const koreanGuideMarkup=renderGuidesPage({locale:"ko-KR",route:"/guides/server",href:route=>`/ko-KR/${route}`,setMeta:(title,description)=>{guideMeta={title,description}}});
-assert.ok(koreanGuideMarkup?.includes("server-tools/settings-generator")&&guideMeta?.title,"the server guide must link to the settings workflow and set metadata");
+assert.ok(koreanGuideMarkup?.includes("server-tools/settings-generator")&&koreanGuideMarkup.includes("결과 확인")&&guideMeta?.title,"the server guide must link to the settings workflow, expose result checks, and set metadata");
 assert.doesNotMatch(koreanHomeMarkup,/class="home-trust"|확인된 범위를 명확하게/,"Home must omit the removed trust section");
 assert.match(koreanHomeMarkup,/data-open-search.*aria-controls="global-search-dialog"/s,"Home search launcher must reuse the global search dialog");
 assert.doesNotMatch(koreanHomeMarkup,/(?:24181527|24467282)|Data version|Game build|업데이트 버전/,"Home must not expose build or data-version labels");

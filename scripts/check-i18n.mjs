@@ -19,7 +19,7 @@ import { shellCopy, shellCopyProvenance } from "../src/shell-i18n.ts";
 import {homeCopy,homeCopyProvenance} from "../src/home-i18n.ts";
 import {footerCopy,footerCopyProvenance} from "../src/footer-i18n.ts";
 import {serverCopy,serverCopyProvenance} from "../src/server-i18n.ts";
-import {guideCopy,guideCopyProvenance,guideDefinitions} from "../src/guide-content.ts";
+import {guideCopy,guideCopyProvenance,guideDefinitions,guideStructureCopy} from "../src/guide-content.ts";
 import {mapProgressCopy,mapProgressCopyProvenance} from "../src/map-progress-i18n.ts";
 import {palToolsCopy,palToolsCopyProvenance} from "../src/pal-tools-i18n.ts";
 import {palProfileCopy,palProfileCopyProvenance} from "../src/pal-profile-i18n.ts";
@@ -210,11 +210,15 @@ for(const locale of expected){
 }
 if(serverCopyProvenance!=="gpt")throw new Error("Server translation provenance is incomplete");
 const guideEnglish=flattenStrings(guideCopy["en-US"]);
+const guideStructureEnglish=flattenStrings(guideStructureCopy["en-US"]);
 for(const locale of expected){
-  const catalog=guideCopy[locale],values=flattenStrings(catalog||{});
+  const catalog=guideCopy[locale],values=flattenStrings(catalog||{}),structureValues=flattenStrings(guideStructureCopy[locale]||{});
   if(values.length!==guideEnglish.length||values.some(value=>!value.trim()))throw new Error(`${locale} guide catalog is incomplete`);
+  if(structureValues.length!==guideStructureEnglish.length||structureValues.some(value=>!value.trim()))throw new Error(`${locale} guide structure copy is incomplete`);
+  for(let index=0;index<guideStructureEnglish.length;index++)if(JSON.stringify([...guideStructureEnglish[index].matchAll(/\{[^}]+\}/g)].map(match=>match[0]).sort())!==JSON.stringify([...structureValues[index].matchAll(/\{[^}]+\}/g)].map(match=>match[0]).sort()))throw new Error(`${locale} guide structure placeholder mismatch`);
   if(Object.keys(catalog.guides).length!==guideDefinitions.length||!guideCopyProvenance[locale])throw new Error(`${locale} guide coverage or provenance is incomplete`);
   if(locale!=="en-US"&&values.filter((value,index)=>value!==guideEnglish[index]).length<Math.floor(values.length*.8))throw new Error(`${locale} guide catalog appears to be an accidental English fallback`);
+  if(locale!=="en-US"&&structureValues.filter((value,index)=>value!==guideStructureEnglish[index]).length<Math.floor(structureValues.length*.8))throw new Error(`${locale} guide structure copy appears to be an accidental English fallback`);
 }
 const shellKeys=Object.keys(shellCopy["en-US"]).sort();
 for(const locale of expected){

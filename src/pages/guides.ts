@@ -1,5 +1,5 @@
 import type {Locale} from "../config";
-import {guideCopy,guideDefinitions,findGuide,guideRoute} from "../guide-content.ts";
+import {guideCopy,guideDefinitions,guideStructureCopy,findGuide,guideRoute} from "../guide-content.ts";
 import {messages} from "../i18n.ts";
 import {plannerCopy} from "../planner-i18n.ts";
 import {skillLabels} from "../skill-i18n.ts";
@@ -9,6 +9,9 @@ import {structureCopy} from "../structure-i18n.ts";
 import {expeditionCopy} from "../expedition-i18n.ts";
 import {elementCopy} from "../element-i18n.ts";
 import {healthCopy} from "../health-i18n.ts";
+import {breedingPathCopy} from "../breeding-path-i18n.ts";
+import {palToolsCopy} from "../pal-tools-i18n.ts";
+import {ivCopy} from "../iv-i18n.ts";
 
 const escape=(value:string)=>value.replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]!);
 
@@ -23,8 +26,13 @@ function routeLabel(locale:Locale,route:string){
   if(route==="database/technology")return technologyCopy[locale].title;
   if(route==="database/expeditions")return expeditionCopy[locale].title;
   if(route==="calculators/breeding")return m.breeding;
+  if(route==="calculators/breeding-path")return breedingPathCopy[locale].title;
+  if(route==="calculators/team-builder")return palToolsCopy[locale].teamTitle;
+  if(route==="calculators/iv")return ivCopy[locale].title;
   if(route==="skills/passive")return skillLabels[locale].passive;
+  if(route==="skills/active")return skillLabels[locale].active;
   if(route==="calculators/crafting")return m.crafting;
+  if(route==="database")return m.itemDatabase;
   if(route==="database/structures")return structureCopy[locale].title;
   if(route==="server-tools/settings-generator")return m.serverTitle;
   if(route==="database/elements")return elementCopy[locale].title;
@@ -40,9 +48,9 @@ export function guidePageModel(locale:Locale,route:string,href:(route:string)=>s
   }
   const guide=findGuide(route);
   if(!guide)return null;
-  const text=copy.guides[guide.id],links=guide.related.map((target,index)=>`<li><a href="${escape(href(target))}" data-link><span class="guide-step-number">${(index+1).toLocaleString(locale)}</span><span><strong>${escape(routeLabel(locale,target))}</strong><small>${escape(copy.open)}</small></span><span aria-hidden="true">→</span></a></li>`).join("");
+  const text=copy.guides[guide.id],structure=guideStructureCopy[locale],format=(template:string,name:string)=>template.replace("{name}",name),links=guide.related.map((target,index)=>{const label=routeLabel(locale,target);return `<li><a href="${escape(href(target))}" data-link><span class="guide-step-number">${(index+1).toLocaleString(locale)}</span><span><strong>${escape(label)}</strong><small>${escape(structure.stepAction)}</small></span><span aria-hidden="true">→</span></a></li>`}).join(""),preparation=guide.related.map(target=>{const label=routeLabel(locale,target);return `<li><a href="${escape(href(target))}" data-link>${escape(label)} <span aria-hidden="true">↗</span></a></li>`}).join(""),checks=guide.related.map(target=>`<li>${escape(format(structure.confirm,routeLabel(locale,target)))}</li>`).join("");
   const breadcrumb=`<nav class="breadcrumbs" aria-label="${escape(m.home)}"><a href="${escape(href(""))}" data-link>${escape(m.home)}</a><a href="${escape(href("guides"))}" data-link>${escape(copy.hubTitle)}</a><span aria-current="page">${escape(text.title)}</span></nav>`;
-  const body=`${hero(text.title)}<article class="section guide-detail">${breadcrumb}<div class="panel guide-intro"><p>${escape(text.description)}</p></div><section class="guide-workflow"><h2>${escape(copy.workflow)}</h2><p>${escape(copy.workflowIntro)}</p><ol>${links}</ol></section><aside class="panel guide-scope"><h2>${escape(copy.scope)}</h2><p>${escape(copy.scopeText)}</p></aside><nav class="guide-related" aria-label="${escape(copy.related)}"><a href="${escape(href("guides"))}" data-link>← ${escape(copy.hubTitle)}</a></nav></article>`;
+  const body=`${hero(text.title)}<article class="section guide-detail">${breadcrumb}<section class="panel guide-intro"><h2>${escape(structure.problem)}</h2><p>${escape(text.description)}</p></section><section class="panel guide-preparation"><h2>${escape(structure.preparation)}</h2><p>${escape(structure.preparationIntro)}</p><ul>${preparation}</ul></section><section class="guide-workflow"><h2>${escape(structure.procedure)}</h2><p>${escape(copy.workflowIntro)}</p><ol>${links}</ol></section><section class="panel guide-result"><h2>${escape(structure.result)}</h2><p>${escape(structure.resultIntro)}</p><ul>${checks}</ul></section><aside class="panel guide-scope"><h2>${escape(copy.scope)}</h2><p>${escape(copy.scopeText)}</p></aside><nav class="guide-related" aria-label="${escape(copy.related)}"><a href="${escape(href("guides"))}" data-link>← ${escape(copy.hubTitle)}</a></nav></article>`;
   return {title:text.title,description:text.description,body,type:"Article",parent:{route:"guides",label:copy.hubTitle}};
 }
 

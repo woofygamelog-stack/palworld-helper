@@ -4,7 +4,7 @@ import {deploymentFileBudget,seoHreflang,supportedLocales as locales} from "../s
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo-static.mjs";
 import {homeCopy} from "../src/home-i18n.ts";
 import {homeCatalogGroups,homeQuickActions} from "../src/home-manifest.ts";
-import {guideCopy,guideDefinitions} from "../src/guide-content.ts";
+import {guideCopy,guideDefinitions,guideStructureCopy} from "../src/guide-content.ts";
 import {footerCopy} from "../src/footer-i18n.ts";
 import {auditProductionIntegrations} from "./check-production-integrations.mjs";
 
@@ -88,7 +88,7 @@ for(const locale of locales){
   if(!hub.includes(guideCopy[locale].hubTitle)||(hub.match(/class="panel guide-card"/g)||[]).length!==guideDefinitions.length)throw new Error(`${locale} guide hub initial HTML is incomplete`);
   for(const guide of guideDefinitions){
     const html=await readFile(path.join(dist,locale,"guides",`${guide.slug}.html`),"utf8"),canonical=`${productionOrigin}/${locale}/guides/${guide.slug}`;
-    if(!html.includes(guideCopy[locale].guides[guide.id].title)||!html.includes(`rel="canonical" href="${canonical}"`)||(html.match(/class="guide-step-number"/g)||[]).length!==guide.related.length||!html.includes('"@type":"Article"'))throw new Error(`${locale} ${guide.id} guide initial HTML, workflow, or structured data is incomplete`);
+    if(!html.includes(guideCopy[locale].guides[guide.id].title)||!html.includes(guideStructureCopy[locale].preparation)||!html.includes(guideStructureCopy[locale].result)||!html.includes(`rel="canonical" href="${canonical}"`)||(html.match(/class="guide-step-number"/g)||[]).length!==guide.related.length||(html.match(/class="panel guide-preparation"/g)||[]).length!==1||(html.match(/class="panel guide-result"/g)||[]).length!==1||!html.includes('"@type":"Article"'))throw new Error(`${locale} ${guide.id} guide initial HTML, workflow, or structured data is incomplete`);
   }
 }
 const builtElementHtml=await readFile(path.join(dist,"ko-KR","database","elements.html"),"utf8");
