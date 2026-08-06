@@ -16,6 +16,34 @@
   white-space: nowrap;
 }
 
+.map-quick-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.map-quick-filters button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 5px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.map-quick-filters button:hover,
+.map-quick-filters button:focus-visible {
+  border-color: var(--accent);
+}
+
 .map-layer-grid {
   display: block;
   flex: 1 1 auto;
@@ -57,6 +85,27 @@
   text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.map-layer-group-metrics {
+  display: grid;
+  justify-items: end;
+  line-height: 1.05;
+}
+
+.map-layer-group-metrics small {
+  color: var(--accent-2);
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-result-tool {
+  width: max-content;
+  min-height: 44px;
+  padding: 10px 0;
+  color: var(--accent-2);
+  font-size: .8rem;
+  font-weight: 800;
 }
 
 .map-layer-options {

@@ -305,6 +305,16 @@ try{
     assert.equal(mapLayerCoverage.categories,23,"all verified map-point categories must be discoverable in the filter panel");
     assert.equal(mapLayerCoverage.total,9980,"Palpagos layer counts must cover every verified point in the active world");
     assert.deepEqual(mapLayerCoverage.groups,["activity","collectible","location","npc","resource"],"map-point categories must remain discoverable in the five intended groups");
+    assert.equal(await page.locator("[data-map-quick]").count(),4,"ore, egg, treasure, and NPC quick filters must be available without opening a category group");
+    const groupTotalsValid=await page.locator(".map-layer-group").evaluateAll(groups=>groups.every(group=>Number(group.querySelector("[data-layer-group-total]")?.textContent?.replace(/[^0-9]/g,"")||0)===[...group.querySelectorAll("[data-layer-count]")].reduce((sum,row)=>sum+Number(row.getAttribute("data-layer-count")||0),0)));
+    assert.equal(groupTotalsValid,true,"each map group must expose the sum of its visible layer counts");
+    await page.locator('[data-map-quick="ore"]').click();
+    await page.waitForFunction(()=>document.querySelectorAll('[data-map-result="ore"]').length===1555);
+    assert.deepEqual(await page.locator("[data-point-layer]:checked").evaluateAll(inputs=>inputs.map(input=>input.getAttribute("data-point-layer"))),["ore"],"the ore quick filter must enable only the verified ore layer");
+    assert.equal(new URL(page.url()).searchParams.get("layers"),"ore","quick filters must preserve the selected layer in restorable URL state");
+    assert.equal(await page.locator('[data-map-result="ore"] a[href*="/items/"]').count(),1555,"resource results must link to the localized item detail route");
+    assert.equal(await page.locator('[data-map-result="ore"] .map-result-tool').count(),1555,"resource results must link onward to the crafting workflow");
+    await page.locator("[data-map-reset]").click();
     await page.locator('[data-map-panel="filters"]').click();
     await page.locator('button[data-map-world="tree"]').click();
     await page.waitForFunction(()=>document.querySelector(".map-stage")?.getAttribute("data-map-world")==="tree");
