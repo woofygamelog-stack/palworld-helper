@@ -4,7 +4,7 @@ import path from "node:path";
 import {collectionRoutes,entityRouteFamilies,supportedLocales} from "../src/route-manifest.ts";
 import {mapExtraLabels} from "../src/map-extra-labels.ts";
 import {mapLayerLabels} from "../src/map-labels.ts";
-import {mapPointCategoryDefinitions} from "../src/map-point-categories.ts";
+import {mapPointCategoryDefinitions,publicMapPointDetail} from "../src/map-point-categories.ts";
 import {buildIndexableGroups,buildPrerenderEntries,productionOrigin} from "./seo-static.mjs";
 
 const readJson=file=>readFile(file,"utf8").then(JSON.parse);
@@ -86,7 +86,7 @@ for(const row of rows){
 }
 
 const mapCategoryCoverage=mapPointCategoryDefinitions.map(definition=>{
-  const entities=mapPoints.points.filter(point=>point.category===definition.id),labelValues=supportedLocales.map(locale=>definition.labelSource==="item"?itemById.get(definition.labelKey)?.names?.[locale]:definition.labelSource==="extra"?mapExtraLabels[locale]?.[definition.labelKey]:mapLayerLabels[locale]?.[definition.labelKey]);
+  const entities=mapPoints.points.filter(point=>point.category===definition.id),labelValues=supportedLocales.map(locale=>definition.labelSource==="item"?itemById.get(definition.labelKey)?.names?.[locale]:definition.labelSource==="extra"?mapExtraLabels[locale]?.[definition.labelKey]:mapLayerLabels[locale]?.[definition.labelKey]),detailKind=definition.detailKind;
   return {
     category:definition.id,
     group:definition.group,
@@ -97,6 +97,8 @@ const mapCategoryCoverage=mapPointCategoryDefinitions.map(definition=>{
     iconCount:entities.filter(entity=>useful(entity.icon)).length,
     iconTarget:entities.length,
     relationshipCount:entities.filter(entity=>entity.npcSlug||entity.dungeonSlug).length,
+    publicDetailCount:entities.filter(entity=>publicMapPointDetail(detailKind,entity.subtype,"Grade")).length,
+    publicDetailTarget:detailKind?entities.length:0,
     worldCounts:Object.fromEntries(mapData.worlds.map(world=>[world.id,entities.filter(entity=>entity.worldId===world.id).length])),
     labelSource:definition.labelSource,
     itemId:definition.labelSource==="item"?definition.labelKey:null,
@@ -106,6 +108,7 @@ for(const row of mapCategoryCoverage){
   if(row.normalizedCount!==row.sourceCount)failures.push(`map/${row.category}: normalized ${row.normalizedCount}/${row.sourceCount}`);
   if(row.localizedLabelCount!==row.localizedLabelTarget)failures.push(`map/${row.category}: localized labels ${row.localizedLabelCount}/${row.localizedLabelTarget}`);
   if(row.iconCount!==row.iconTarget)failures.push(`map/${row.category}: icons ${row.iconCount}/${row.iconTarget}`);
+  if(row.publicDetailCount!==row.publicDetailTarget)failures.push(`map/${row.category}: public details ${row.publicDetailCount}/${row.publicDetailTarget}`);
 }
 const mapResourceItemMappings=mapCategoryCoverage.filter(row=>row.labelSource==="item").map(row=>({category:row.category,itemId:row.itemId,resolved:itemIds.has(row.itemId),localizedLabelCount:row.localizedLabelCount,localizedLabelTarget:row.localizedLabelTarget}));
 for(const mapping of mapResourceItemMappings)if(!mapping.resolved)failures.push(`map/${mapping.category}: unresolved item label ${mapping.itemId}`);

@@ -314,6 +314,11 @@ try{
     assert.equal(new URL(page.url()).searchParams.get("layers"),"ore","quick filters must preserve the selected layer in restorable URL state");
     assert.equal(await page.locator('[data-map-result="ore"] a[href*="/items/"]').count(),1555,"resource results must link to the localized item detail route");
     assert.equal(await page.locator('[data-map-result="ore"] .map-result-tool').count(),1555,"resource results must link onward to the crafting workflow");
+    await page.locator('[data-map-quick="egg"]').click();
+    await page.waitForFunction(()=>document.querySelectorAll('[data-map-result="egg"]').length===1786);
+    const eggDetail=await page.locator('[data-map-result="egg"] small').first().textContent();
+    assert.match(eggDetail,/Grade [1-4]/,"egg results must expose their localized public grade");
+    assert.doesNotMatch(eggDetail,/Grass|Desert|Glacier|Sakurajima|Sky|Tenraku|Volcanic|Worldtree/i,"egg results must not expose raw source-region subtype labels");
     await page.locator("[data-map-reset]").click();
     await page.locator('[data-map-quick="npc"]').click();
     const linkedNpcMarker=page.locator('.map-point-marker[data-map-category="npc"][data-map-detail-href*="/database/npcs/"]').first();
@@ -339,8 +344,10 @@ try{
     await page.locator('[data-map-panel="filters"]').click();
     assert.match(await page.locator(".map-verification-note").textContent(),/possible drop zones/i,"supply markers must explain that they are possible zones rather than live crates");
     await page.locator("#map-unfinished-only").check();
+    assert.equal(new URL(page.url()).searchParams.get("unfinished"),"1","unfinished-only mode must persist in URL state");
     assert.equal(await page.locator('.map-result.is-complete:not([hidden])').count(),0,"unfinished-only mode must hide locally completed results");
     await page.locator("#map-unfinished-only").uncheck();
+    assert.equal(new URL(page.url()).searchParams.has("unfinished"),false,"disabling unfinished-only mode must remove its URL state");
     await page.locator('[data-map-panel="results"]').click();
     await page.locator('.map-result.is-complete [data-map-progress]').first().click();
     await page.evaluate(()=>localStorage.removeItem("pw-map-progress:palpagos"));

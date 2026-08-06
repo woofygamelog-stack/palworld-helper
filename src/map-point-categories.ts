@@ -1,10 +1,11 @@
 export type MapPointGroup="location"|"collectible"|"npc"|"resource"|"activity";
 export type MapPointLabelSource="layer"|"extra"|"item";
+export type MapPointDetailKind="eggGrade";
 
 export const mapPointCategoryDefinitions=[
   {id:"dungeon",group:"location",labelSource:"layer",labelKey:"dungeon",iconPath:"/assets/map-icons/dungeon.webp"},
   {id:"oilRig",group:"location",labelSource:"extra",labelKey:"oilRig",iconPath:"/assets/map-icons/oil-rig.webp"},
-  {id:"egg",group:"collectible",labelSource:"layer",labelKey:"egg",iconPrefix:"/assets/items/PalEgg_"},
+  {id:"egg",group:"collectible",labelSource:"layer",labelKey:"egg",iconPrefix:"/assets/items/PalEgg_",detailKind:"eggGrade"},
   {id:"skillFruit",group:"collectible",labelSource:"layer",labelKey:"skillFruit",iconPath:"/assets/items/SkillCard_AirCanon.webp"},
   {id:"treasure",group:"collectible",labelSource:"layer",labelKey:"treasure",iconPath:"/assets/map-icons/treasure.webp"},
   {id:"collectibleShrine",group:"collectible",labelSource:"layer",labelKey:"collectibleShrine",iconPath:"/assets/map-icons/pal-statue.webp"},
@@ -25,8 +26,14 @@ export const mapPointCategoryDefinitions=[
   {id:"fishing",group:"activity",labelSource:"layer",labelKey:"fishing",iconPath:"/assets/map-icons/fishing.webp"},
   {id:"randomEvent",group:"activity",labelSource:"layer",labelKey:"randomEvent",iconPath:"/assets/map-icons/random-event.webp"},
   {id:"supplyDrop",group:"activity",labelSource:"extra",labelKey:"supplyDrop",iconPath:"/assets/map-icons/treasure.webp"},
-] as const satisfies readonly {id:string;group:MapPointGroup;labelSource:MapPointLabelSource;labelKey:string;iconPath?:string;iconPrefix?:string}[];
+] as const satisfies readonly {id:string;group:MapPointGroup;labelSource:MapPointLabelSource;labelKey:string;iconPath?:string;iconPrefix?:string;detailKind?:MapPointDetailKind}[];
 
 export type MapPointCategory=(typeof mapPointCategoryDefinitions)[number]["id"];
 
 export const mapPointCategoryById=new Map(mapPointCategoryDefinitions.map(definition=>[definition.id,definition]));
+
+export function publicMapPointDetail(kind:MapPointDetailKind|undefined,subtype:string,gradeLabel:string){
+  if(kind!=="eggGrade")return "";
+  const match=subtype.match(/(?:^| · )Grade ([1-5])$/);
+  return match?`${gradeLabel} ${match[1]}`:"";
+}

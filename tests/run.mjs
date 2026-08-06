@@ -44,6 +44,7 @@ import {renderServerSettingsPage} from "../src/pages/server-settings.ts";
 import {renderCalculatorPage} from "../src/pages/calculators.ts";
 import {renderMapPage} from "../src/pages/map.ts";
 import {mapExtraLabels} from "../src/map-extra-labels.ts";
+import {publicMapPointDetail} from "../src/map-point-categories.ts";
 import {renderElementsPage} from "../src/pages/elements.ts";
 import {renderTechnologyPage} from "../src/pages/technology.ts";
 import {renderStructuresPage} from "../src/pages/structures.ts";
@@ -178,6 +179,9 @@ assert.deepEqual(findBreedingPaths(palData.pairs,[5,4,3,2,1,0],250,{maxDepth:3})
 assert.equal(Object.keys(breedingPathCopy).length,locales.length,"breeding-path copy must cover every supported locale");
 assert.equal(Object.keys(mapExtraLabels).length,locales.length,"extra map labels must cover every supported locale");
 for(const locale of locales){assert.equal(Object.values(mapExtraLabels[locale]).length,Object.values(mapExtraLabels["en-US"]).length,`${locale} extra map labels must retain field parity`);assert.ok(Object.values(mapExtraLabels[locale]).every(value=>value.trim()),`${locale} extra map labels must be complete`)}
+assert.equal(publicMapPointDetail("eggGrade","Tenraku · Grade 2","Grade"),"Grade 2","egg map details must expose only the localized grade and omit raw region labels");
+assert.equal(publicMapPointDetail("eggGrade","Grass · Grade 9","Grade"),"","out-of-contract egg grades must remain hidden");
+assert.equal(publicMapPointDetail(undefined,"rotation-candidate","Grade"),"","unapproved raw map subtypes must remain hidden");
 for(const locale of locales){assert.equal(Object.values(breedingPathCopy[locale]).length,Object.values(breedingPathCopy["en-US"]).length,`${locale} breeding-path copy must retain field parity`);assert.ok(Object.values(breedingPathCopy[locale]).every(value=>value.trim()),`${locale} breeding-path copy must be complete`)}
 assert.deepEqual(Object.keys(breedingPathCopyProvenance).sort(),Object.keys(breedingPathCopy["en-US"]).sort(),"every breeding-path field must record translation provenance");
 assert.ok(Object.values(breedingPathCopyProvenance).every(value=>value==="gpt"),"breeding-path explanatory translations must identify their GPT provenance");
