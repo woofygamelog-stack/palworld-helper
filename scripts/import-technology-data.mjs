@@ -30,6 +30,7 @@ const buildingIconManifest=read("technology-building-icon-sources.raw.json");
 const extractionManifest=read("technology-manifest.json");
 const itemData=JSON.parse(fs.readFileSync(path.join(root,"public","data","items.json"),"utf8"));
 const palData=JSON.parse(fs.readFileSync(path.join(root,"public","data","pals.json"),"utf8"));
+const structureData=JSON.parse(fs.readFileSync(path.join(root,"public","data","structures.json"),"utf8"));
 
 if(gameBuild!=="24467282"||itemData.meta.gameBuild!==gameBuild||palData.meta.gameBuild!==gameBuild)throw new Error("Technology, item, and Pal data builds must match the accepted current build.");
 if(extractionManifest.mappingHash!=="C3107655159520375F7F75DF5812E9A9976458C56B4F619C7FD0AAF0D42C7851")throw new Error("Technology extraction mapping hash is not the accepted build-compatible USMAP.");
@@ -55,6 +56,13 @@ const buildObjectsByFolded=foldedMap(buildObjects);
 const mapObjectMasterByFolded=foldedMap(mapObjectMaster);
 const researchByFolded=foldedMap(rawResearch);
 const rawTechnologyByFolded=foldedMap(rawTechnology);
+const localizedNameKey=names=>expectedLocales.map(locale=>names[locale]).join("\u0000");
+const structuresByLocalizedNames=new Map();
+for(const structure of structureData.structures){
+  const key=localizedNameKey(structure.names);
+  if(structuresByLocalizedNames.has(key))throw new Error(`Structure localization does not resolve to one public slug: ${structure.names["en-US"]}`);
+  structuresByLocalizedNames.set(key,structure);
+}
 
 function resolveItem(value){
   const recipe=recipesByFolded.get(String(value).toLocaleLowerCase("en-US"));
@@ -99,6 +107,11 @@ function localizedBuildNames(buildObject){
   if(Object.entries(names).some(([,value])=>placeholder(value)))throw new Error(`Build object ${buildObject.id} has incomplete official localization.`);
   return names;
 }
+function publicStructureTarget(buildObject){
+  const names=localizedBuildNames(buildObject),structure=structuresByLocalizedNames.get(localizedNameKey(names));
+  if(!structure)throw new Error(`Technology build target has no public Structure route: ${names["en-US"]}`);
+  return {kind:"building",targetSlug:structure.slug,names};
+}
 function slugify(value){return value.normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/['’]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 
 const derivedItemImageIds=new Set([
@@ -119,8 +132,8 @@ for(const [order,[internalId,row]] of Object.entries(rawTechnology).entries()){
   const itemUnlocks=row.UnlockItemRecipes.map(resolveItem);
   const buildUnlocks=row.UnlockBuildObjects.map(resolveBuildObject);
   const unlocks=[
-    ...itemUnlocks.map(item=>({kind:"item",names:localizedEntityNames(item)})),
-    ...buildUnlocks.map(buildObject=>({kind:"building",names:localizedBuildNames(buildObject)}))
+    ...itemUnlocks.map(item=>({kind:"item",targetId:item.id,names:localizedEntityNames(item)})),
+    ...buildUnlocks.map(publicStructureTarget)
   ];
   if(!unlocks.length)throw new Error(`Technology ${internalId} has no verified unlock target.`);
 
@@ -213,14 +226,17 @@ const ancientCount=technologies.filter(technology=>technology.kind==="ancient").
 const prerequisiteCount=technologies.filter(technology=>technology.prerequisite).length;
 const towerBossCount=technologies.filter(technology=>technology.towerBossRequired).length;
 const researchCount=technologies.filter(technology=>technology.labResearch).length;
+const itemUnlockRelationCount=technologies.reduce((sum,technology)=>sum+technology.unlocks.filter(unlock=>unlock.kind==="item").length,0);
+const buildingUnlockRelationCount=technologies.reduce((sum,technology)=>sum+technology.unlocks.filter(unlock=>unlock.kind==="building").length,0);
 const levelMin=Math.min(...technologies.map(technology=>technology.level));
 const levelMax=Math.max(...technologies.map(technology=>technology.level));
-if(technologyCount!==588||regularCount!==537||ancientCount!==51||prerequisiteCount!==17||towerBossCount!==17||researchCount!==10||levelMin!==1||levelMax!==80)throw new Error("Normalized technology baseline drifted.");
+if(technologyCount!==588||regularCount!==537||ancientCount!==51||prerequisiteCount!==17||towerBossCount!==17||researchCount!==10||itemUnlockRelationCount!==383||buildingUnlockRelationCount!==473||levelMin!==1||levelMax!==80)throw new Error("Normalized technology baseline drifted.");
+if(technologies.some(technology=>technology.unlocks.some(unlock=>unlock.kind==="item"?!itemsById.has(unlock.targetId):!structureData.structures.some(structure=>structure.slug===unlock.targetSlug))))throw new Error("Technology unlock target routes are not referentially complete.");
 if(new Set(technologies.map(technology=>technology.slug)).size!==technologyCount)throw new Error("Technology slugs are not unique.");
 if(technologies.some(technology=>JSON.stringify(technology).includes("EPal")||JSON.stringify(technology).includes("NAME_RECIPE_")))throw new Error("Public technology data contains raw game identifiers.");
 
 const generatedAt=new Date(extractionManifest.extractedAt).toISOString();
-const output={meta:{schema:1,gameBuild,generatedAt,verification:"verified",localeCount:expectedLocales.length,technologyCount,regularCount,ancientCount,prerequisiteCount,towerBossCount,researchCount,levelMin,levelMax,imageProvenance},technologies};
+const output={meta:{schema:1,gameBuild,generatedAt,verification:"verified",localeCount:expectedLocales.length,technologyCount,regularCount,ancientCount,prerequisiteCount,towerBossCount,researchCount,itemUnlockRelationCount,buildingUnlockRelationCount,levelMin,levelMax,imageProvenance},technologies};
 fs.writeFileSync(outputFile,JSON.stringify(output));
 fs.mkdirSync(provenanceDirectory,{recursive:true});
 fs.writeFileSync(path.join(provenanceDirectory,"technology.json"),JSON.stringify({schema:1,gameBuild,generatedAt,sourceType:"selected Palworld data tables, localized text, and directly referenced build-object textures extracted read-only from installed game files",sourceDirectory:path.relative(root,source),mappingHash:extractionManifest.mappingHash,hashes:Object.fromEntries(Object.entries(bytes).map(([file,value])=>[file,crypto.createHash("sha256").update(value).digest("hex")])),verification:{technologyCount,regularCount,ancientCount,prerequisiteCount,towerBossCount,researchCount,levelMin,levelMax,localeCounts:Object.fromEntries(expectedLocales.map(locale=>[locale,technologies.filter(technology=>technology.names[locale]).length])),imageProvenance,publicSlugsUnique:true,rawIdentifiersRemoved:true},images:provenanceBySlug},null,2));
