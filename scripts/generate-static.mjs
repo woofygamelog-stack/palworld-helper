@@ -41,7 +41,7 @@ for(let start=0;start<entries.length;start+=64){
 }
 
 const indexableUrlCount=Object.values(groups).reduce((sum,urls)=>sum+urls.length,0),physicalHtmlDocuments=entries.length+1,rendering=routeRenderingReport(data,selected);
-await writeFile("dist/prerender-report.json",JSON.stringify({schema:3,architecture:"hybrid-prerender-plus-spa",indexableUrlCount,physicalHtmlDocuments,initialHtmlSeoCoverage:entries.length,sitemapFiles:Object.fromEntries(Object.entries(groups).map(([name,urls])=>[name,urls.length])),routeFamilies:rendering},null,2));
+await writeFile("dist/prerender-report.json",JSON.stringify({schema:4,architecture:"hybrid-prerender-plus-spa",indexableUrlCount,physicalHtmlDocuments,initialHtmlSeoCoverage:entries.length,sitemapFiles:Object.fromEntries(Object.entries(groups).map(([name,urls])=>[name,urls.length])),routeFamilies:rendering},null,2));
 await writeFile("dist/robots.txt",`User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`);
 await writeFile("dist/_headers",`/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n`);
 await copyFile("public/site.webmanifest","dist/site.webmanifest");

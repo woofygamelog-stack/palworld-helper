@@ -66,6 +66,13 @@ export function createSeoSlugRegistry({palData,itemData,skillData}){
 
 const publicEntitySlug=(dataset,entity,registry)=>registry.byId[dataset]?publicSlug(registry,dataset,entity.id):entity.slug;
 
+export const prerenderPriorityRubric={
+  schema:1,
+  id:"relationship-content-intent-v1",
+  factors:{relationshipDensity:40,independentSearchIntent:15,contentSufficiency:40,internalLinks:30,toolConsumption:15},
+  tieBreaker:"public-slug"
+};
+
 export function createEntityDatasets({palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,structureData,expeditionData,questData}){
   return {pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills,npcs:npcData.npcs,dungeons:dungeonData.dungeons,technologies:technologyData.technologies,structures:structureData.structures,conditions:healthData.conditions,expeditions:expeditionData.expeditions,quests:questData.quests};
 }
@@ -97,16 +104,68 @@ function relationScores({palData,itemData,skillData,npcData,dungeonData,technolo
   return {items:item,activeSkills:active,passiveSkills:passive,partnerSkills:partner,npcs:npcScore,technologies:technology,structures:structure,quests:quest};
 }
 
+const relationArrayCount=relations=>relations?Object.values(relations).reduce((sum,value)=>sum+(Array.isArray(value)?value.length:0),0):0;
+const localizedCoverage=entity=>Object.values(entity.names||{}).filter(useful).length;
+const descriptionCoverage=entity=>Object.values(entity.descriptions||entity.palDescriptions||{}).filter(useful).length;
+function internalLinkCount(dataset,entity,data){
+  if(dataset==="items")return relationArrayCount(data.itemRelationData?.byItem?.[entity.id]);
+  if(dataset==="passiveSkills")return data.palData.pals.filter(pal=>(pal.guaranteedPassiveIds||[]).includes(entity.id)).length;
+  if(dataset==="partnerSkills")return entity.palId?1:0;
+  if(dataset==="npcs")return entity.encounters.length;
+  if(dataset==="technologies")return entity.unlocks.length+entity.dependents.length+(entity.prerequisite?1:0);
+  if(dataset==="structures")return entity.materials.length+entity.technologies.length+(entity.production?1:0);
+  if(dataset==="quests")return entity.previousSlugs.length+entity.nextSlugs.length+entity.rewards.items.length;
+  if(dataset==="conditions")return entity.medicine?1:0;
+  return 0;
+}
+function contentFactCount(dataset,entity){
+  if(dataset==="items")return [entity.type,entity.subtype,entity.rarity].filter(value=>value!==undefined&&value!==null).length;
+  if(dataset==="activeSkills")return [entity.elementId,entity.power,entity.cooldown,entity.canInherit,entity.hasSkillFruit].filter(value=>value!==undefined&&value!==null).length;
+  if(dataset==="passiveSkills")return [entity.rank,entity.randomInheritanceAllowed,entity.surgeryCost].filter(value=>value!==undefined&&value!==null).length;
+  if(dataset==="partnerSkills")return entity.palId?1:0;
+  if(dataset==="npcs")return entity.roles.length+entity.encounters.length+(entity.fixedLocation?1:0);
+  if(dataset==="technologies")return entity.unlocks.length+[entity.level,entity.kind,entity.category].filter(Boolean).length;
+  if(dataset==="structures")return entity.materials.length+entity.technologies.length+[entity.category,entity.subcategory,entity.production].filter(Boolean).length;
+  if(dataset==="quests")return entity.objectiveGroups.reduce((sum,group)=>sum+group.steps.length,0)+entity.rewards.items.length+1;
+  if(dataset==="conditions")return [entity.medicine,entity.severity].filter(Boolean).length;
+  return 0;
+}
+function consumedByTool(dataset,entity,data){
+  if(dataset==="items"){const relations=data.itemRelationData?.byItem?.[entity.id];return Boolean(relations?.craftedBy?.length||relations?.ingredientOf?.length||relations?.constructionMaterialFor?.length||relations?.producedBy?.length)}
+  if(dataset==="activeSkills")return Boolean(entity.canInherit||entity.hasSkillFruit);
+  if(dataset==="passiveSkills")return Boolean(entity.randomInheritanceAllowed);
+  if(dataset==="npcs")return entity.encounters.length>0;
+  if(dataset==="technologies")return entity.unlocks.length>0;
+  if(dataset==="structures")return Boolean(entity.production||entity.materials.length);
+  return false;
+}
+
+export function buildPrerenderPriorityScores(data){
+  const datasets=createEntityDatasets(data),relationshipEvidence=relationScores(data),scores={};
+  for(const family of entityRouteFamilies){
+    const familyScores=new Map(),evidence=relationshipEvidence[family.dataset]||new Map();
+    for(const entity of datasets[family.dataset]){
+      const relationshipDensity=Math.min(prerenderPriorityRubric.factors.relationshipDensity,Math.round(Math.log2(1+(evidence.get(internalEntityId(entity))||0))*8));
+      const independentSearchIntent=Math.min(prerenderPriorityRubric.factors.independentSearchIntent,Math.round(localizedCoverage(entity)/supportedLocales.length*15));
+      const contentSufficiency=Math.min(prerenderPriorityRubric.factors.contentSufficiency,descriptionCoverage(entity)*2+contentFactCount(family.dataset,entity));
+      const internalLinks=Math.min(prerenderPriorityRubric.factors.internalLinks,internalLinkCount(family.dataset,entity,data)*3);
+      const toolConsumption=consumedByTool(family.dataset,entity,data)?prerenderPriorityRubric.factors.toolConsumption:0;
+      familyScores.set(internalEntityId(entity),{relationshipDensity,independentSearchIntent,contentSufficiency,internalLinks,toolConsumption,total:relationshipDensity+independentSearchIntent+contentSufficiency+internalLinks+toolConsumption});
+    }
+    scores[family.dataset]=familyScores;
+  }
+  return scores;
+}
+
 export function selectPrerenderEntities(data){
-  const datasets=createEntityDatasets(data),scores=relationScores(data),selection={};
+  const datasets=createEntityDatasets(data),scores=buildPrerenderPriorityScores(data),registry=createSeoSlugRegistry(data),selection={};
   for(const family of entityRouteFamilies){
     const entities=datasets[family.dataset];
     if(family.prerender==="all"){selection[family.dataset]=entities;continue}
     const scoreMap=scores[family.dataset]||new Map();
     selection[family.dataset]=[...entities].sort((a,b)=>{
-      const descriptionScore=entity=>Object.values(entity.descriptions||entity.palDescriptions||{}).filter(useful).length*2;
-      const score=entity=>descriptionScore(entity)+(scoreMap.get(internalEntityId(entity))||0);
-      return score(b)-score(a)||String(internalEntityId(a)).localeCompare(String(internalEntityId(b)));
+      const score=entity=>scoreMap.get(internalEntityId(entity))?.total||0;
+      return score(b)-score(a)||publicEntitySlug(family.dataset,a,registry).localeCompare(publicEntitySlug(family.dataset,b,registry));
     }).slice(0,family.priorityLimit);
   }
   return selection;
@@ -323,6 +382,9 @@ export function renderHtmlDocument(template,entry,model,origin=productionOrigin)
 }
 
 export function routeRenderingReport(data,selection){
-  const datasets=createEntityDatasets(data),collections=routeFamilies.map(route=>({path:route.path,mode:route.mode,indexable:route.indexable,searchIntent:route.searchIntent,indexableUrls:supportedLocales.length,prerenderedUrls:supportedLocales.length})),entities=entityRouteFamilies.map(family=>({prefix:family.prefix,dataset:family.dataset,mode:family.mode,searchIntent:family.searchIntent,indexableUrls:datasets[family.dataset].length*supportedLocales.length,prerenderedUrls:selection[family.dataset].length*supportedLocales.length,selection:family.prerender}));
-  return {collections,entities};
+  const datasets=createEntityDatasets(data),scores=buildPrerenderPriorityScores(data),factorNames=Object.keys(prerenderPriorityRubric.factors),collections=routeFamilies.map(route=>({path:route.path,mode:route.mode,indexable:route.indexable,searchIntent:route.searchIntent,indexableUrls:supportedLocales.length,prerenderedUrls:supportedLocales.length})),entities=entityRouteFamilies.map(family=>{
+    const selectedScores=selection[family.dataset].map(entity=>scores[family.dataset].get(internalEntityId(entity))).filter(Boolean),allScores=[...scores[family.dataset].values()],selectedMin=selectedScores.length?Math.min(...selectedScores.map(score=>score.total)):0;
+    return {prefix:family.prefix,dataset:family.dataset,mode:family.mode,searchIntent:family.searchIntent,indexableUrls:datasets[family.dataset].length*supportedLocales.length,prerenderedUrls:selection[family.dataset].length*supportedLocales.length,selection:family.prerender,priorityLimit:family.priorityLimit,priorityRubric:family.prerender==="priority"?prerenderPriorityRubric.id:null,...(family.prerender==="priority"?{prioritySummary:{selectedMin,selectedMax:Math.max(...selectedScores.map(score=>score.total)),boundaryTieCount:allScores.filter(score=>score.total===selectedMin).length,factorCoverage:Object.fromEntries(factorNames.map(factor=>[factor,selectedScores.filter(score=>score[factor]>0).length]))}}:{})};
+  });
+  return {collections,entities,priorityRubric:prerenderPriorityRubric};
 }
