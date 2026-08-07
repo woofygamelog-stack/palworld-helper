@@ -762,8 +762,16 @@ try{
     assert.match((await page.locator(".guide-coverage").textContent())||"",/93/,'the server guide must expose the generated supported-setting denominator');
     assert.match((await page.locator(".guide-coverage").textContent())||"",/supported settings/,'the server guide must explain what the generated setting count measures');
     assert.equal(await page.locator(".guide-preparation li").count(),4,"the server guide must list every tool needed before starting");
+    assert.equal(await page.locator(".guide-preparation small").count(),4,"the server guide must explain one preparation requirement per tool");
     assert.equal(await page.locator(".guide-result li").count(),4,"the server guide must expose one result checkpoint per workflow step");
+    assert.equal(await page.locator(".guide-result small").count(),4,"the server guide must explain one completion condition per workflow step");
     assert.equal(guideChunkRequests.length,1,"guide details must reuse the loaded guide module");
+    await page.locator('.guide-workflow a[href="/en-US/server-tools/settings-generator"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/server-tools/settings-generator");
+    await page.locator("#server-form").waitFor({state:"visible"});
+    assert.equal(await page.locator("[data-server-key]").count(),93,"the server guide must lead to the complete supported settings workflow");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname==="/en-US/guides/server");
     await page.goBack({waitUntil:"networkidle"});
     await page.waitForURL(url=>url.pathname==="/en-US/guides");
     await page.locator("header [data-open-search]").click();

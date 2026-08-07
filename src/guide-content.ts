@@ -35,6 +35,46 @@ export const guideStepKindLabels:Record<Locale,Record<GuideStepKind,string>>={
   "pl-PL":{discover:"Znajdź odpowiednie opcje i zawęź następny cel.",compare:"Porównaj aktualne opcje przed wybraniem jednej.",verify:"Sprawdź bieżące warunki i zakończ ten punkt kontrolny.",plan:"Zapisz wymagania przed przeznaczeniem zasobów."},
 };
 
+export const guidePreparationKindLabels:Record<Locale,Record<GuideStepKind,string>>={
+  "en-US":{discover:"Set the area or target you want to explore.",compare:"List the options and the constraint that matters most.",verify:"Have the current input or state ready to check.",plan:"Write down the goal, available resources, and limits."},
+  "ko-KR":{discover:"탐색할 지역이나 목표를 정해 두세요.",compare:"선택지와 가장 중요한 조건을 목록으로 만드세요.",verify:"확인할 현재 입력값이나 상태를 준비하세요.",plan:"목표, 사용 가능한 자원과 제한을 적어 두세요."},
+  "ja-JP":{discover:"探索する地域や対象を決めておきます。",compare:"選択肢と最も重要な条件を一覧にします。",verify:"確認する現在の入力や状態を用意します。",plan:"目標、利用できる資源、制限を書き出します。"},
+  "zh-CN":{discover:"先确定要探索的区域或目标。",compare:"列出选项和最重要的限制条件。",verify:"准备好要检查的当前输入或状态。",plan:"记下目标、可用资源和限制。"},
+  "zh-TW":{discover:"先確定要探索的區域或目標。",compare:"列出選項和最重要的限制條件。",verify:"準備好要檢查的目前輸入或狀態。",plan:"記下目標、可用資源和限制。"},
+  "fr-FR":{discover:"Définissez la zone ou la cible à explorer.",compare:"Listez les options et la contrainte la plus importante.",verify:"Préparez l’entrée ou l’état actuel à vérifier.",plan:"Notez l’objectif, les ressources disponibles et les limites."},
+  "it-IT":{discover:"Definisci l’area o l’obiettivo da esplorare.",compare:"Elenca le opzioni e il vincolo più importante.",verify:"Prepara il dato o lo stato attuale da controllare.",plan:"Annota l’obiettivo, le risorse disponibili e i limiti."},
+  "de-DE":{discover:"Lege das Gebiet oder Ziel für die Erkundung fest.",compare:"Liste die Optionen und die wichtigste Bedingung auf.",verify:"Halte die aktuelle Eingabe oder den Zustand zur Prüfung bereit.",plan:"Notiere Ziel, verfügbare Ressourcen und Grenzen."},
+  "es-ES":{discover:"Define la zona o el objetivo que quieres explorar.",compare:"Enumera las opciones y la condición más importante.",verify:"Prepara la entrada o el estado actual que vas a comprobar.",plan:"Anota el objetivo, los recursos disponibles y los límites."},
+  "es-419":{discover:"Define la zona o el objetivo que quieres explorar.",compare:"Enumera las opciones y la condición más importante.",verify:"Prepara la entrada o el estado actual que vas a revisar.",plan:"Anota el objetivo, los recursos disponibles y los límites."},
+  "pt-BR":{discover:"Defina a área ou o objetivo que deseja explorar.",compare:"Liste as opções e a condição mais importante.",verify:"Prepare a entrada ou o estado atual que será verificado.",plan:"Anote o objetivo, os recursos disponíveis e os limites."},
+  "ru-RU":{discover:"Определите область или цель для исследования.",compare:"Перечислите варианты и самое важное ограничение.",verify:"Подготовьте текущие данные или состояние для проверки.",plan:"Запишите цель, доступные ресурсы и ограничения."},
+  "id-ID":{discover:"Tentukan area atau target yang ingin dijelajahi.",compare:"Daftarkan pilihan dan batasan yang paling penting.",verify:"Siapkan input atau status saat ini untuk diperiksa.",plan:"Catat tujuan, sumber daya yang tersedia, dan batasan."},
+  "th-TH":{discover:"กำหนดพื้นที่หรือเป้าหมายที่ต้องการสำรวจ",compare:"จดตัวเลือกและเงื่อนไขที่สำคัญที่สุด",verify:"เตรียมข้อมูลหรือสถานะปัจจุบันที่จะตรวจสอบ",plan:"จดเป้าหมาย ทรัพยากรที่มี และข้อจำกัด"},
+  "tr-TR":{discover:"Keşfetmek istediğiniz alanı veya hedefi belirleyin.",compare:"Seçenekleri ve en önemli koşulu listeleyin.",verify:"Kontrol edilecek güncel girdiyi veya durumu hazırlayın.",plan:"Hedefi, kullanılabilir kaynakları ve sınırları yazın."},
+  "vi-VN":{discover:"Xác định khu vực hoặc mục tiêu muốn khám phá.",compare:"Liệt kê các lựa chọn và điều kiện quan trọng nhất.",verify:"Chuẩn bị dữ liệu hoặc trạng thái hiện tại cần kiểm tra.",plan:"Ghi lại mục tiêu, tài nguyên hiện có và giới hạn."},
+  "pl-PL":{discover:"Określ obszar lub cel, który chcesz zbadać.",compare:"Wypisz opcje i najważniejszy warunek.",verify:"Przygotuj bieżące dane lub stan do sprawdzenia.",plan:"Zapisz cel, dostępne zasoby i ograniczenia."},
+};
+
+export const guideResultKindLabels:Record<Locale,Record<GuideStepKind,string>>={
+  "en-US":{discover:"A next destination or shortlist is selected.",compare:"The selected option and its reason are recorded.",verify:"Constraints, warnings, and unavailable values have been checked.",plan:"Requirements and the next action are clear before resources are spent."},
+  "ko-KR":{discover:"다음 목적지나 후보 목록을 선택했습니다.",compare:"선택한 항목과 선택 이유를 기록했습니다.",verify:"제약 조건, 경고와 제공 불가 값을 확인했습니다.",plan:"자원을 쓰기 전에 요구 사항과 다음 행동을 확정했습니다."},
+  "ja-JP":{discover:"次の目的地または候補一覧を選びました。",compare:"選んだ項目とその理由を記録しました。",verify:"制約、警告、利用できない値を確認しました。",plan:"資源を使う前に要件と次の行動を確定しました。"},
+  "zh-CN":{discover:"已选定下一目的地或候选清单。",compare:"已记录所选项目及其理由。",verify:"已检查限制、警告和不可用数值。",plan:"已在投入资源前明确要求和下一步行动。"},
+  "zh-TW":{discover:"已選定下一目的地或候選清單。",compare:"已記錄所選項目及其理由。",verify:"已檢查限制、警告和不可用數值。",plan:"已在投入資源前明確要求和下一步行動。"},
+  "fr-FR":{discover:"Une prochaine destination ou une liste restreinte est choisie.",compare:"L’option choisie et sa raison sont consignées.",verify:"Les contraintes, avertissements et valeurs indisponibles ont été vérifiés.",plan:"Les besoins et l’action suivante sont clairs avant toute dépense de ressources."},
+  "it-IT":{discover:"È stata scelta la prossima destinazione o una lista ristretta.",compare:"L’opzione scelta e il motivo sono stati registrati.",verify:"Vincoli, avvisi e valori non disponibili sono stati controllati.",plan:"Requisiti e azione successiva sono chiari prima di spendere risorse."},
+  "de-DE":{discover:"Ein nächstes Ziel oder eine engere Auswahl steht fest.",compare:"Die gewählte Option und der Grund sind festgehalten.",verify:"Bedingungen, Warnungen und nicht verfügbare Werte sind geprüft.",plan:"Anforderungen und nächster Schritt stehen vor dem Ressourceneinsatz fest."},
+  "es-ES":{discover:"Se ha elegido el siguiente destino o una lista reducida.",compare:"Se han anotado la opción elegida y su motivo.",verify:"Se han revisado las condiciones, los avisos y los valores no disponibles.",plan:"Los requisitos y la siguiente acción están claros antes de gastar recursos."},
+  "es-419":{discover:"Se eligió el siguiente destino o una lista reducida.",compare:"Se registraron la opción elegida y su motivo.",verify:"Se revisaron las condiciones, las advertencias y los valores no disponibles.",plan:"Los requisitos y la siguiente acción están claros antes de gastar recursos."},
+  "pt-BR":{discover:"O próximo destino ou uma lista reduzida foi escolhido.",compare:"A opção escolhida e o motivo foram registrados.",verify:"Condições, avisos e valores indisponíveis foram verificados.",plan:"Os requisitos e a próxima ação estão claros antes de gastar recursos."},
+  "ru-RU":{discover:"Выбрана следующая цель или сокращённый список.",compare:"Выбранный вариант и причина записаны.",verify:"Ограничения, предупреждения и недоступные значения проверены.",plan:"Требования и следующий шаг определены до расходования ресурсов."},
+  "id-ID":{discover:"Tujuan berikutnya atau daftar pendek telah dipilih.",compare:"Pilihan dan alasannya telah dicatat.",verify:"Batasan, peringatan, dan nilai yang tidak tersedia telah diperiksa.",plan:"Kebutuhan dan tindakan berikutnya sudah jelas sebelum sumber daya dipakai."},
+  "th-TH":{discover:"เลือกจุดหมายถัดไปหรือรายการตัวเลือกแล้ว",compare:"บันทึกตัวเลือกและเหตุผลที่เลือกแล้ว",verify:"ตรวจสอบข้อจำกัด คำเตือน และค่าที่ไม่พร้อมใช้งานแล้ว",plan:"กำหนดข้อกำหนดและการดำเนินการถัดไปก่อนใช้ทรัพยากรแล้ว"},
+  "tr-TR":{discover:"Sonraki hedef veya kısa liste seçildi.",compare:"Seçilen seçenek ve nedeni kaydedildi.",verify:"Koşullar, uyarılar ve kullanılamayan değerler kontrol edildi.",plan:"Kaynak harcamadan önce gereksinimler ve sonraki işlem netleştirildi."},
+  "vi-VN":{discover:"Đã chọn điểm đến tiếp theo hoặc danh sách rút gọn.",compare:"Đã ghi lại lựa chọn và lý do.",verify:"Đã kiểm tra điều kiện, cảnh báo và các giá trị không khả dụng.",plan:"Đã xác định yêu cầu và hành động tiếp theo trước khi dùng tài nguyên."},
+  "pl-PL":{discover:"Wybrano następny cel lub krótką listę.",compare:"Zapisano wybraną opcję i jej uzasadnienie.",verify:"Sprawdzono warunki, ostrzeżenia i niedostępne wartości.",plan:"Wymagania i następne działanie są jasne przed wydaniem zasobów."},
+};
+
 export type GuideStructureCopy={problem:string;preparation:string;preparationIntro:string;procedure:string;result:string;resultIntro:string;stepAction:string;confirm:string;coverage:string;coverageIntro:string;entries:string};
 
 export const guideMetricKindLabels:Record<Locale,Record<GuideMetricKind,string>>={

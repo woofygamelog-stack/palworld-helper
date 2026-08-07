@@ -57,7 +57,7 @@ import {renderItemsPage} from "../src/pages/items.ts";
 import {renderPalsPage} from "../src/pages/pals.ts";
 import {exportOwnedPalLedger,importOwnedPalLedger,normalizeOwnedPalLedger,ownedPalCount,ownedPalStorageKey,readOwnedPalLedger,writeOwnedPalLedger} from "../src/owned-pals.ts";
 import {renderSkillsPage} from "../src/pages/skills.ts";
-import {guideCopy,guideDefinitions,guideMetricKindLabels,guideRoute,guideStepKindLabels,guideStructureCopy} from "../src/guide-content.ts";
+import {guideCopy,guideDefinitions,guideMetricKindLabels,guidePreparationKindLabels,guideResultKindLabels,guideRoute,guideStepKindLabels,guideStructureCopy} from "../src/guide-content.ts";
 import {guidePageModel,renderGuidesPage} from "../src/pages/guides.ts";
 import {condensingPlan,differentComparisonRows,normalizePalSelection,teamCoverage} from "../src/pal-tools.ts";
 import {renderPalToolPage} from "../src/pages/pal-tools.ts";
@@ -273,6 +273,8 @@ for(const locale of locales){
   assert.equal(Object.keys(guideCopy[locale].guides).length,guideDefinitions.length,`${locale} guide copy must cover every guide`);
   assert.deepEqual(Object.keys(guideStructureCopy[locale]).sort(),Object.keys(guideStructureCopy["en-US"]).sort(),`${locale} guide structure copy must be complete`);
   assert.deepEqual(Object.keys(guideStepKindLabels[locale]).sort(),Object.keys(guideStepKindLabels["en-US"]).sort(),`${locale} guide step semantics must be complete`);
+  assert.deepEqual(Object.keys(guidePreparationKindLabels[locale]).sort(),Object.keys(guidePreparationKindLabels["en-US"]).sort(),`${locale} guide preparation semantics must be complete`);
+  assert.deepEqual(Object.keys(guideResultKindLabels[locale]).sort(),Object.keys(guideResultKindLabels["en-US"]).sort(),`${locale} guide result semantics must be complete`);
   assert.deepEqual(Object.keys(guideMetricKindLabels[locale]).sort(),Object.keys(guideMetricKindLabels["en-US"]).sort(),`${locale} guide metric semantics must be complete`);
   const hub=guidePageModel(locale,"guides",route=>`/${locale}/${route}`);
   assert.ok(hub&&hub.type==="CollectionPage"&&(hub.body.match(/class="panel guide-card"/g)||[]).length===guideDefinitions.length,`${locale} guide hub must render every guide`);
@@ -284,7 +286,11 @@ for(const locale of locales){
     assert.equal(resultItems.length,guide.related.length,`${locale} ${guide.id} must render one result checkpoint per step`);
     assert.equal((model.body.match(/class="panel guide-coverage"/g)||[]).length,1,`${locale} ${guide.id} must render source-derived coverage`);
     assert.equal((model.body.match(/<div><dt><a href=/g)||[]).length,guideSnapshotData.guides[guide.id].metrics.length,`${locale} ${guide.id} must render every generated metric`);
-    for(const kind of new Set(guide.stepKinds))assert.ok(model.body.includes(guideStepKindLabels[locale][kind]),`${locale} ${guide.id} must render each typed step action`);
+    for(const kind of new Set(guide.stepKinds)){
+      assert.ok(model.body.includes(guidePreparationKindLabels[locale][kind]),`${locale} ${guide.id} must render each typed preparation requirement`);
+      assert.ok(model.body.includes(guideStepKindLabels[locale][kind]),`${locale} ${guide.id} must render each typed step action`);
+      assert.ok(model.body.includes(guideResultKindLabels[locale][kind]),`${locale} ${guide.id} must render each typed result checkpoint`);
+    }
     for(const metric of guideSnapshotData.guides[guide.id].metrics)assert.ok(model.body.includes(guideMetricKindLabels[locale][metric.kind]),`${locale} ${guide.id} must explain each generated metric`);
     assert.equal((model.body.match(/<h1>/g)||[]).length,1,`${locale} ${guide.id} must keep one h1`);
   }
