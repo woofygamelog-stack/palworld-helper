@@ -758,6 +758,7 @@ try{
     await page.waitForURL(url=>url.pathname==="/en-US/guides/server");
     await page.locator(".guide-detail").waitFor({state:"visible"});
     assert.equal(await page.locator(".guide-step-number").count(),4,"the server guide must expose its four linked workflow steps");
+    assert.match((await page.locator(".guide-workflow").textContent())||"",/Import the current INI[\s\S]*planned restart/,"the server guide must explain the complete import-to-apply sequence");
     assert.equal(await page.locator(".guide-coverage dd").count(),4,"the server guide must expose four source-derived coverage metrics");
     assert.match((await page.locator(".guide-coverage").textContent())||"",/93/,'the server guide must expose the generated supported-setting denominator');
     assert.match((await page.locator(".guide-coverage").textContent())||"",/supported settings/,'the server guide must explain what the generated setting count measures');
