@@ -1,5 +1,9 @@
 import type {IconName} from "../icons";
+import type {Locale} from "../config.ts";
 import {guideCopy,guideDefinitions,guideRoute} from "../guide-content.ts";
+import {mapLayerLabels} from "../map-labels.ts";
+import {mapExtraLabels} from "../map-extra-labels.ts";
+import {mapPointCategoryDefinitions} from "../map-point-categories.ts";
 
 type Localized<Locale extends string>=Record<Locale,string>;
 
@@ -19,6 +23,7 @@ export type GlobalSearchItem<Locale extends string>={
   type:string;
   subtype:string;
   image?:boolean;
+  searchTerms?:readonly string[];
 };
 
 export type GlobalSearchActiveSkill<Locale extends string>={id:string;elementId:string;names:Localized<Locale>};
@@ -27,6 +32,8 @@ export type GlobalSearchPartnerSkill<Locale extends string>={id:string;palId:str
 
 export type GlobalSearchResult={title:string;meta:string;path:string;image?:string;icon?:IconName};
 export type GlobalSearchRoute={title:string;meta:string;path:string;keywords:readonly string[];icon?:IconName};
+
+export function mapCategorySearchRoutes({locale,defaultLocale,items,mapTitle}:{locale:Locale;defaultLocale:Locale;items:readonly {id:string;names:Record<Locale,string>}[];mapTitle:string}){const layerLabels=mapLayerLabels[locale],extraLabels=mapExtraLabels[locale],itemsById=new Map(items.map(item=>[item.id,item]));return mapPointCategoryDefinitions.flatMap(definition=>{const label=definition.labelSource==="item"?(itemsById.get(definition.labelKey)?.names[locale]||itemsById.get(definition.labelKey)?.names[defaultLocale]):definition.labelSource==="extra"?extraLabels[definition.labelKey as keyof typeof extraLabels]:layerLabels[definition.labelKey as keyof typeof layerLabels];return label?[{title:label,meta:mapTitle,path:`/map?layers=${definition.id}`,keywords:[definition.id,definition.group,label],icon:"map" as const}]:[]})}
 
 type GlobalSearchData<Locale extends string>={
   pals:GlobalSearchPal<Locale>[];
@@ -92,7 +99,7 @@ export function findGlobalSearchResults<Locale extends string>({
     }
   }
   for(const item of data.items){
-    if(matches([item.id,item.type,item.subtype,...localizedValues(item.names),...localizedValues(item.descriptions)])){
+    if(matches([item.id,item.type,item.subtype,...localizedValues(item.names),...localizedValues(item.descriptions),...(item.searchTerms||[])])){
       results.push({title:itemName(item),meta:`${labels.database} · ${item.type}`,path:`/items/${encodeURIComponent(itemSlug(item))}`,image:item.image?`/assets/items/${encodeURIComponent(item.id)}.webp`:undefined});
     }
   }
@@ -113,7 +120,8 @@ export function findGlobalSearchResults<Locale extends string>({
       if(title)results.push({title,meta:labels.partner,path:`/skills/partner/${encodeURIComponent(partnerSkillSlug(skill))}`,icon:"skills"});
     }
   }
-  return results;
+  const titleScore=(result:GlobalSearchResult)=>{const title=result.title.toLocaleLowerCase(locale),pathSegment=decodeURIComponent(result.path.split("?")[0].split("/").at(-1)||"").toLocaleLowerCase(locale);return title===normalized||pathSegment===normalized?0:title.startsWith(normalized)||pathSegment.startsWith(`${normalized}-`)?1:2};
+  return results.sort((a,b)=>titleScore(a)-titleScore(b));
 }
 
 export function renderPrimaryGlobalSearch<Locale extends string>({

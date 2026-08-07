@@ -54,6 +54,11 @@ try{
     await page.locator('#global-search-results a[href="/ko-KR/calculators/base"]').waitFor({state:"visible"});
     await page.locator("#global-search-input").fill("owned-pal-breeding-path");
     await page.locator('#global-search-results a[href="/ko-KR/calculators/breeding-path"]').waitFor({state:"visible"});
+    await page.locator("#global-search-input").fill("Cake");
+    await page.waitForFunction(()=>document.querySelectorAll('#global-search-results a[href*="/ko-KR/items/"]').length>1);
+    assert.ok(await page.locator('#global-search-results a[href*="/ko-KR/items/cake-"]').count(),"global search must retain the direct crafted item beside its recipe-related materials");
+    await page.locator("#global-search-input").fill("ore");
+    await page.locator('#global-search-results a[href="/ko-KR/map?layers=ore"]').waitFor({state:"visible"});
     await page.locator("#global-search-input").fill("Pal");
     await page.waitForFunction(()=>document.querySelectorAll("#global-search-results a[data-global-result]").length>1);
     const broadResultHrefs=await page.locator("#global-search-results a[data-global-result]").evaluateAll(links=>links.map(link=>link.getAttribute("href")));
@@ -306,7 +311,7 @@ try{
 
   await run("home-map-back",async()=>{
     const mapChunkRequests=[];
-    const recordMapChunk=request=>{if(/\/map-[^/]+\.js$/.test(new URL(request.url()).pathname))mapChunkRequests.push(request.url())};
+    const recordMapChunk=request=>{if(/\/map-(?!point-categories-)[^/]+\.js$/.test(new URL(request.url()).pathname))mapChunkRequests.push(request.url())};
     page.on("request",recordMapChunk);
     await visit("/en-US");
     assert.equal(mapChunkRequests.length,0,"map code must stay out of the initial Home request graph");
