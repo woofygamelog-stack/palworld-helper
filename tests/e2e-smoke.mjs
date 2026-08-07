@@ -24,6 +24,33 @@ try{
       throw error;
     }
   };
+  const metadataSnapshot=()=>page.evaluate(()=>({
+    title:document.title,
+    descriptions:[...document.querySelectorAll('meta[name="description"]')].map(node=>node.getAttribute("content")),
+    canonicals:[...document.querySelectorAll('link[rel="canonical"]')].map(node=>node.getAttribute("href")),
+    alternates:[...document.querySelectorAll('link[rel="alternate"]')].map(node=>({hreflang:node.getAttribute("hreflang"),href:node.getAttribute("href")})),
+    openGraph:{title:document.querySelector('meta[property="og:title"]')?.getAttribute("content"),description:document.querySelector('meta[property="og:description"]')?.getAttribute("content"),url:document.querySelector('meta[property="og:url"]')?.getAttribute("content")},
+    robots:[...document.querySelectorAll('meta[name="robots"]')].map(node=>node.getAttribute("content")),
+    structured:[...document.querySelectorAll('script[data-route-structured-data]')].map(node=>node.textContent||"")
+  }));
+  const assertIndexableMetadata=async pathname=>{
+    const expected=`https://palworld-helper.woofy.blog${pathname}`,metadata=await metadataSnapshot();
+    assert.deepEqual(metadata.canonicals,[expected],"client navigation must expose exactly one route canonical");
+    assert.equal(metadata.descriptions.length,1,"client navigation must expose exactly one description");
+    assert.deepEqual(metadata.openGraph,{title:metadata.title,description:metadata.descriptions[0],url:expected},"Open Graph metadata must follow the current route title, description, and canonical");
+    assert.equal(metadata.alternates.length,18,"indexable routes must expose all 17 locales and x-default exactly once");
+    assert.equal(metadata.alternates.find(alternate=>alternate.hreflang==="x-default")?.href,`https://palworld-helper.woofy.blog/en-US${pathname.replace(/^\/[^/]+/,"")}`,"x-default must resolve to the English route");
+    assert.equal(metadata.robots.some(value=>value?.includes("noindex")),false,"indexable routes must not retain a prior noindex directive");
+    assert.equal(metadata.structured.length,1,"indexable routes must expose exactly one route structured-data graph");
+    assert.ok(metadata.structured[0].includes(expected),"route structured data must contain the current canonical URL");
+  };
+  const assertNonIndexableMetadata=async pathname=>{
+    const expected=`https://palworld-helper.woofy.blog${pathname}`,metadata=await metadataSnapshot();
+    assert.deepEqual(metadata.canonicals,[expected],"non-indexable routes must retain one self canonical for navigation consistency");
+    assert.equal(metadata.alternates.length,0,"non-indexable routes must remove locale alternates from the previous page");
+    assert.equal(metadata.structured.length,0,"non-indexable routes must remove structured data from the previous page");
+    assert.equal(metadata.robots.filter(value=>value?.includes("noindex")).length,1,"non-indexable routes must expose exactly one noindex directive");
+  };
 
   await run("home-search",async()=>{
     const searchChunkRequests=[];
@@ -73,6 +100,24 @@ try{
     assert.equal(new Set(broadResultHrefs).size,broadResultHrefs.length,"global search must remove duplicate destinations across result providers");
     assert.equal(searchChunkRequests.length,1,"global search code must load exactly once when search is first opened");
     page.off("request",recordSearchChunk);
+  });
+
+  await run("metadata-navigation",async()=>{
+    const itemPath="/en-US/items/air-dash-boots-rank-2-rarity-2";
+    await visit(itemPath);
+    await page.locator(".item-detail").waitFor({state:"visible"});
+    await assertIndexableMetadata(itemPath);
+    await page.locator('footer a[href="/en-US/privacy"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/privacy");
+    await page.locator(".privacy-page").waitFor({state:"visible"});
+    await assertNonIndexableMetadata("/en-US/privacy");
+    await page.goBack({waitUntil:"networkidle"});
+    await page.waitForURL(url=>url.pathname===itemPath);
+    await page.locator(".item-detail").waitFor({state:"visible"});
+    await assertIndexableMetadata(itemPath);
+    await page.evaluate(()=>{history.pushState({},"","/en-US/definitely-missing");window.dispatchEvent(new PopStateEvent("popstate"))});
+    await page.locator("main h1").filter({hasText:"404"}).waitFor({state:"visible"});
+    await assertNonIndexableMetadata("/en-US/definitely-missing");
   });
 
   await run("home-pals-detail-back",async()=>{
