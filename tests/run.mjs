@@ -57,7 +57,7 @@ import {renderItemsPage} from "../src/pages/items.ts";
 import {renderPalsPage} from "../src/pages/pals.ts";
 import {exportOwnedPalLedger,importOwnedPalLedger,normalizeOwnedPalLedger,ownedPalCount,ownedPalStorageKey,readOwnedPalLedger,writeOwnedPalLedger} from "../src/owned-pals.ts";
 import {renderSkillsPage} from "../src/pages/skills.ts";
-import {guideBaseStepLabelsProvenance,guideBreedingStepLabelsProvenance,guideCombatStepLabelsProvenance,guideCopy,guideDefinitions,guideMetricKindLabels,guidePreparationKindLabels,guideResultKindLabels,guideRoute,guideSpecificStepLabels,guideSpecificStepLabelsProvenance,guideSpecificSteps,guideStepKindLabels,guideStructureCopy} from "../src/guide-content.ts";
+import {guideBaseStepLabelsProvenance,guideBreedingStepLabelsProvenance,guideCombatStepLabelsProvenance,guideCopy,guideDefinitions,guideMetricKindLabels,guideOnboardingStepLabelsProvenance,guidePreparationKindLabels,guideResultKindLabels,guideRoute,guideSpecificStepLabels,guideSpecificStepLabelsProvenance,guideSpecificSteps,guideStepKindLabels,guideStructureCopy} from "../src/guide-content.ts";
 import {guidePageModel,renderGuidesPage} from "../src/pages/guides.ts";
 import {condensingPlan,differentComparisonRows,normalizePalSelection,teamCoverage} from "../src/pal-tools.ts";
 import {renderPalToolPage} from "../src/pages/pal-tools.ts";
@@ -277,6 +277,8 @@ for(const locale of locales){
   assert.deepEqual(Object.keys(guideResultKindLabels[locale]).sort(),Object.keys(guideResultKindLabels["en-US"]).sort(),`${locale} guide result semantics must be complete`);
   assert.deepEqual(Object.keys(guideMetricKindLabels[locale]).sort(),Object.keys(guideMetricKindLabels["en-US"]).sort(),`${locale} guide metric semantics must be complete`);
   assert.equal(guideSpecificStepLabels[locale].server?.length,guideDefinitions.find(guide=>guide.id==="server")?.related.length,`${locale} server guide must have one specific sentence per step`);
+  assert.equal(guideSpecificSteps(locale,"getting-started")?.length,guideDefinitions.find(guide=>guide.id==="getting-started")?.related.length,`${locale} getting-started guide must have one specific sentence per step`);
+  assert.equal(guideSpecificSteps(locale,"returning-player")?.length,guideDefinitions.find(guide=>guide.id==="returning-player")?.related.length,`${locale} returning-player guide must have one specific sentence per step`);
   assert.equal(guideSpecificSteps(locale,"breeding")?.length,guideDefinitions.find(guide=>guide.id==="breeding")?.related.length,`${locale} breeding guide must have one specific sentence per step`);
   assert.equal(guideSpecificSteps(locale,"base")?.length,guideDefinitions.find(guide=>guide.id==="base")?.related.length,`${locale} base guide must have one specific sentence per step`);
   assert.equal(guideSpecificSteps(locale,"combat")?.length,guideDefinitions.find(guide=>guide.id==="combat")?.related.length,`${locale} combat guide must have one specific sentence per step`);
@@ -284,6 +286,7 @@ for(const locale of locales){
   assert.equal(guideBreedingStepLabelsProvenance[locale],"gpt",`${locale} breeding guide translation provenance must be recorded`);
   assert.equal(guideBaseStepLabelsProvenance[locale],"gpt",`${locale} base guide translation provenance must be recorded`);
   assert.equal(guideCombatStepLabelsProvenance[locale],"gpt",`${locale} combat guide translation provenance must be recorded`);
+  assert.equal(guideOnboardingStepLabelsProvenance[locale],"gpt",`${locale} onboarding guide translation provenance must be recorded`);
   const hub=guidePageModel(locale,"guides",route=>`/${locale}/${route}`);
   assert.ok(hub&&hub.type==="CollectionPage"&&(hub.body.match(/class="panel guide-card"/g)||[]).length===guideDefinitions.length,`${locale} guide hub must render every guide`);
   for(const guide of guideDefinitions){

@@ -793,6 +793,30 @@ try{
     page.off("request",recordGuideChunk);
   });
 
+  await run("guide-getting-started-workflow",async()=>{
+    await visit("/en-US/guides/getting-started");
+    await page.locator(".guide-detail").waitFor({state:"visible"});
+    assert.equal(await page.locator(".guide-step-number").count(),5,"the getting-started guide must expose its five specific workflow steps");
+    assert.match((await page.locator(".guide-workflow").textContent())||"",/Choose a first destination[\s\S]*first roles[\s\S]*multiple recipes/,"the getting-started guide must connect discovery, progression, base, and crafting decisions");
+    await page.locator('.guide-workflow a[href="/en-US/map"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/map");
+    await page.locator(".map-viewport").waitFor({state:"visible"});
+    await page.waitForFunction(()=>Number(document.querySelector("#map-result-count")?.textContent)>0);
+    await page.locator('[data-map-panel="results"]').click();
+    assert.ok(await page.locator(".map-result:not([hidden])").count(),"the getting-started guide must lead to a non-empty equivalent map result list");
+  });
+
+  await run("guide-returning-player-workflow",async()=>{
+    await visit("/en-US/guides/returning-player");
+    await page.locator(".guide-detail").waitFor({state:"visible"});
+    assert.equal(await page.locator(".guide-step-number").count(),4,"the returning-player guide must expose its four specific workflow steps");
+    assert.match((await page.locator(".guide-workflow").textContent())||"",/current quest catalog[\s\S]*probabilities that are not provided[\s\S]*remembered locations/,"the returning-player guide must connect current progression checks without inventing reward chances");
+    await page.locator('.guide-workflow a[href="/en-US/database/quests"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/quests");
+    await page.locator("#quest-search").waitFor({state:"visible"});
+    assert.ok(await page.locator(".quest-card").count(),"the returning-player guide must lead to the current quest catalog");
+  });
+
   await run("guide-breeding-workflow",async()=>{
     await visit("/en-US/guides/breeding");
     await page.locator(".guide-detail").waitFor({state:"visible"});
