@@ -26,6 +26,7 @@ export type GlobalSearchPassiveSkill<Locale extends string>={id:string;names:Loc
 export type GlobalSearchPartnerSkill<Locale extends string>={id:string;palId:string;names:Localized<Locale>;palDescriptions:Localized<Locale>};
 
 export type GlobalSearchResult={title:string;meta:string;path:string;image?:string;icon?:IconName};
+export type GlobalSearchRoute={title:string;meta:string;path:string;keywords:readonly string[];icon?:IconName};
 
 type GlobalSearchData<Locale extends string>={
   pals:GlobalSearchPal<Locale>[];
@@ -45,7 +46,13 @@ export function findGlobalSearchResults<Locale extends string>({
   labels,
   palName,
   itemName,
-  partnerSkillName
+  partnerSkillName,
+  routes=[],
+  palSlug=pal=>pal.id,
+  itemSlug=item=>item.id,
+  activeSkillSlug=skill=>skill.id,
+  passiveSkillSlug=skill=>skill.id,
+  partnerSkillSlug=skill=>skill.id
 }:{
   query:string;
   locale:Locale;
@@ -55,6 +62,12 @@ export function findGlobalSearchResults<Locale extends string>({
   palName:(pal:GlobalSearchPal<Locale>)=>string;
   itemName:(item:GlobalSearchItem<Locale>)=>string;
   partnerSkillName:(skill:GlobalSearchPartnerSkill<Locale>,pal:GlobalSearchPal<Locale>|undefined)=>string;
+  routes?:readonly GlobalSearchRoute[];
+  palSlug?:(pal:GlobalSearchPal<Locale>)=>string;
+  itemSlug?:(item:GlobalSearchItem<Locale>)=>string;
+  activeSkillSlug?:(skill:GlobalSearchActiveSkill<Locale>)=>string;
+  passiveSkillSlug?:(skill:GlobalSearchPassiveSkill<Locale>)=>string;
+  partnerSkillSlug?:(skill:GlobalSearchPartnerSkill<Locale>)=>string;
 }){
   const normalized=query.trim().toLocaleLowerCase(locale);
   if(!normalized)return [];
@@ -62,6 +75,8 @@ export function findGlobalSearchResults<Locale extends string>({
   const localizedValues=(names:Localized<Locale>|undefined)=>names?Object.values(names) as string[]:[];
   const localized=(names:Localized<Locale>)=>names[locale]||names[defaultLocale];
   const results:GlobalSearchResult[]=[];
+
+  for(const route of routes)if(matches([route.title,route.meta,...route.keywords]))results.push({title:route.title,meta:route.meta,path:route.path,icon:route.icon});
 
   if(locale in guideCopy){
     const copy=guideCopy[locale as keyof typeof guideCopy];
@@ -73,29 +88,29 @@ export function findGlobalSearchResults<Locale extends string>({
 
   for(const pal of data.pals){
     if(matches([pal.id,pal.dex,...localizedValues(pal.names),...Object.keys(pal.work).filter(key=>pal.work[key]>0)])){
-      results.push({title:palName(pal),meta:`${labels.pals} · #${pal.dex}${pal.variant?"B":""}`,path:`/pals/${encodeURIComponent(pal.id)}`,image:pal.image?`/assets/pals/${encodeURIComponent(pal.id)}.png`:undefined});
+      results.push({title:palName(pal),meta:`${labels.pals} · #${pal.dex}${pal.variant?"B":""}`,path:`/pals/${encodeURIComponent(palSlug(pal))}`,image:pal.image?`/assets/pals/${encodeURIComponent(pal.id)}.png`:undefined});
     }
   }
   for(const item of data.items){
     if(matches([item.id,item.type,item.subtype,...localizedValues(item.names),...localizedValues(item.descriptions)])){
-      results.push({title:itemName(item),meta:`${labels.database} · ${item.type}`,path:`/items/${encodeURIComponent(item.id)}`,image:item.image?`/assets/items/${encodeURIComponent(item.id)}.webp`:undefined});
+      results.push({title:itemName(item),meta:`${labels.database} · ${item.type}`,path:`/items/${encodeURIComponent(itemSlug(item))}`,image:item.image?`/assets/items/${encodeURIComponent(item.id)}.webp`:undefined});
     }
   }
   for(const skill of data.activeSkills){
     if(matches([skill.id,skill.elementId,...localizedValues(skill.names)])){
-      results.push({title:localized(skill.names),meta:labels.active,path:`/skills/active/${encodeURIComponent(skill.id)}`,icon:"skills"});
+      results.push({title:localized(skill.names),meta:labels.active,path:`/skills/active/${encodeURIComponent(activeSkillSlug(skill))}`,icon:"skills"});
     }
   }
   for(const skill of data.passiveSkills){
     if(matches([skill.id,...localizedValues(skill.names),...localizedValues(skill.descriptions)])){
-      results.push({title:localized(skill.names),meta:labels.passive,path:`/skills/passive/${encodeURIComponent(skill.id)}`,icon:"skills"});
+      results.push({title:localized(skill.names),meta:labels.passive,path:`/skills/passive/${encodeURIComponent(passiveSkillSlug(skill))}`,icon:"skills"});
     }
   }
   const palsById=new Map(data.pals.map(pal=>[pal.id,pal]));
   for(const skill of data.partnerSkills){
     if(matches([skill.id,skill.palId,...localizedValues(skill.names),...localizedValues(skill.palDescriptions)])){
       const title=partnerSkillName(skill,palsById.get(skill.palId));
-      if(title)results.push({title,meta:labels.partner,path:`/skills/partner/${encodeURIComponent(skill.id)}`,icon:"skills"});
+      if(title)results.push({title,meta:labels.partner,path:`/skills/partner/${encodeURIComponent(partnerSkillSlug(skill))}`,icon:"skills"});
     }
   }
   return results;
@@ -111,6 +126,12 @@ export function renderPrimaryGlobalSearch<Locale extends string>({
   palName,
   itemName,
   partnerSkillName,
+  routes,
+  palSlug,
+  itemSlug,
+  activeSkillSlug,
+  passiveSkillSlug,
+  partnerSkillSlug,
   href,
   renderIcon,
   escape,
@@ -125,6 +146,12 @@ export function renderPrimaryGlobalSearch<Locale extends string>({
   palName:(pal:GlobalSearchPal<Locale>)=>string;
   itemName:(item:GlobalSearchItem<Locale>)=>string;
   partnerSkillName:(skill:GlobalSearchPartnerSkill<Locale>,pal:GlobalSearchPal<Locale>|undefined)=>string;
+  routes?:readonly GlobalSearchRoute[];
+  palSlug?:(pal:GlobalSearchPal<Locale>)=>string;
+  itemSlug?:(item:GlobalSearchItem<Locale>)=>string;
+  activeSkillSlug?:(skill:GlobalSearchActiveSkill<Locale>)=>string;
+  passiveSkillSlug?:(skill:GlobalSearchPassiveSkill<Locale>)=>string;
+  partnerSkillSlug?:(skill:GlobalSearchPartnerSkill<Locale>)=>string;
   href:(path:string)=>string;
   renderIcon:(name:IconName)=>string;
   escape:(value:string)=>string;
@@ -137,7 +164,7 @@ export function renderPrimaryGlobalSearch<Locale extends string>({
     status.textContent="";
     return 0;
   }
-  const results=findGlobalSearchResults({query,locale,defaultLocale,data,labels,palName,itemName,partnerSkillName});
+  const results=findGlobalSearchResults({query,locale,defaultLocale,data,labels,palName,itemName,partnerSkillName,routes,palSlug,itemSlug,activeSkillSlug,passiveSkillSlug,partnerSkillSlug});
   const shown=results.slice(0,40);
   status.textContent=`${results.length.toLocaleString(locale)} ${labels.results}`;
   target.innerHTML=publicAssetHtml(shown.map(result=>`<a href="${href(result.path)}" data-global-result>${result.image?`<img src="${result.image}" alt="" width="52" height="52">`:`<span class="search-result-icon">${renderIcon(result.icon||"search")}</span>`}<span><strong>${escape(result.title)}</strong><small>${escape(result.meta)}</small></span></a>`).join("")||`<p class="empty-compact">${escape(labels.noResult)}</p>`);

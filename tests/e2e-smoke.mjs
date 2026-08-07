@@ -49,6 +49,16 @@ try{
     const englishNameMatch=page.locator('#global-search-results a[href*="/ko-KR/pals/"]').first();
     await englishNameMatch.waitFor({state:"visible"});
     assert.ok((await englishNameMatch.textContent())?.trim(),"an official English Pal name must find a localized Pal result");
+    assert.doesNotMatch((await englishNameMatch.getAttribute("href"))||"",/SheepBall/,"global search must emit the public Pal slug instead of an internal ID");
+    await page.locator("#global-search-input").fill("base-team-planner");
+    await page.locator('#global-search-results a[href="/ko-KR/calculators/base"]').waitFor({state:"visible"});
+    await page.locator("#global-search-input").fill("owned-pal-breeding-path");
+    await page.locator('#global-search-results a[href="/ko-KR/calculators/breeding-path"]').waitFor({state:"visible"});
+    await page.locator("#global-search-input").fill("Pal");
+    await page.waitForFunction(()=>document.querySelectorAll("#global-search-results a[data-global-result]").length>1);
+    const broadResultHrefs=await page.locator("#global-search-results a[data-global-result]").evaluateAll(links=>links.map(link=>link.getAttribute("href")));
+    assert.ok(broadResultHrefs.length<=40,"global search must apply one result cap across every route and data family");
+    assert.equal(new Set(broadResultHrefs).size,broadResultHrefs.length,"global search must remove duplicate destinations across result providers");
     assert.equal(searchChunkRequests.length,1,"global search code must load exactly once when search is first opened");
     page.off("request",recordSearchChunk);
   });
