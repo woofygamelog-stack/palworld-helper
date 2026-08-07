@@ -19,6 +19,15 @@ export function shouldOpenGlobalSearchShortcut({key,ctrlKey=false,metaKey=false,
   return key==="/"&&!ctrlKey&&!metaKey&&!/^(INPUT|TEXTAREA|SELECT)$/.test(targetTagName.toUpperCase());
 }
 
+export function globalSearchFocusIndex({key,currentIndex,resultCount}:{key:string;currentIndex:number;resultCount:number}){
+  if(!resultCount)return -1;
+  if(key==="Home")return 0;
+  if(key==="End")return resultCount-1;
+  if(key==="ArrowDown")return currentIndex<0?0:Math.min(currentIndex+1,resultCount-1);
+  if(key==="ArrowUp")return currentIndex<0?resultCount-1:currentIndex===0?-1:currentIndex-1;
+  return currentIndex;
+}
+
 export function bindShellInteractions({
   document,
   onLocaleChange,
@@ -84,7 +93,17 @@ export function bindShellInteractions({
       void openSearch();
     }
   }) as EventListener);
-  if(initialInput)listen(initialInput,"input",(()=>renderGlobalSearch(initialInput.value)) as EventListener);
+  if(initialInput){
+    listen(initialInput,"input",(()=>renderGlobalSearch(initialInput.value)) as EventListener);
+    listen(initialInput,"keydown",(event=>{
+      const keyboardEvent=event as KeyboardEvent;
+      if(keyboardEvent.key!=="ArrowDown"&&keyboardEvent.key!=="ArrowUp")return;
+      const links=[...document.querySelectorAll<HTMLAnchorElement>("#global-search-results a[data-global-result]")],next=globalSearchFocusIndex({key:keyboardEvent.key,currentIndex:-1,resultCount:links.length});
+      if(next<0)return;
+      keyboardEvent.preventDefault();
+      links[next]?.focus();
+    }) as EventListener);
+  }
   const clearSearch=document.querySelector<HTMLElement>("[data-clear-global-search]");
   if(clearSearch)listen(clearSearch,"click",(()=>{
     const input=document.querySelector<HTMLInputElement>("#global-search-input");
@@ -94,6 +113,13 @@ export function bindShellInteractions({
     input.focus();
   }) as EventListener);
   const searchResults=document.querySelector<HTMLElement>("#global-search-results");
+  if(searchResults)listen(searchResults,"keydown",(event=>{
+    const keyboardEvent=event as KeyboardEvent,link=(keyboardEvent.target as Element|null)?.closest<HTMLAnchorElement>("a[data-global-result]");
+    if(!link||!["ArrowDown","ArrowUp","Home","End"].includes(keyboardEvent.key))return;
+    const links=[...searchResults.querySelectorAll<HTMLAnchorElement>("a[data-global-result]")],next=globalSearchFocusIndex({key:keyboardEvent.key,currentIndex:links.indexOf(link),resultCount:links.length});
+    keyboardEvent.preventDefault();
+    if(next<0)document.querySelector<HTMLInputElement>("#global-search-input")?.focus();else links[next]?.focus();
+  }) as EventListener);
   if(searchResults)listen(searchResults,"click",(event=>{
     const link=(event.target as Element|null)?.closest<HTMLAnchorElement>("a[data-global-result]");
     if(!link)return;

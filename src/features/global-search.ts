@@ -32,6 +32,50 @@ export type GlobalSearchPartnerSkill<Locale extends string>={id:string;palId:str
 
 export type GlobalSearchResult={title:string;meta:string;path:string;image?:string;icon?:IconName};
 export type GlobalSearchRoute={title:string;meta:string;path:string;keywords:readonly string[];icon?:IconName};
+export type GlobalSearchKind="locations"|"pals"|"items"|"skills"|"technology"|"structures"|"guides"|"calculators"|"server"|"npcs"|"dungeons"|"expeditions"|"quests"|"health"|"elements"|"database";
+
+export function globalSearchKindFromHref(href:string):GlobalSearchKind{
+  const pathname=new URL(href,"https://palworld-helper.invalid").pathname.replace(/^\/[a-z]{2}(?:-[a-z0-9]+)?(?=\/|$)/i,"");
+  if(pathname==="/map")return "locations";
+  if(pathname==="/pals"||pathname.startsWith("/pals/"))return "pals";
+  if(pathname==="/database")return "items";
+  if(pathname.startsWith("/items/"))return "items";
+  if(pathname.startsWith("/skills"))return "skills";
+  if(pathname.startsWith("/database/technology"))return "technology";
+  if(pathname.startsWith("/database/structures"))return "structures";
+  if(pathname.startsWith("/database/npcs"))return "npcs";
+  if(pathname.startsWith("/database/dungeons"))return "dungeons";
+  if(pathname.startsWith("/database/expeditions"))return "expeditions";
+  if(pathname.startsWith("/database/quests"))return "quests";
+  if(pathname.startsWith("/database/health"))return "health";
+  if(pathname.startsWith("/database/elements"))return "elements";
+  if(pathname.startsWith("/guides"))return "guides";
+  if(pathname.startsWith("/calculators"))return "calculators";
+  if(pathname.startsWith("/server-tools"))return "server";
+  return "database";
+}
+
+export function finalizeGlobalSearchResults({target,status,locale,resultLabel,kindLabels,limit=40}:{target:HTMLElement;status:HTMLElement;locale:string;resultLabel:string;kindLabels:Record<GlobalSearchKind,string>;limit?:number}){
+  const seen=new Set<string>();
+  let uniqueCount=0;
+  for(const result of target.querySelectorAll<HTMLAnchorElement>("a[data-global-result]")){
+    const key=result.getAttribute("href")||"";
+    if(seen.has(key)){result.remove();continue}
+    seen.add(key);
+    uniqueCount++;
+    if(uniqueCount>limit){result.remove();continue}
+    const kind=globalSearchKindFromHref(result.href),label=kindLabels[kind],copy=result.querySelector<HTMLElement>("strong")?.parentElement,detail=copy?.querySelector<HTMLElement>("small");
+    result.dataset.searchKind=kind;
+    if(detail?.textContent===label)detail.remove();
+    else if(detail?.textContent?.startsWith(`${label} · `))detail.textContent=detail.textContent.slice(label.length+3);
+    copy?.querySelector(".search-result-kind")?.remove();
+    const title=copy?.querySelector("strong");
+    if(title){const badge=target.ownerDocument.createElement("span");badge.className="search-result-kind";badge.textContent=label;title.insertAdjacentElement("afterend",badge)}
+  }
+  if(uniqueCount)target.querySelector(".empty-compact")?.remove();
+  status.textContent=`${Math.min(uniqueCount,limit).toLocaleString(locale)} ${resultLabel}`;
+  return Math.min(uniqueCount,limit);
+}
 
 export function mapCategorySearchRoutes({locale,defaultLocale,items,mapTitle}:{locale:Locale;defaultLocale:Locale;items:readonly {id:string;names:Record<Locale,string>}[];mapTitle:string}){const layerLabels=mapLayerLabels[locale],extraLabels=mapExtraLabels[locale],itemsById=new Map(items.map(item=>[item.id,item]));return mapPointCategoryDefinitions.flatMap(definition=>{const label=definition.labelSource==="item"?(itemsById.get(definition.labelKey)?.names[locale]||itemsById.get(definition.labelKey)?.names[defaultLocale]):definition.labelSource==="extra"?extraLabels[definition.labelKey as keyof typeof extraLabels]:layerLabels[definition.labelKey as keyof typeof layerLabels];return label?[{title:label,meta:mapTitle,path:`/map?layers=${definition.id}`,keywords:[definition.id,definition.group,label],icon:"map" as const}]:[]})}
 

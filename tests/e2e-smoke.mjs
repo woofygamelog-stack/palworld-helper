@@ -57,8 +57,15 @@ try{
     await page.locator("#global-search-input").fill("Cake");
     await page.waitForFunction(()=>document.querySelectorAll('#global-search-results a[href*="/ko-KR/items/"]').length>1);
     assert.ok(await page.locator('#global-search-results a[href*="/ko-KR/items/cake-"]').count(),"global search must retain the direct crafted item beside its recipe-related materials");
+    assert.equal(await page.locator('#global-search-results a[href*="/ko-KR/items/cake-"]').getAttribute("data-search-kind"),"items","item results must expose an explicit stable kind");
+    assert.ok((await page.locator('#global-search-results a[href*="/ko-KR/items/cake-"] .search-result-kind').textContent())?.trim(),"item results must show a localized kind badge");
+    await page.locator("#global-search-input").press("ArrowDown");
+    assert.equal(await page.locator('#global-search-results a[data-global-result]').first().evaluate(node=>node===document.activeElement),true,"ArrowDown must move focus to the first global-search result");
+    await page.locator('#global-search-results a[data-global-result]').first().press("ArrowUp");
+    assert.equal(await page.locator("#global-search-input").evaluate(node=>node===document.activeElement),true,"ArrowUp from the first result must return focus to the search input");
     await page.locator("#global-search-input").fill("ore");
     await page.locator('#global-search-results a[href="/ko-KR/map?layers=ore"]').waitFor({state:"visible"});
+    assert.equal(await page.locator('#global-search-results a[href="/ko-KR/map?layers=ore"]').getAttribute("data-search-kind"),"locations","map-category results must expose an explicit stable location kind");
     await page.locator("#global-search-input").fill("Pal");
     await page.waitForFunction(()=>document.querySelectorAll("#global-search-results a[data-global-result]").length>1);
     const broadResultHrefs=await page.locator("#global-search-results a[data-global-result]").evaluateAll(links=>links.map(link=>link.getAttribute("href")));

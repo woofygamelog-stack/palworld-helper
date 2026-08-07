@@ -39,8 +39,8 @@ import {effectiveTheme,readThemePreference,themeIconName} from "../src/app/theme
 import {hasSupportedLocale,navigateSpa,normalizedLocaleUrl,routeFromPathname} from "../src/app/router.ts";
 import {buildPageMetadata,seoSummary} from "../src/app/page-context.ts";
 import {renderApplicationShell,shellRouteIsActive} from "../src/app/shell.ts";
-import {preservedLocaleSearch,shouldOpenGlobalSearchShortcut,themeModeFromChoice} from "../src/app/shell-controller.ts";
-import {findGlobalSearchResults} from "../src/features/global-search.ts";
+import {globalSearchFocusIndex,preservedLocaleSearch,shouldOpenGlobalSearchShortcut,themeModeFromChoice} from "../src/app/shell-controller.ts";
+import {findGlobalSearchResults,globalSearchKindFromHref} from "../src/features/global-search.ts";
 import {createLazyModule} from "../src/app/lazy-module.ts";
 import {renderServerSettingsPage} from "../src/pages/server-settings.ts";
 import {renderCalculatorPage} from "../src/pages/calculators.ts";
@@ -224,6 +224,14 @@ assert.deepEqual(search("Cake").map(result=>result.path),["/items/cake-rank-1-ra
 assert.deepEqual(search("백업").map(result=>result.path),["/guides/server"],"global search must include localized guide workflows");
 assert.deepEqual(search("작업 속도").map(result=>result.path),["/skills/passive/artisan-rank-plus-1"],"global search must include localized passive-skill descriptions and emit a public skill URL");
 assert.deepEqual(search("   "),[],"global search must return no results for a blank query");
+assert.equal(globalSearchKindFromHref("/ko-KR/map?layers=ore"),"locations","localized map results must expose a stable location kind");
+assert.equal(globalSearchKindFromHref("/en-US/pals"),"pals","the Pal collection result must share the Pal result kind");
+assert.equal(globalSearchKindFromHref("/ko-KR/database"),"items","the item catalog result must share the item result kind");
+assert.equal(globalSearchKindFromHref("/en-US/database/technology/pal-gear"),"technology","technology results must remain distinct from generic database results");
+assert.equal(globalSearchKindFromHref("/ko-KR/guides/server"),"guides","guide results must expose a stable guide kind");
+assert.equal(globalSearchFocusIndex({key:"ArrowDown",currentIndex:-1,resultCount:3}),0,"ArrowDown must move from the search input to the first result");
+assert.equal(globalSearchFocusIndex({key:"ArrowUp",currentIndex:-1,resultCount:3}),2,"ArrowUp must move from the search input to the last result");
+assert.equal(globalSearchFocusIndex({key:"ArrowUp",currentIndex:0,resultCount:3}),-1,"ArrowUp from the first result must return to the search input");
 const declaredSearchScenarios=routeFamilies.filter(family=>family.path).length+mapPointCategoryDefinitions.length;
 assert.ok(declaredSearchScenarios>=50,"global search must retain at least 50 declared route and map-category intent scenarios");
 for(const locale of supportedLocales)for(const definition of mapPointCategoryDefinitions){if(definition.labelSource==="layer")assert.ok(mapLayerLabels[locale][definition.labelKey],`${locale} must label the ${definition.id} map search intent`);if(definition.labelSource==="extra")assert.ok(mapExtraLabels[locale][definition.labelKey],`${locale} must label the ${definition.id} map search intent`)}
