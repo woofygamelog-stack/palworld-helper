@@ -57,7 +57,7 @@ import {renderItemsPage} from "../src/pages/items.ts";
 import {renderPalsPage} from "../src/pages/pals.ts";
 import {exportOwnedPalLedger,importOwnedPalLedger,normalizeOwnedPalLedger,ownedPalCount,ownedPalStorageKey,readOwnedPalLedger,writeOwnedPalLedger} from "../src/owned-pals.ts";
 import {renderSkillsPage} from "../src/pages/skills.ts";
-import {guideCopy,guideDefinitions,guideRoute,guideStructureCopy} from "../src/guide-content.ts";
+import {guideCopy,guideDefinitions,guideMetricKindLabels,guideRoute,guideStepKindLabels,guideStructureCopy} from "../src/guide-content.ts";
 import {guidePageModel,renderGuidesPage} from "../src/pages/guides.ts";
 import {condensingPlan,differentComparisonRows,normalizePalSelection,teamCoverage} from "../src/pal-tools.ts";
 import {renderPalToolPage} from "../src/pages/pal-tools.ts";
@@ -263,14 +263,17 @@ assert.equal((koreanHomeMarkup.match(/data-home-action=/g)||[]).length,homeQuick
 assert.equal((koreanHomeMarkup.match(/data-home-group=/g)||[]).length,homeCatalogGroups.length,"Home must render every topic group once");
 assert.equal(guideDefinitions.length,6,"the launch guide catalog must contain six substantial workflow families");
 assert.equal(new Set(guideDefinitions.map(guide=>guide.slug)).size,guideDefinitions.length,"guide slugs must be unique");
-assert.ok(guideDefinitions.every(guide=>guide.related.length>=4&&guide.reviewTrigger),"every guide must connect at least four implemented routes and declare a freshness trigger");
-assert.deepEqual({schema:guideSnapshotData.meta.schema,build:guideSnapshotData.meta.gameBuild,verification:guideSnapshotData.meta.verification,locales:guideSnapshotData.meta.localeCount,guides:guideSnapshotData.meta.guideCount,metrics:guideSnapshotData.meta.metricCount},{schema:1,build:"24467282",verification:"verified",locales:17,guides:6,metrics:25},"Guide snapshot coverage must fail closed on every source-derived metric");
+assert.ok(guideDefinitions.every(guide=>guide.related.length>=4&&guide.stepKinds.length===guide.related.length&&guide.reviewTrigger),"every guide must connect at least four implemented routes with typed steps and declare a freshness trigger");
+assert.deepEqual({schema:guideSnapshotData.meta.schema,build:guideSnapshotData.meta.gameBuild,verification:guideSnapshotData.meta.verification,locales:guideSnapshotData.meta.localeCount,guides:guideSnapshotData.meta.guideCount,metrics:guideSnapshotData.meta.metricCount},{schema:2,build:"24467282",verification:"verified",locales:17,guides:6,metrics:25},"Guide snapshot coverage must fail closed on every source-derived metric");
 assert.equal(Object.values(guideSnapshotData.guides).reduce((sum,guide)=>sum+guide.metrics.length,0),25,"Guide snapshot metadata must reconcile with generated metrics");
+assert.deepEqual(new Set(Object.values(guideSnapshotData.guides).flatMap(guide=>guide.metrics.map(metric=>metric.kind))),new Set(["locations","pals","entries","recipes","combinations","skills","work-roles","settings","conditions"]),"Guide snapshot metrics must retain every supported semantic kind");
 assert.equal(guideSnapshotData.guides.breeding.metrics.find(metric=>metric.route==="calculators/breeding")?.count,palData.meta.breedingCount,"The breeding guide must consume the current relationship denominator");
 assert.equal(guideSnapshotData.guides.server.metrics.find(metric=>metric.route==="server-tools/settings-generator")?.count,serverSettingsInventory.supported,"The server guide must consume the current supported-setting denominator");
 for(const locale of locales){
   assert.equal(Object.keys(guideCopy[locale].guides).length,guideDefinitions.length,`${locale} guide copy must cover every guide`);
   assert.deepEqual(Object.keys(guideStructureCopy[locale]).sort(),Object.keys(guideStructureCopy["en-US"]).sort(),`${locale} guide structure copy must be complete`);
+  assert.deepEqual(Object.keys(guideStepKindLabels[locale]).sort(),Object.keys(guideStepKindLabels["en-US"]).sort(),`${locale} guide step semantics must be complete`);
+  assert.deepEqual(Object.keys(guideMetricKindLabels[locale]).sort(),Object.keys(guideMetricKindLabels["en-US"]).sort(),`${locale} guide metric semantics must be complete`);
   const hub=guidePageModel(locale,"guides",route=>`/${locale}/${route}`);
   assert.ok(hub&&hub.type==="CollectionPage"&&(hub.body.match(/class="panel guide-card"/g)||[]).length===guideDefinitions.length,`${locale} guide hub must render every guide`);
   for(const guide of guideDefinitions){
@@ -281,6 +284,8 @@ for(const locale of locales){
     assert.equal(resultItems.length,guide.related.length,`${locale} ${guide.id} must render one result checkpoint per step`);
     assert.equal((model.body.match(/class="panel guide-coverage"/g)||[]).length,1,`${locale} ${guide.id} must render source-derived coverage`);
     assert.equal((model.body.match(/<div><dt><a href=/g)||[]).length,guideSnapshotData.guides[guide.id].metrics.length,`${locale} ${guide.id} must render every generated metric`);
+    for(const kind of new Set(guide.stepKinds))assert.ok(model.body.includes(guideStepKindLabels[locale][kind]),`${locale} ${guide.id} must render each typed step action`);
+    for(const metric of guideSnapshotData.guides[guide.id].metrics)assert.ok(model.body.includes(guideMetricKindLabels[locale][metric.kind]),`${locale} ${guide.id} must explain each generated metric`);
     assert.equal((model.body.match(/<h1>/g)||[]).length,1,`${locale} ${guide.id} must keep one h1`);
   }
 }

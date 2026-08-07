@@ -1,19 +1,61 @@
 import type {Locale} from "./config";
 
 export type GuideId="getting-started"|"returning-player"|"breeding"|"base"|"server"|"combat";
-export type GuideDefinition={id:GuideId;slug:GuideId;related:readonly string[];reviewTrigger:string};
-export type GuideSnapshotData={meta:{schema:1;gameBuild:string;verification:"verified";localeCount:number;guideCount:number;metricCount:number};guides:Record<GuideId,{reviewTrigger:string;metrics:{route:string;count:number}[]}>};
+export type GuideMetricKind="locations"|"pals"|"entries"|"recipes"|"combinations"|"skills"|"work-roles"|"settings"|"conditions";
+export type GuideStepKind="discover"|"compare"|"verify"|"plan";
+export type GuideDefinition={id:GuideId;slug:GuideId;related:readonly string[];stepKinds:readonly GuideStepKind[];reviewTrigger:string};
+export type GuideSnapshotData={meta:{schema:2;gameBuild:string;verification:"verified";localeCount:number;guideCount:number;metricCount:number};guides:Record<GuideId,{reviewTrigger:string;metrics:{route:string;kind:GuideMetricKind;count:number}[]}>};
 
 export const guideDefinitions=[
-  {id:"getting-started",slug:"getting-started",related:["map","pals","database/technology","calculators/base","calculators/crafting"],reviewTrigger:"major progression or map change"},
-  {id:"returning-player",slug:"returning-player",related:["database/quests","database/technology","database/expeditions","map"],reviewTrigger:"major content update"},
-  {id:"breeding",slug:"breeding",related:["pals","calculators/breeding","calculators/breeding-path","skills/passive","calculators/team-builder"],reviewTrigger:"breeding rule or Pal roster change"},
-  {id:"base",slug:"base",related:["calculators/base","pals","database/structures","calculators/crafting","database"],reviewTrigger:"work suitability, recipe, or structure change"},
-  {id:"server",slug:"server",related:["server-tools/settings-generator","calculators/base","database/structures","calculators/crafting"],reviewTrigger:"official server guide change"},
-  {id:"combat",slug:"combat",related:["database/elements","skills/active","calculators/iv","database/health","calculators/team-builder"],reviewTrigger:"element, condition, or active-skill change"},
+  {id:"getting-started",slug:"getting-started",related:["map","pals","database/technology","calculators/base","calculators/crafting"],stepKinds:["discover","compare","verify","plan","plan"],reviewTrigger:"major progression or map change"},
+  {id:"returning-player",slug:"returning-player",related:["database/quests","database/technology","database/expeditions","map"],stepKinds:["verify","verify","compare","discover"],reviewTrigger:"major content update"},
+  {id:"breeding",slug:"breeding",related:["pals","calculators/breeding","calculators/breeding-path","skills/passive","calculators/team-builder"],stepKinds:["compare","verify","plan","compare","verify"],reviewTrigger:"breeding rule or Pal roster change"},
+  {id:"base",slug:"base",related:["calculators/base","pals","database/structures","calculators/crafting","database"],stepKinds:["plan","compare","verify","plan","verify"],reviewTrigger:"work suitability, recipe, or structure change"},
+  {id:"server",slug:"server",related:["server-tools/settings-generator","calculators/base","database/structures","calculators/crafting"],stepKinds:["verify","plan","verify","plan"],reviewTrigger:"official server guide change"},
+  {id:"combat",slug:"combat",related:["database/elements","skills/active","calculators/iv","database/health","calculators/team-builder"],stepKinds:["compare","compare","verify","verify","plan"],reviewTrigger:"element, condition, or active-skill change"},
 ] as const satisfies readonly GuideDefinition[];
 
+export const guideStepKindLabels:Record<Locale,Record<GuideStepKind,string>>={
+  "en-US":{discover:"Find the relevant options and narrow the next stop.",compare:"Compare the current choices before selecting one.",verify:"Check the current constraints and confirm the checkpoint.",plan:"Record the requirements before committing resources."},
+  "ko-KR":{discover:"관련 선택지를 찾아 다음 목적지를 좁히세요.",compare:"현재 선택지를 비교한 뒤 하나를 고르세요.",verify:"현재 조건을 점검하고 이 확인 지점을 완료하세요.",plan:"자원을 투입하기 전에 필요한 조건을 계획하세요."},
+  "ja-JP":{discover:"関連する選択肢を探し、次の目的地を絞ります。",compare:"現在の選択肢を比較してから一つを選びます。",verify:"現在の条件を確認し、このチェックポイントを完了します。",plan:"資源を使う前に必要条件を計画します。"},
+  "zh-CN":{discover:"查找相关选项并缩小下一站范围。",compare:"比较当前选项后再作选择。",verify:"检查当前限制并完成此检查点。",plan:"投入资源前先规划所需条件。"},
+  "zh-TW":{discover:"查找相關選項並縮小下一站範圍。",compare:"比較目前選項後再作選擇。",verify:"檢查目前限制並完成此檢查點。",plan:"投入資源前先規劃所需條件。"},
+  "fr-FR":{discover:"Repérez les options utiles et réduisez le choix de la prochaine étape.",compare:"Comparez les choix actuels avant d’en sélectionner un.",verify:"Vérifiez les contraintes actuelles et validez ce point de contrôle.",plan:"Notez les besoins avant d’engager des ressources."},
+  "it-IT":{discover:"Trova le opzioni pertinenti e restringi la prossima tappa.",compare:"Confronta le scelte attuali prima di selezionarne una.",verify:"Controlla i vincoli attuali e completa questo punto di verifica.",plan:"Annota i requisiti prima di impegnare risorse."},
+  "de-DE":{discover:"Finde passende Optionen und grenze das nächste Ziel ein.",compare:"Vergleiche die aktuellen Optionen, bevor du eine auswählst.",verify:"Prüfe die aktuellen Bedingungen und bestätige diesen Kontrollpunkt.",plan:"Halte die Anforderungen fest, bevor du Ressourcen einsetzt."},
+  "es-ES":{discover:"Busca las opciones relevantes y concreta el siguiente destino.",compare:"Compara las opciones actuales antes de elegir una.",verify:"Revisa las condiciones actuales y confirma este punto de control.",plan:"Anota los requisitos antes de comprometer recursos."},
+  "es-419":{discover:"Busca las opciones relevantes y define el siguiente destino.",compare:"Compara las opciones actuales antes de elegir una.",verify:"Revisa las condiciones actuales y confirma este punto de control.",plan:"Anota los requisitos antes de comprometer recursos."},
+  "pt-BR":{discover:"Encontre as opções relevantes e restrinja o próximo destino.",compare:"Compare as opções atuais antes de escolher uma.",verify:"Confira as condições atuais e conclua este ponto de verificação.",plan:"Registre os requisitos antes de comprometer recursos."},
+  "ru-RU":{discover:"Найдите подходящие варианты и сузьте выбор следующей цели.",compare:"Сравните текущие варианты, прежде чем выбрать один.",verify:"Проверьте текущие условия и завершите этот контрольный пункт.",plan:"Запишите требования до расходования ресурсов."},
+  "id-ID":{discover:"Temukan opsi yang relevan dan persempit tujuan berikutnya.",compare:"Bandingkan pilihan saat ini sebelum memilih satu.",verify:"Periksa ketentuan saat ini dan selesaikan titik pemeriksaan ini.",plan:"Catat kebutuhan sebelum memakai sumber daya."},
+  "th-TH":{discover:"ค้นหาตัวเลือกที่เกี่ยวข้องและจำกัดจุดหมายถัดไป",compare:"เปรียบเทียบตัวเลือกปัจจุบันก่อนเลือก",verify:"ตรวจสอบเงื่อนไขปัจจุบันและยืนยันจุดตรวจนี้",plan:"บันทึกข้อกำหนดก่อนใช้ทรัพยากร"},
+  "tr-TR":{discover:"İlgili seçenekleri bulun ve sonraki hedefi daraltın.",compare:"Birini seçmeden önce güncel seçenekleri karşılaştırın.",verify:"Güncel koşulları kontrol edin ve bu kontrol noktasını tamamlayın.",plan:"Kaynak ayırmadan önce gereksinimleri kaydedin."},
+  "vi-VN":{discover:"Tìm các lựa chọn liên quan và thu hẹp điểm đến tiếp theo.",compare:"So sánh các lựa chọn hiện tại trước khi chọn.",verify:"Kiểm tra điều kiện hiện tại và hoàn tất điểm kiểm tra này.",plan:"Ghi lại yêu cầu trước khi dùng tài nguyên."},
+  "pl-PL":{discover:"Znajdź odpowiednie opcje i zawęź następny cel.",compare:"Porównaj aktualne opcje przed wybraniem jednej.",verify:"Sprawdź bieżące warunki i zakończ ten punkt kontrolny.",plan:"Zapisz wymagania przed przeznaczeniem zasobów."},
+};
+
 export type GuideStructureCopy={problem:string;preparation:string;preparationIntro:string;procedure:string;result:string;resultIntro:string;stepAction:string;confirm:string;coverage:string;coverageIntro:string;entries:string};
+
+export const guideMetricKindLabels:Record<Locale,Record<GuideMetricKind,string>>={
+  "en-US":{locations:"map points",pals:"Pals",entries:"catalog entries",recipes:"recipes",combinations:"breeding combinations",skills:"skills","work-roles":"work roles",settings:"supported settings",conditions:"health conditions"},
+  "ko-KR":{locations:"지도 지점",pals:"팰",entries:"도감 항목",recipes:"레시피",combinations:"교배 조합",skills:"스킬","work-roles":"작업 역할",settings:"지원 설정",conditions:"건강 상태"},
+  "ja-JP":{locations:"マップ地点",pals:"パル",entries:"カタログ項目",recipes:"レシピ",combinations:"配合組み合わせ",skills:"スキル","work-roles":"作業役割",settings:"対応設定",conditions:"健康状態"},
+  "zh-CN":{locations:"地图点位",pals:"帕鲁",entries:"图鉴条目",recipes:"配方",combinations:"配种组合",skills:"技能","work-roles":"工作角色",settings:"支持的设置",conditions:"健康状态"},
+  "zh-TW":{locations:"地圖點位",pals:"帕魯",entries:"圖鑑條目",recipes:"配方",combinations:"配種組合",skills:"技能","work-roles":"工作角色",settings:"支援設定",conditions:"健康狀態"},
+  "fr-FR":{locations:"points de carte",pals:"Pals",entries:"entrées du catalogue",recipes:"recettes",combinations:"combinaisons d’élevage",skills:"compétences","work-roles":"rôles de travail",settings:"paramètres pris en charge",conditions:"états de santé"},
+  "it-IT":{locations:"punti mappa",pals:"Pal",entries:"voci del catalogo",recipes:"ricette",combinations:"combinazioni di riproduzione",skills:"abilità","work-roles":"ruoli di lavoro",settings:"impostazioni supportate",conditions:"condizioni di salute"},
+  "de-DE":{locations:"Kartenpunkte",pals:"Pals",entries:"Katalogeinträge",recipes:"Rezepte",combinations:"Zuchtkombinationen",skills:"Fähigkeiten","work-roles":"Arbeitsrollen",settings:"unterstützte Einstellungen",conditions:"Gesundheitszustände"},
+  "es-ES":{locations:"puntos del mapa",pals:"Pals",entries:"entradas del catálogo",recipes:"recetas",combinations:"combinaciones de cría",skills:"habilidades","work-roles":"roles de trabajo",settings:"ajustes compatibles",conditions:"estados de salud"},
+  "es-419":{locations:"puntos del mapa",pals:"Pals",entries:"entradas del catálogo",recipes:"recetas",combinations:"combinaciones de cría",skills:"habilidades","work-roles":"roles de trabajo",settings:"ajustes compatibles",conditions:"estados de salud"},
+  "pt-BR":{locations:"pontos do mapa",pals:"Pals",entries:"entradas do catálogo",recipes:"receitas",combinations:"combinações de reprodução",skills:"habilidades","work-roles":"funções de trabalho",settings:"configurações compatíveis",conditions:"condições de saúde"},
+  "ru-RU":{locations:"точек карты",pals:"Палов",entries:"записей каталога",recipes:"рецептов",combinations:"комбинаций разведения",skills:"навыков","work-roles":"рабочих ролей",settings:"поддерживаемых настроек",conditions:"состояний здоровья"},
+  "id-ID":{locations:"titik peta",pals:"Pal",entries:"entri katalog",recipes:"resep",combinations:"kombinasi breeding",skills:"skill","work-roles":"peran kerja",settings:"pengaturan yang didukung",conditions:"kondisi kesehatan"},
+  "th-TH":{locations:"จุดบนแผนที่",pals:"พัล",entries:"รายการแค็ตตาล็อก",recipes:"สูตร",combinations:"คู่ผสมพันธุ์",skills:"สกิล","work-roles":"บทบาทงาน",settings:"การตั้งค่าที่รองรับ",conditions:"สถานะสุขภาพ"},
+  "tr-TR":{locations:"harita noktası",pals:"Pal",entries:"katalog kaydı",recipes:"tarif",combinations:"üretme kombinasyonu",skills:"beceri","work-roles":"iş rolü",settings:"desteklenen ayar",conditions:"sağlık durumu"},
+  "vi-VN":{locations:"điểm bản đồ",pals:"Pal",entries:"mục danh mục",recipes:"công thức",combinations:"tổ hợp phối giống",skills:"kỹ năng","work-roles":"vai trò công việc",settings:"thiết lập được hỗ trợ",conditions:"tình trạng sức khỏe"},
+  "pl-PL":{locations:"punktów mapy",pals:"Pali",entries:"wpisów katalogu",recipes:"receptur",combinations:"kombinacji hodowlanych",skills:"umiejętności","work-roles":"ról pracy",settings:"obsługiwanych ustawień",conditions:"stanów zdrowia"},
+};
 
 export const guideStructureCopy:Record<Locale,GuideStructureCopy>={
   "en-US":{problem:"Goal",preparation:"Before you start",preparationIntro:"Keep these verified tools open so each decision uses the current catalog.",procedure:"Step-by-step procedure",result:"Check the result",resultIntro:"Before you spend resources or apply changes, confirm each checkpoint.",stepAction:"Review the current information, make this decision, then continue.",confirm:"Confirmed: {name}",coverage:"Current verified coverage",coverageIntro:"These counts are generated from the same data used by the linked tools and update with them.",entries:"entries"},

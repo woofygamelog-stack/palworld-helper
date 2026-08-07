@@ -760,6 +760,7 @@ try{
     assert.equal(await page.locator(".guide-step-number").count(),4,"the server guide must expose its four linked workflow steps");
     assert.equal(await page.locator(".guide-coverage dd").count(),4,"the server guide must expose four source-derived coverage metrics");
     assert.match((await page.locator(".guide-coverage").textContent())||"",/93/,'the server guide must expose the generated supported-setting denominator');
+    assert.match((await page.locator(".guide-coverage").textContent())||"",/supported settings/,'the server guide must explain what the generated setting count measures');
     assert.equal(await page.locator(".guide-preparation li").count(),4,"the server guide must list every tool needed before starting");
     assert.equal(await page.locator(".guide-result li").count(),4,"the server guide must expose one result checkpoint per workflow step");
     assert.equal(guideChunkRequests.length,1,"guide details must reuse the loaded guide module");
