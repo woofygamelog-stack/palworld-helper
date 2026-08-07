@@ -809,6 +809,21 @@ try{
     assert.ok((await page.locator("#breed-result").textContent())?.trim(),"the breeding guide workflow must produce an inspectable current result");
   });
 
+  await run("guide-base-workflow",async()=>{
+    await visit("/en-US/guides/base");
+    await page.locator(".guide-detail").waitFor({state:"visible"});
+    assert.equal(await page.locator(".guide-step-number").count(),5,"the base guide must expose its five specific workflow steps");
+    assert.match((await page.locator(".guide-workflow").textContent())||"",/Choose the base goal[\s\S]*recipe choice[\s\S]*item catalog/,"the base guide must explain goal, roles, structures, materials, and item verification in order");
+    await page.locator('.guide-workflow a[href="/en-US/calculators/base"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/calculators/base");
+    await page.locator("#base-planner-form").waitFor({state:"visible"});
+    const presetValues=await page.locator('#base-goal option:not([value="custom"])').evaluateAll(options=>options.slice(0,2).map(option=>(option).value));
+    assert.equal(presetValues.length,2,"the base guide must lead to selectable verified goal presets");
+    await page.locator("#base-goal").selectOption(presetValues[1]);
+    await page.locator("#base-plan-output .base-team-card").first().waitFor({state:"visible"});
+    assert.ok(await page.locator("#base-plan-output .base-team-card").count(),"the base guide workflow must produce an inspectable Pal plan");
+  });
+
   await run("locale-change",async()=>{
     await visit("/en-US");
     await page.locator("#locale").selectOption("ko-KR");
