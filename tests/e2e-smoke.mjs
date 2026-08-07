@@ -793,6 +793,22 @@ try{
     page.off("request",recordGuideChunk);
   });
 
+  await run("guide-breeding-workflow",async()=>{
+    await visit("/en-US/guides/breeding");
+    await page.locator(".guide-detail").waitFor({state:"visible"});
+    assert.equal(await page.locator(".guide-step-number").count(),5,"the breeding guide must expose its five specific workflow steps");
+    assert.match((await page.locator(".guide-workflow").textContent())||"",/Choose the target child[\s\S]*inheritance chances remain outside this guide[\s\S]*team builder/,"the breeding guide must explain target, path, passive, and team decisions with the inheritance boundary");
+    await page.locator('.guide-workflow a[href="/en-US/calculators/breeding"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/calculators/breeding");
+    await page.locator("#parent-a").waitFor({state:"attached"});
+    const parentValues=await page.locator('#parent-a option:not([value=""])').evaluateAll(options=>options.slice(0,2).map(option=>(option).value));
+    assert.equal(parentValues.length,2,"the breeding guide must lead to selectable verified Pal parents");
+    await page.locator("#parent-a").selectOption(parentValues[0],{force:true});
+    await page.locator("#parent-b").selectOption(parentValues[1],{force:true});
+    await page.locator("#breed-result .calculator-result-link").waitFor({state:"visible"});
+    assert.ok((await page.locator("#breed-result").textContent())?.trim(),"the breeding guide workflow must produce an inspectable current result");
+  });
+
   await run("locale-change",async()=>{
     await visit("/en-US");
     await page.locator("#locale").selectOption("ko-KR");
