@@ -109,6 +109,7 @@ const wranglerConfig = JSON.parse((await readFile("wrangler.jsonc", "utf8")).rep
 const palData = JSON.parse(await readFile("public/data/pals.json", "utf8"));
 const itemData = JSON.parse(await readFile("public/data/items.json", "utf8"));
 const itemRelationData = JSON.parse(await readFile("public/data/item-relations.json", "utf8"));
+const guideSnapshotData = JSON.parse(await readFile("public/data/guide-snapshots.json", "utf8"));
 const imageManifest = JSON.parse(await readFile("public/assets/image-manifest.json", "utf8"));
 const skillData = JSON.parse(await readFile("public/data/skills.json", "utf8"));
 const npcData = JSON.parse(await readFile("public/data/npcs.json", "utf8"));
@@ -263,22 +264,28 @@ assert.equal((koreanHomeMarkup.match(/data-home-group=/g)||[]).length,homeCatalo
 assert.equal(guideDefinitions.length,6,"the launch guide catalog must contain six substantial workflow families");
 assert.equal(new Set(guideDefinitions.map(guide=>guide.slug)).size,guideDefinitions.length,"guide slugs must be unique");
 assert.ok(guideDefinitions.every(guide=>guide.related.length>=4&&guide.reviewTrigger),"every guide must connect at least four implemented routes and declare a freshness trigger");
+assert.deepEqual({schema:guideSnapshotData.meta.schema,build:guideSnapshotData.meta.gameBuild,verification:guideSnapshotData.meta.verification,locales:guideSnapshotData.meta.localeCount,guides:guideSnapshotData.meta.guideCount,metrics:guideSnapshotData.meta.metricCount},{schema:1,build:"24467282",verification:"verified",locales:17,guides:6,metrics:25},"Guide snapshot coverage must fail closed on every source-derived metric");
+assert.equal(Object.values(guideSnapshotData.guides).reduce((sum,guide)=>sum+guide.metrics.length,0),25,"Guide snapshot metadata must reconcile with generated metrics");
+assert.equal(guideSnapshotData.guides.breeding.metrics.find(metric=>metric.route==="calculators/breeding")?.count,palData.meta.breedingCount,"The breeding guide must consume the current relationship denominator");
+assert.equal(guideSnapshotData.guides.server.metrics.find(metric=>metric.route==="server-tools/settings-generator")?.count,serverSettingsInventory.supported,"The server guide must consume the current supported-setting denominator");
 for(const locale of locales){
   assert.equal(Object.keys(guideCopy[locale].guides).length,guideDefinitions.length,`${locale} guide copy must cover every guide`);
   assert.deepEqual(Object.keys(guideStructureCopy[locale]).sort(),Object.keys(guideStructureCopy["en-US"]).sort(),`${locale} guide structure copy must be complete`);
   const hub=guidePageModel(locale,"guides",route=>`/${locale}/${route}`);
   assert.ok(hub&&hub.type==="CollectionPage"&&(hub.body.match(/class="panel guide-card"/g)||[]).length===guideDefinitions.length,`${locale} guide hub must render every guide`);
   for(const guide of guideDefinitions){
-    const model=guidePageModel(locale,guideRoute(guide.slug),route=>`/${locale}/${route}`);
+    const model=guidePageModel(locale,guideRoute(guide.slug),route=>`/${locale}/${route}`,guideSnapshotData);
     assert.ok(model&&model.type==="Article"&&(model.body.match(/class="guide-step-number"/g)||[]).length===guide.related.length,`${locale} ${guide.id} must render its workflow`);
     assert.match(model.body,/class="panel guide-intro"[\s\S]*class="panel guide-preparation"[\s\S]*class="guide-workflow"[\s\S]*class="panel guide-result"[\s\S]*class="panel guide-scope"/,`${locale} ${guide.id} must render goal, preparation, procedure, result, and accuracy sections in order`);
     const resultItems=model.body.match(/<section class="panel guide-result">[\s\S]*?<ul>([\s\S]*?)<\/ul>/)?.[1].match(/<li>/g)||[];
     assert.equal(resultItems.length,guide.related.length,`${locale} ${guide.id} must render one result checkpoint per step`);
+    assert.equal((model.body.match(/class="panel guide-coverage"/g)||[]).length,1,`${locale} ${guide.id} must render source-derived coverage`);
+    assert.equal((model.body.match(/<div><dt><a href=/g)||[]).length,guideSnapshotData.guides[guide.id].metrics.length,`${locale} ${guide.id} must render every generated metric`);
     assert.equal((model.body.match(/<h1>/g)||[]).length,1,`${locale} ${guide.id} must keep one h1`);
   }
 }
 let guideMeta=null;
-const koreanGuideMarkup=renderGuidesPage({locale:"ko-KR",route:"/guides/server",href:route=>`/ko-KR/${route}`,setMeta:(title,description)=>{guideMeta={title,description}}});
+const koreanGuideMarkup=renderGuidesPage({locale:"ko-KR",route:"/guides/server",href:route=>`/ko-KR/${route}`,setMeta:(title,description)=>{guideMeta={title,description}},snapshotData:guideSnapshotData});
 assert.ok(koreanGuideMarkup?.includes("server-tools/settings-generator")&&koreanGuideMarkup.includes("결과 확인")&&guideMeta?.title,"the server guide must link to the settings workflow, expose result checks, and set metadata");
 assert.doesNotMatch(koreanHomeMarkup,/class="home-trust"|확인된 범위를 명확하게/,"Home must omit the removed trust section");
 assert.match(koreanHomeMarkup,/data-open-search.*aria-controls="global-search-dialog"/s,"Home search launcher must reuse the global search dialog");
@@ -713,7 +720,7 @@ assert.match(questStyles,/\.quest-filters input,\.quest-filters select\{width:10
 assert.match(questsPageSource,/class="quest-card-description".*questDescription\(quest\)\.replace\(\/\\s\+\/g," "\).*class="button quest-card-action"/s,"Quest cards must preserve official descriptions and expose a stable bottom action hook");
 assert.match(questStyles,/\.quest-card\{display:flex;.*flex-direction:column.*\.quest-card-description\{.*-webkit-line-clamp:6.*\.quest-reward-summary\{margin-top:auto.*\.quest-card-action\{width:100%/s,"Quest cards must clamp dense summaries and align rewards and actions consistently");
 assert.match(main,/ensureQuestData\(\).*objectiveStepCount!==74.*rewardItemRelationCount!==63/s,"Quest runtime loading must enforce objective and reward coverage");
-const seoData={palData,itemData,itemRelationData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData},indexableGroups=buildIndexableGroups(seoData,productionOrigin),{entries:prerenderEntries,selected:prerenderSelection,registry:publicSlugs}=buildPrerenderEntries(seoData);
+const seoData={palData,itemData,itemRelationData,guideSnapshotData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData},indexableGroups=buildIndexableGroups(seoData,productionOrigin),{entries:prerenderEntries,selected:prerenderSelection,registry:publicSlugs}=buildPrerenderEntries(seoData);
 assert.deepEqual({linkedItems:itemRelationData.meta.linkedItemCount,recipes:itemRelationData.meta.recipeCount,recipeProducts:itemRelationData.meta.recipeProductCount,recipeIngredientItems:itemRelationData.meta.recipeIngredientItemCount,recipeOutputs:itemRelationData.meta.recipeOutputRelationCount,recipeIngredients:itemRelationData.meta.recipeIngredientRelationCount,technologySourceReferences:itemRelationData.meta.technologyUnlockSourceReferenceCount,technologyRelations:itemRelationData.meta.technologyUnlockRelationCount,duplicateTechnologySources:itemRelationData.meta.duplicateTechnologyUnlockSourceCount,materialRelations:itemRelationData.meta.structureMaterialRelationCount,productionRelations:itemRelationData.meta.structureProductionRelationCount,npcSales:itemRelationData.meta.npcSoldItemRelationCount,npcRequests:itemRelationData.meta.npcRequestedItemRelationCount,npcRewards:itemRelationData.meta.npcRewardedItemRelationCount,dungeons:itemRelationData.meta.dungeonItemRelationCount,expeditions:itemRelationData.meta.expeditionRewardRelationCount,quests:itemRelationData.meta.questRewardRelationCount},{linkedItems:1729,recipes:1286,recipeProducts:1271,recipeIngredientItems:429,recipeOutputs:1286,recipeIngredients:3676,technologySourceReferences:383,technologyRelations:382,duplicateTechnologySources:1,materialRelations:992,productionRelations:12,npcSales:187,npcRequests:10,npcRewards:94,dungeons:1072,expeditions:209,quests:63},"Item relationship coverage must preserve source-derived edges across every implemented catalog");
 assertPublicSlugRegistry({pals:palData.pals,items:itemData.items,activeSkills:skillData.activeSkills,passiveSkills:skillData.passiveSkills,partnerSkills:skillData.partnerSkills},publicSlugs);
 const publicSlugContract=[...Object.keys(publicSlugs.byId)].sort().flatMap(family=>[...publicSlugs.byId[family]].map(([id,slug])=>`${family}:${id}:${slug}`).sort());

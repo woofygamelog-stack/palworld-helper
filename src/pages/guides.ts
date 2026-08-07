@@ -1,5 +1,5 @@
 import type {Locale} from "../config";
-import {guideCopy,guideDefinitions,guideStructureCopy,findGuide,guideRoute} from "../guide-content.ts";
+import {guideCopy,guideDefinitions,guideStructureCopy,findGuide,guideRoute,type GuideSnapshotData} from "../guide-content.ts";
 import {messages} from "../i18n.ts";
 import {plannerCopy} from "../planner-i18n.ts";
 import {skillLabels} from "../skill-i18n.ts";
@@ -40,7 +40,7 @@ function routeLabel(locale:Locale,route:string){
   return skillLabels[locale].active;
 }
 
-export function guidePageModel(locale:Locale,route:string,href:(route:string)=>string):GuidePageModel|null{
+export function guidePageModel(locale:Locale,route:string,href:(route:string)=>string,snapshotData:GuideSnapshotData|null=null):GuidePageModel|null{
   const copy=guideCopy[locale],m=messages(locale),hero=(title:string)=>`<section class="page-hero"><p class="eyebrow">${escape(copy.eyebrow)}</p><h1>${escape(title)}</h1></section>`;
   if(route==="guides"){
     const cards=guideDefinitions.map(guide=>{const text=copy.guides[guide.id];return `<article class="panel guide-card"><h2><a href="${escape(href(guideRoute(guide.slug)))}" data-link>${escape(text.title)}</a></h2><p>${escape(text.description)}</p><a class="guide-card-link" href="${escape(href(guideRoute(guide.slug)))}" data-link>${escape(copy.open)} <span aria-hidden="true">→</span></a></article>`}).join("");
@@ -48,14 +48,14 @@ export function guidePageModel(locale:Locale,route:string,href:(route:string)=>s
   }
   const guide=findGuide(route);
   if(!guide)return null;
-  const text=copy.guides[guide.id],structure=guideStructureCopy[locale],format=(template:string,name:string)=>template.replace("{name}",name),links=guide.related.map((target,index)=>{const label=routeLabel(locale,target);return `<li><a href="${escape(href(target))}" data-link><span class="guide-step-number">${(index+1).toLocaleString(locale)}</span><span><strong>${escape(label)}</strong><small>${escape(structure.stepAction)}</small></span><span aria-hidden="true">→</span></a></li>`}).join(""),preparation=guide.related.map(target=>{const label=routeLabel(locale,target);return `<li><a href="${escape(href(target))}" data-link>${escape(label)} <span aria-hidden="true">↗</span></a></li>`}).join(""),checks=guide.related.map(target=>`<li>${escape(format(structure.confirm,routeLabel(locale,target)))}</li>`).join("");
+  const text=copy.guides[guide.id],structure=guideStructureCopy[locale],format=(template:string,name:string)=>template.replace("{name}",name),links=guide.related.map((target,index)=>{const label=routeLabel(locale,target);return `<li><a href="${escape(href(target))}" data-link><span class="guide-step-number">${(index+1).toLocaleString(locale)}</span><span><strong>${escape(label)}</strong><small>${escape(structure.stepAction)}</small></span><span aria-hidden="true">→</span></a></li>`}).join(""),preparation=guide.related.map(target=>{const label=routeLabel(locale,target);return `<li><a href="${escape(href(target))}" data-link>${escape(label)} <span aria-hidden="true">↗</span></a></li>`}).join(""),checks=guide.related.map(target=>`<li>${escape(format(structure.confirm,routeLabel(locale,target)))}</li>`).join(""),metrics=snapshotData?.guides[guide.id]?.metrics||[],coverage=metrics.length?`<section class="panel guide-coverage"><h2>${escape(structure.coverage)}</h2><p>${escape(structure.coverageIntro)}</p><dl>${metrics.map(metric=>`<div><dt><a href="${escape(href(metric.route))}" data-link>${escape(routeLabel(locale,metric.route))}</a></dt><dd>${metric.count.toLocaleString(locale)} <small>${escape(structure.entries)}</small></dd></div>`).join("")}</dl></section>`:"";
   const breadcrumb=`<nav class="breadcrumbs" aria-label="${escape(m.home)}"><a href="${escape(href(""))}" data-link>${escape(m.home)}</a><a href="${escape(href("guides"))}" data-link>${escape(copy.hubTitle)}</a><span aria-current="page">${escape(text.title)}</span></nav>`;
-  const body=`${hero(text.title)}<article class="section guide-detail">${breadcrumb}<section class="panel guide-intro"><h2>${escape(structure.problem)}</h2><p>${escape(text.description)}</p></section><section class="panel guide-preparation"><h2>${escape(structure.preparation)}</h2><p>${escape(structure.preparationIntro)}</p><ul>${preparation}</ul></section><section class="guide-workflow"><h2>${escape(structure.procedure)}</h2><p>${escape(copy.workflowIntro)}</p><ol>${links}</ol></section><section class="panel guide-result"><h2>${escape(structure.result)}</h2><p>${escape(structure.resultIntro)}</p><ul>${checks}</ul></section><aside class="panel guide-scope"><h2>${escape(copy.scope)}</h2><p>${escape(copy.scopeText)}</p></aside><nav class="guide-related" aria-label="${escape(copy.related)}"><a href="${escape(href("guides"))}" data-link>← ${escape(copy.hubTitle)}</a></nav></article>`;
+  const body=`${hero(text.title)}<article class="section guide-detail">${breadcrumb}<section class="panel guide-intro"><h2>${escape(structure.problem)}</h2><p>${escape(text.description)}</p></section>${coverage}<section class="panel guide-preparation"><h2>${escape(structure.preparation)}</h2><p>${escape(structure.preparationIntro)}</p><ul>${preparation}</ul></section><section class="guide-workflow"><h2>${escape(structure.procedure)}</h2><p>${escape(copy.workflowIntro)}</p><ol>${links}</ol></section><section class="panel guide-result"><h2>${escape(structure.result)}</h2><p>${escape(structure.resultIntro)}</p><ul>${checks}</ul></section><aside class="panel guide-scope"><h2>${escape(copy.scope)}</h2><p>${escape(copy.scopeText)}</p></aside><nav class="guide-related" aria-label="${escape(copy.related)}"><a href="${escape(href("guides"))}" data-link>← ${escape(copy.hubTitle)}</a></nav></article>`;
   return {title:text.title,description:text.description,body,type:"Article",parent:{route:"guides",label:copy.hubTitle}};
 }
 
-export function renderGuidesPage({locale,route,href,setMeta}:{locale:Locale;route:string;href:(route:string)=>string;setMeta:(title:string,description:string)=>void}){
-  const model=guidePageModel(locale,route.replace(/^\//,""),href);
+export function renderGuidesPage({locale,route,href,setMeta,snapshotData}:{locale:Locale;route:string;href:(route:string)=>string;setMeta:(title:string,description:string)=>void;snapshotData:GuideSnapshotData|null}){
+  const model=guidePageModel(locale,route.replace(/^\//,""),href,snapshotData);
   if(!model)return null;
   setMeta(model.title,model.description);
   return model.body;

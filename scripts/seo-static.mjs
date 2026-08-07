@@ -153,7 +153,7 @@ function pageStructuredData({origin,locale,route,title,description,type,parent})
 }
 
 function collectionModel(route,locale,data,selection,registry){
-  if(route==="guides"||route.startsWith("guides/"))return guidePageModel(locale,route,target=>href(locale,target));
+  if(route==="guides"||route.startsWith("guides/"))return guidePageModel(locale,route,target=>href(locale,target),data.guideSnapshotData);
   const {palData,itemData,skillData,npcData,dungeonData,technologyData,healthData,elementData,structureData,expeditionData,questData}=data,m=messages(locale),skills=skillLabels[locale],planner=plannerCopy[locale],tools=palToolsCopy[locale],iv=ivCopy[locale],pathCopy=breedingPathCopy[locale],dungeons=dungeonCopy[locale],npcs=npcCopy[locale],technology=technologyCopy[locale],structures=structureCopy[locale],health=healthCopy[locale],elementsCopy=elementCopy[locale],elementMatchups=elementMatchupCopy[locale],expeditions=expeditionCopy[locale],quests=questCopy[locale];
   let title,description,links=[],type="CollectionPage";
   if(route===""){({metaTitle:title,metaDescription:description}=homeCopy[locale]);type="WebSite"}
