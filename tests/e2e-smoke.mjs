@@ -824,6 +824,25 @@ try{
     assert.ok(await page.locator("#base-plan-output .base-team-card").count(),"the base guide workflow must produce an inspectable Pal plan");
   });
 
+  await run("guide-combat-workflow",async()=>{
+    await visit("/en-US/guides/combat");
+    await page.locator(".guide-detail").waitFor({state:"visible"});
+    assert.equal(await page.locator(".guide-step-number").count(),5,"the combat guide must expose its five specific workflow steps");
+    assert.match((await page.locator(".guide-workflow").textContent())||"",/without treating it as total final damage[\s\S]*IV ranges[\s\S]*not a ranking/,"the combat guide must retain element, IV, and team accuracy boundaries");
+    await page.locator('.guide-workflow a[href="/en-US/database/elements"]').click();
+    await page.waitForURL(url=>url.pathname==="/en-US/database/elements");
+    await page.locator("#element-attacker").waitFor({state:"visible"});
+    const attackerValue=await page.locator('#element-attacker option').nth(1).getAttribute("value");
+    const defenderValue=await page.locator('#element-defender-primary option').nth(2).getAttribute("value");
+    assert.ok(attackerValue&&defenderValue,"the combat guide must lead to selectable verified element inputs");
+    await page.locator("#element-attacker").selectOption(attackerValue);
+    await page.locator("#element-defender-primary").selectOption(defenderValue);
+    await page.locator(".element-matchup-result").waitFor({state:"visible"});
+    assert.match(new URL(page.url()).search,/attack=.*defend=/,"the element result selected from the combat guide must be URL-restorable");
+    assert.match((await page.locator(".element-matchup-result").textContent())||"",/×/,"the combat guide workflow must produce an inspectable verified scaling result");
+    assert.ok((await page.locator(".element-damage-context").textContent())?.trim(),"the element result must retain its final-damage boundary beside the value");
+  });
+
   await run("locale-change",async()=>{
     await visit("/en-US");
     await page.locator("#locale").selectOption("ko-KR");
