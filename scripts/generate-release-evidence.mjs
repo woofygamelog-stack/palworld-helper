@@ -37,8 +37,9 @@ assert(deterministic.fileCount===budget.current.deployableFiles,"deterministic a
 assert(budget.current.deployableFiles<budget.budget.releaseCeiling,"deployable files exceed the release ceiling");
 assert(budget.releaseAForecast.passes===true,"Release A deployment forecast does not pass");
 assert(disclosure.status==="passed"&&Number.isInteger(disclosure.artifactCount),"public disclosure audit evidence is missing");
-assert(Array.isArray(blocked.rows)&&blocked.rows.length>0,"blocked calculator audit is missing");
-assert(blocked.rows.every(row=>row.status==="blocked"&&row.decision==="not-public"&&row.exposedRoutes.length===0),"a blocked calculator is publicly exposed");
+assert(blocked.schema===4&&blocked.phase7Status==="automatic-evidence-complete","Phase 7 calculator readiness evidence is missing");
+assert(Array.isArray(blocked.rows)&&blocked.rows.length>0,"calculator readiness audit is missing");
+assert(blocked.rows.every(row=>["blocked","ready-for-runtime-session"].includes(row.status)&&row.decision==="not-public"&&row.exposedRoutes.length===0&&row.readiness?.["public-ready"]===false),"a non-public calculator has an unsafe readiness decision");
 
 const browserWorkflows=(e2eSource.match(/await run\("/g)??[]).length;
 const visualBaselines=(visualSource.match(/\{\s*name:\s*"/g)??[]).length;
@@ -71,7 +72,9 @@ const report={
   browserWorkflows,
   visualBaselines,
   publicDisclosureArtifacts:disclosure.artifactCount,
-  blockedCalculators:blocked.rows.map(row=>row.domain),
+  blockedCalculators:blocked.rows.filter(row=>row.status==="blocked").map(row=>row.domain),
+  runtimeSessionReadyCalculators:blocked.rows.filter(row=>row.status==="ready-for-runtime-session").map(row=>row.domain),
+  calculatorReadiness:Object.fromEntries(blocked.rows.map(row=>[row.domain,row.readiness])),
   checks:{
     format:"passed",
     lint:"passed",

@@ -30,7 +30,8 @@ add("interaction","all-factors",{factors:interactionFactors,selection:"represent
 const familyCounts=Object.fromEntries([...Map.groupBy(cases,entry=>entry.family)].map(([family,entries])=>[family,entries.length]).sort(([left],[right])=>left.localeCompare(right,"en")));
 const expectedFamilyCounts={baseline:1,facility:4,interaction:22,passive:64,recipe:3,research:53,sickness:9,suitability:121,"work-hard":4,"world-setting":3};
 if(JSON.stringify(familyCounts)!==JSON.stringify(expectedFamilyCounts)||cases.length!==284||new Set(cases.map(entry=>entry.caseId)).size!==cases.length)throw new Error("Production runtime test-plan coverage drifted.");
-const report={schema:1,gameBuild:Number(build),status:"planned",publicationReady:false,independentSessionTarget:2,completionMarker:"PAL_PRODUCTION_EVIDENCE|complete",errorMarker:"PAL_PRODUCTION_EVIDENCE|error",familyCounts,totalCases:cases.length,cases};
+const completionMarker="PAL_PRODUCTION_EVIDENCE|complete",errorMarker="PAL_PRODUCTION_EVIDENCE|error",vectorHash=createHash("sha256").update(JSON.stringify(cases)).digest("hex");
+const report={schema:2,gameBuild:Number(build),status:"planned",publicationReady:false,independentSessionTarget:2,completionMarker,errorMarker,sessionPlans:[1,2].map(session=>({session,vectorHash,completionMarker,errorMarker})),familyCounts,totalCases:cases.length,cases};
 report.contentHash=createHash("sha256").update(JSON.stringify(report)).digest("hex");
 const output=path.resolve(root,"private","verification","calculators",`build-${build}`,"production-runtime-test-plan.json");
 await mkdir(path.dirname(output),{recursive:true});

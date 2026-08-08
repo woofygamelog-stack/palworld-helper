@@ -21,7 +21,7 @@
     "check:production-integrations": "node scripts/check-production-integrations.mjs",
     "check:route-budget": "node --experimental-strip-types scripts/report-route-budget.mjs --planned-localized-routes=0 --planned-assets=32",
     "check:coverage": "node --experimental-strip-types scripts/report-coverage.mjs",
-    "check:blocked-calculators": "node --experimental-strip-types scripts/audit-blocked-calculators.mjs",
+    "check:blocked-calculators": "node scripts/validate-calculator-readiness-fixtures.mjs && node --experimental-strip-types scripts/audit-blocked-calculators.mjs",
     "check:update-rehearsal": "node scripts/rehearse-update-diff.mjs",
     "test:e2e": "node tests/e2e-smoke.mjs && node tests/owned-pal-worker-browser.mjs && node tests/performance-accessibility.mjs",
     "test:visual": "node tests/visual-regression.mjs",
