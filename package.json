@@ -23,7 +23,7 @@
     "check:coverage": "node --experimental-strip-types scripts/report-coverage.mjs",
     "check:blocked-calculators": "node --experimental-strip-types scripts/audit-blocked-calculators.mjs",
     "check:update-rehearsal": "node scripts/rehearse-update-diff.mjs",
-    "test:e2e": "node tests/e2e-smoke.mjs",
+    "test:e2e": "node tests/e2e-smoke.mjs && node tests/owned-pal-worker-browser.mjs && node tests/performance-accessibility.mjs",
     "test:visual": "node tests/visual-regression.mjs",
     "test:visual:update": "node tests/visual-regression.mjs --update",
     "check:determinism": "npm run build && node scripts/check-deterministic-output.mjs --record && npm run build && node scripts/check-deterministic-output.mjs --verify",

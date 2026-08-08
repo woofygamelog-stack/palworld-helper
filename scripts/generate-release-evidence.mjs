@@ -14,6 +14,8 @@ const [
   disclosure,
   e2eSource,
   visualSource,
+  workerIsolationSource,
+  performanceAccessibilitySource,
 ]=await Promise.all([
   readJson("dist/prerender-report.json"),
   readJson("private/planning/domain-coverage.json"),
@@ -23,6 +25,8 @@ const [
   readJson("private/planning/public-disclosure-report.json"),
   readFile(path.join(root,"tests/e2e-smoke.mjs"),"utf8"),
   readFile(path.join(root,"tests/visual-regression.mjs"),"utf8"),
+  readFile(path.join(root,"tests/owned-pal-worker-browser.mjs"),"utf8"),
+  readFile(path.join(root,"tests/performance-accessibility.mjs"),"utf8"),
 ]);
 
 assert(prerender.indexableUrlCount===coverage.indexableUrlCount,"prerender and coverage URL counts differ");
@@ -40,6 +44,8 @@ const browserWorkflows=(e2eSource.match(/await run\("/g)??[]).length;
 const visualBaselines=(visualSource.match(/\{\s*name:\s*"/g)??[]).length;
 assert(browserWorkflows>0,"browser workflow inventory is empty");
 assert(visualBaselines>0,"visual baseline inventory is empty");
+assert(workerIsolationSource.includes("decode-owned-pals")&&workerIsolationSource.includes("externalRequests"),"Owned Pal Worker isolation evidence is missing");
+assert(performanceAccessibilitySource.includes("searchMilliseconds<=100")&&performanceAccessibilitySource.includes("duration>200"),"performance and accessibility gate evidence is missing");
 
 const date=new Intl.DateTimeFormat("en-CA",{
   timeZone:"Asia/Seoul",
@@ -78,6 +84,8 @@ const report={
     productionBuild:"passed",
     routeBudget:"passed",
     e2e:"passed",
+    ownedPalWorkerIsolation:"passed",
+    performanceAccessibility:"passed",
     visualRegression:"passed",
     determinism:"passed",
     deploymentReadiness:"passed",
